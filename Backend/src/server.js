@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Rutas
 app.get('/', (req, res) => {
-  res.json({ message: 'API funcionando correctamente 🚀' });
+  res.json({ message: 'API funcionando correctamente ' });
 });
 
 app.use('/api/example', exampleRoutes);
