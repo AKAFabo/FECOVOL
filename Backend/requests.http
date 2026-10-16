@@ -1,0 +1,128 @@
+### Variables (VS Code REST Client)
+@host = http://localhost:4000
+@user = sebastian@fecovol.cr
+
+### Estado de la API
+GET {{host}}/
+
+### Catalogos disponibles
+GET {{host}}/api/catalogs
+
+### Valores de un catalogo
+GET {{host}}/api/catalogs/Posiciones/values
+
+### Listar asociaciones
+GET {{host}}/api/associations?status=AFILIADA
+
+### Crear asociacion
+POST {{host}}/api/associations
+Content-Type: application/json
+x-user-email: {{user}}
+
+{
+  "name": "Asociacion Deportiva de Grecia",
+  "tax_id": "3-002-781245",
+  "province": "Alajuela",
+  "canton": "Grecia",
+  "email": "voleibol@adgrecia.cr",
+  "status": "PROVISIONAL"
+}
+
+### Equipos de una asociacion
+GET {{host}}/api/associations/{{asociacionId}}/teams
+
+### Crear equipo
+POST {{host}}/api/teams
+Content-Type: application/json
+x-user-email: {{user}}
+
+{
+  "association_id": "{{asociacionId}}",
+  "name": "AD Grecia Mayor F",
+  "category_code": "MAYOR",
+  "branch_code": "FEM",
+  "modality_code": "SALA"
+}
+
+### Nomina del equipo
+GET {{host}}/api/teams/{{equipoId}}/members
+
+### Agregar integrante
+POST {{host}}/api/teams/{{equipoId}}/members
+Content-Type: application/json
+x-user-email: {{user}}
+
+{
+  "person_id": "{{personaId}}",
+  "member_type": "JUGADOR",
+  "position_code": "ARM",
+  "jersey_number": 7
+}
+
+### Dar de baja a un integrante
+DELETE {{host}}/api/teams/members/{{miembroId}}
+x-user-email: {{user}}
+
+### Buscar personas
+GET {{host}}/api/persons?q=rojas
+
+### Crear persona
+POST {{host}}/api/persons
+Content-Type: application/json
+x-user-email: {{user}}
+
+{
+  "document_type_code": "CED",
+  "document_number": "1-1845-0932",
+  "first_name": "Valeria",
+  "last_name": "Jimenez Castro",
+  "birth_date": "2004-05-08",
+  "sex": "F",
+  "association_id": "{{asociacionId}}",
+  "roles": ["JUGADOR"]
+}
+
+### Verificar persona (FECOVOL)
+POST {{host}}/api/persons/{{personaId}}/verify
+x-user-email: admin@fecovol.cr
+
+### Subir documento
+POST {{host}}/api/documents
+Content-Type: application/json
+x-user-email: {{user}}
+
+{
+  "document_type_code": "MED",
+  "file_url": "https://storage/constancia.pdf",
+  "file_name": "constancia.pdf",
+  "person_id": "{{personaId}}",
+  "expiry_date": "2027-10-14"
+}
+
+### Revisar documento
+PATCH {{host}}/api/documents/{{documentoId}}/review
+Content-Type: application/json
+x-user-email: admin@fecovol.cr
+
+{ "status": "VIGENTE" }
+
+### Documentos por vencer en 30 dias
+GET {{host}}/api/documents?por_vencer=30
+
+### Designar arbitro
+POST {{host}}/api/referee-assignments
+Content-Type: application/json
+x-user-email: competencias@fecovol.cr
+
+{
+  "match_id": "{{partidoId}}",
+  "person_id": "{{arbitroId}}",
+  "official_type_code": "PRI"
+}
+
+### Confirmar designacion
+PATCH {{host}}/api/referee-assignments/{{designacionId}}
+Content-Type: application/json
+x-user-email: {{user}}
+
+{ "status": "CONFIRMADA" }
