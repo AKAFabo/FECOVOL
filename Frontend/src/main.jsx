@@ -1,10 +1,25 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
+import { BrowserRouter } from 'react-router-dom';
+
+// Tipografías del sistema de diseño, servidas desde el propio sitio (sin Google Fonts).
+import '@fontsource/archivo/latin-500.css';
+import '@fontsource/archivo/latin-600.css';
+import '@fontsource/archivo/latin-700.css';
+import '@fontsource/archivo/latin-800.css';
+import '@fontsource/source-sans-3/latin-400.css';
+import '@fontsource/source-sans-3/latin-600.css';
+import '@fontsource/source-sans-3/latin-700.css';
+
+// Los estilos globales se cargan antes que los de cada componente para que estos puedan sobrescribirlos.
 import './index.css';
+import './App.css';
+import App from './App.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );

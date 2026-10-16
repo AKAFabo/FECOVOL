@@ -1,12 +1,145 @@
-.app {
-  max-width: 600px;
-  margin: 80px auto;
-  text-align: center;
-  font-family: system-ui, sans-serif;
+/* =========================================================================
+   Componentes compartidos: contenedor, botones, pastillas, encabezados
+   de sección y enlaces con flecha. Se usan en el portal público y en las
+   pantallas internas.
+   ========================================================================= */
+
+.contenedor {
+  width: 100%;
+  max-width: calc(var(--ancho-max) + 2 * var(--margen-lateral));
+  margin: 0 auto;
+  padding-left: var(--margen-lateral);
+  padding-right: var(--margen-lateral);
 }
 
-.mensaje {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #2563eb;
+/* Botones */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 24px;
+  border: 1px solid transparent;
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.boton--primario {
+  background: var(--azul);
+  color: #fff;
+}
+
+.boton--primario:hover {
+  background: var(--azul-oscuro);
+}
+
+.boton--claro {
+  background: #fff;
+  color: var(--azul);
+}
+
+.boton--claro:hover {
+  background: #e8eef6;
+}
+
+.boton--contorno-claro {
+  border-color: #7e9dc8;
+  color: #fff;
+}
+
+.boton--contorno-claro:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.boton--chico {
+  padding: 12px 20px;
+  font-size: 13.5px;
+}
+
+/* Pastillas de estado */
+.pastilla {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: var(--radio-pastilla);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pastilla--neutra { background: var(--neutro-fondo); color: var(--neutro); }
+.pastilla--ok { background: var(--ok-fondo); color: var(--ok); }
+.pastilla--aviso { background: var(--aviso-fondo); color: var(--aviso); }
+
+/* Antetítulo en mayúsculas (categoría de una noticia, etc.) */
+.antetitulo {
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 10.5px;
+  line-height: 1.1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--azul);
+}
+
+/* Encabezado de sección: título a la izquierda, enlace a la derecha */
+.seccion-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.seccion-titulo {
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* Enlace con flecha */
+.enlace-flecha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 1;
+  color: var(--azul);
+  white-space: nowrap;
+}
+
+.enlace-flecha::after {
+  content: '→';
+  transition: transform 0.15s ease;
+}
+
+.enlace-flecha:hover::after {
+  transform: translateX(3px);
+}
+
+/* Mostrar u ocultar según el ancho de pantalla */
+.solo-movil {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .solo-escritorio { display: none !important; }
+  .solo-movil { display: inline; }
+}
+
+@media (max-width: 720px) {
+  .seccion-titulo {
+    font-size: 22px;
+  }
 }
