@@ -1,0 +1,31 @@
+.en-construccion {
+  flex: 1;
+  background: var(--arena);
+}
+
+.en-construccion__interior {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding-top: 96px;
+  padding-bottom: 112px;
+}
+
+.en-construccion__titulo {
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.en-construccion__texto {
+  max-width: 520px;
+  color: var(--texto-cuerpo);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .en-construccion__interior { padding-top: 56px; padding-bottom: 72px; }
+  .en-construccion__titulo { font-size: 30px; }
+}

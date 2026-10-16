@@ -1,0 +1,630 @@
+/* ----- Bloques generales ----- */
+.bloque {
+  padding: 58px 0 60px;
+  background: var(--superficie);
+}
+
+.bloque--arena {
+  background: var(--arena);
+}
+
+.seccion-titulo--mediano {
+  font-size: 26px;
+}
+
+.antetitulo--claro {
+  color: #86a6cc;
+}
+
+.enlace-flecha--claro {
+  color: var(--sobre-oscuro-enlace);
+  font-size: 14px;
+}
+
+/* ----- Portada ----- */
+.portada {
+  background: var(--azul);
+  color: #fff;
+}
+
+.portada__interior {
+  display: grid;
+  grid-template-columns: minmax(0, 660px) minmax(0, 1fr);
+  align-items: center;
+  gap: 48px;
+  padding-top: 56px;
+  padding-bottom: 48px;
+}
+
+.portada__texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.portada__etiqueta {
+  padding: 5px 11px;
+  border-radius: var(--radio-pastilla);
+  background: #fff;
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.portada__titulo {
+  color: #fff;
+  font-weight: 800;
+  font-size: 54px;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.portada__linea {
+  display: block;
+}
+
+.portada__bajada {
+  max-width: 600px;
+  color: #c2d3e7;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.portada__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.portada__imagen {
+  overflow: hidden;
+  aspect-ratio: 532 / 340;
+  border-radius: var(--radio);
+  background: var(--azul-hero);
+}
+
+.portada__imagen svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ----- Partidos ----- */
+.partidos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.partido {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.partido__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.partido__detalle {
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--texto-mudo);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.partido__equipo {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.partido__escudo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--avatar);
+}
+
+.partido__nombre {
+  overflow: hidden;
+  font-size: 13.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.partido__nombre--ganador {
+  font-weight: 700;
+}
+
+.partido__marcador {
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--texto-mudo);
+}
+
+.partido__marcador--ganador {
+  color: var(--azul);
+}
+
+/* ----- Noticias ----- */
+.noticias {
+  display: grid;
+  grid-template-columns: minmax(0, 744fr) minmax(0, 464fr);
+  gap: 32px;
+  margin-top: 26px;
+}
+
+.noticia-principal {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.noticia-principal__imagen {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 744 / 330;
+  border-radius: var(--radio);
+  background: var(--azul-medio);
+}
+
+.noticia-principal__imagen svg {
+  width: 100%;
+  height: 100%;
+}
+
+.noticia-principal__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--texto-mudo);
+}
+
+.noticia-principal__titulo {
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+}
+
+.noticia-principal__titulo a:hover,
+.noticia__titulo a:hover {
+  color: var(--azul);
+}
+
+.noticia-principal__resumen {
+  color: var(--texto-cuerpo);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.noticias__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.noticia {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 15px;
+}
+
+.noticia__imagen {
+  height: 88px;
+  border-radius: var(--radio);
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 14px);
+}
+
+.noticia__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.noticia__titulo {
+  font-weight: 600;
+  font-size: 15.5px;
+  line-height: 1.32;
+}
+
+.noticia__fecha {
+  font-size: 12px;
+  color: var(--texto-mudo);
+}
+
+/* ----- La Federación en cifras ----- */
+.federacion {
+  background: var(--azul-oscuro);
+  color: var(--sobre-oscuro-2);
+}
+
+.federacion__interior {
+  display: grid;
+  grid-template-columns: minmax(0, 610px) minmax(0, 520px);
+  justify-content: space-between;
+  align-items: center;
+  gap: 60px;
+  padding-top: 58px;
+  padding-bottom: 60px;
+}
+
+.federacion__texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.federacion__titulo {
+  color: #fff;
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 22px;
+  border-radius: var(--radio);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cifra__valor {
+  margin: 0;
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.cifra__etiqueta {
+  color: #a9bdd4;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+/* ----- Competencias ----- */
+.competencias {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.competencia {
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.competencia__imagen {
+  height: 148px;
+}
+
+.competencia__imagen svg {
+  width: 100%;
+  height: 100%;
+}
+
+.competencia__cuerpo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 20px;
+}
+
+.competencia__nombre {
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.competencia__detalle {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.competencia__enlace {
+  font-size: 13px;
+}
+
+/* ----- Selecciones ----- */
+.selecciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seleccion {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.seleccion__imagen {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+}
+
+.seleccion__imagen svg {
+  width: 96px;
+  height: 96px;
+}
+
+.seleccion__cuerpo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 22px;
+}
+
+.seleccion__nombre {
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.seleccion__compromiso {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ----- Organismos y aliados ----- */
+.aliados {
+  padding: 44px 0 46px;
+  border-top: 1px solid var(--borde);
+}
+
+.aliados__titulo {
+  color: var(--texto-tenue);
+  font-weight: 700;
+  font-size: 10.5px;
+  line-height: 1.1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.aliados__lista {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 20px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aliado {
+  display: grid;
+  place-items: center;
+  min-height: 59px;
+  padding: 0 12px;
+  border: 1px dashed #cfd6de;
+  border-radius: 8px;
+  color: var(--texto-tenue);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ----- Suscripción ----- */
+.suscripcion {
+  background: var(--rojo);
+  color: #fff;
+}
+
+.suscripcion__interior {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding-top: 40px;
+  padding-bottom: 42px;
+}
+
+.suscripcion__titulo {
+  color: #fff;
+  font-weight: 800;
+  font-size: 23px;
+  line-height: 1.2;
+}
+
+.suscripcion__texto {
+  margin-top: 6px;
+  color: #fbd9df;
+  font-size: 14px;
+}
+
+.suscripcion__formulario {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 455px;
+}
+
+.suscripcion__formulario input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--radio-sm);
+  color: var(--texto);
+  font-size: 14px;
+}
+
+.suscripcion__formulario input::placeholder {
+  color: var(--texto-tenue);
+}
+
+.suscripcion__boton {
+  padding: 14px 22px;
+  background: var(--azul-oscuro);
+  color: #fff;
+  font-size: 14px;
+}
+
+.suscripcion__boton:hover {
+  background: #051a2f;
+}
+
+.suscripcion__aviso {
+  max-width: 455px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ----- Tableta ----- */
+@media (max-width: 1100px) {
+  .portada__interior { grid-template-columns: 1fr 1fr; gap: 36px; }
+  .portada__titulo { font-size: 44px; }
+  .portada__linea { display: inline; }
+  .partidos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .noticias { grid-template-columns: 1fr; }
+  .noticias__lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .federacion__interior { grid-template-columns: 1fr; gap: 36px; }
+  .competencias { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .selecciones { grid-template-columns: 1fr; }
+  .aliados__lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ----- Móvil ----- */
+@media (max-width: 720px) {
+  .bloque { padding: 36px 0 40px; }
+
+  .seccion-titulo--mediano { font-size: 22px; }
+
+  .portada__interior {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding-top: 36px;
+    padding-bottom: 36px;
+  }
+
+  .portada__imagen { display: none; }
+
+  .portada__titulo { font-size: 34px; }
+
+  .portada__linea { display: inline; }
+
+  .portada__linea {
+  display: block;
+}
+
+.portada__bajada { font-size: 16px; }
+
+  .portada__acciones { flex-direction: column; width: 100%; }
+
+  .portada__acciones .boton { width: 100%; padding: 16px; font-size: 15px; }
+
+  .partidos { grid-template-columns: 1fr; gap: 12px; }
+
+  .partido:nth-child(n + 4) { display: none; }
+
+  .partido { padding: 16px 16px 18px; }
+
+  .partido__nombre { font-size: 15px; }
+
+  .noticias { gap: 24px; margin-top: 20px; }
+
+  .noticia-principal__titulo { font-size: 22px; }
+
+  .noticia-principal__resumen { display: none; }
+
+  .noticias__lista { display: flex; gap: 16px; }
+
+  .noticia:nth-child(n + 3) { display: none; }
+
+  .noticia { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
+
+  .noticia__imagen { height: 68px; }
+
+  .noticia__texto .antetitulo { display: none; }
+
+  .federacion__interior { padding-top: 36px; padding-bottom: 36px; gap: 24px; }
+
+  .federacion__texto p,
+  .federacion__texto .antetitulo,
+  .federacion__texto .enlace-flecha { display: none; }
+
+  .federacion__titulo { font-size: 24px; }
+
+  .cifras { gap: 12px; }
+
+  .cifra { padding: 16px; }
+
+  .cifra__valor { font-size: 30px; }
+
+  .competencias { grid-template-columns: 1fr; gap: 16px; }
+
+  .competencia__imagen { height: 96px; }
+
+  .seleccion { grid-template-columns: 96px minmax(0, 1fr); }
+
+  .seleccion__imagen svg { width: 56px; height: 56px; }
+
+  .seleccion__cuerpo { padding: 16px; }
+
+  .seleccion__nombre { font-size: 18px; }
+
+  .aliados__lista { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+  .suscripcion__interior { flex-direction: column; align-items: stretch; gap: 20px; }
+
+  .suscripcion__formulario { flex-direction: column; max-width: none; }
+
+  .suscripcion__formulario input { padding: 15px 14px; font-size: 16px; }
+}
