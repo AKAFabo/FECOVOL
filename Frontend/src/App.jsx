@@ -6,11 +6,8 @@ import Inicio from './pages/public/Inicio.jsx';
 import EnConstruccion from './pages/public/EnConstruccion.jsx';
 import Ingresar from './pages/public/Ingresar.jsx';
 
-// Dashboards por rol (temporales – reemplazar con layouts reales)
-import AdminPanel      from './pages/admin/AdminPanel.jsx';
-import PersonalPanel   from './pages/personal/PersonalPanel.jsx';
-import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
-import ArbitroPanel    from './pages/arbitro/ArbitroPanel.jsx';
+// Guard de rutas protegidas
+import RutaProtegida from './components/RutaProtegida.jsx';
 
 // Layout administrativo
 import AdminLayout from './layouts/AdminLayout.jsx';
@@ -18,7 +15,6 @@ import AdminInicio from './pages/admin/AdminInicio.jsx';
 import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
-
 
 export default function App() {
   return (
@@ -33,23 +29,34 @@ export default function App() {
         <Route path="federacion/*"   element={<EnConstruccion titulo="La Federación" />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />
         <Route path="ingresar"       element={<Ingresar />} />
+        <Route path="restablecer-contrasena" element={<Ingresar />} />
         <Route path="*"              element={<EnConstruccion titulo="Página no encontrada" noEncontrada />} />
       </Route>
 
-      {/* ── Entorno de Administración FECOVOL ─────────────────────── */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/panel" replace />} />
-        <Route path="panel" element={<AdminInicio />} />
-        <Route path="usuarios" element={<UsuariosPermisos />} />
-        <Route path="listas-valores" element={<ListasValores />} />
-        <Route path="auditoria" element={<AuditoriaRespaldos />} />
-        <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
+      {/* ── Entorno de Administración FECOVOL (Solo Administrador) ── */}
+      <Route element={<RutaProtegida rolesPermitidos={['Administrador']} />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/panel" replace />} />
+          <Route path="panel" element={<AdminInicio />} />
+          <Route path="usuarios" element={<UsuariosPermisos />} />
+          <Route path="listas-valores" element={<ListasValores />} />
+          <Route path="auditoria" element={<AuditoriaRespaldos />} />
+          <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
+        </Route>
       </Route>
 
-      {/* ── Dashboards temporales para los demás roles ────────────── */}
-      <Route path="/personal/*" element={<EnConstruccion titulo="Personal de competencias" />} />
-      <Route path="/asociacion/*" element={<EnConstruccion titulo="Representante de asociación" />} />
-      <Route path="/arbitro/*" element={<EnConstruccion titulo="Cuerpo arbitral" />} />
+      {/* ── Dashboards protegidos para los demás roles ────────────── */}
+      <Route element={<RutaProtegida rolesPermitidos={['Personal', 'Administrador']} />}>
+        <Route path="/personal/*" element={<EnConstruccion titulo="Personal de competencias" />} />
+      </Route>
+
+      <Route element={<RutaProtegida rolesPermitidos={['Representante', 'Administrador']} />}>
+        <Route path="/asociacion/*" element={<EnConstruccion titulo="Representante de asociación" />} />
+      </Route>
+
+      <Route element={<RutaProtegida rolesPermitidos={['Arbitro', 'Administrador']} />}>
+        <Route path="/arbitro/*" element={<EnConstruccion titulo="Cuerpo arbitral" />} />
+      </Route>
     </Routes>
   );
 }

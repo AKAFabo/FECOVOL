@@ -1,83 +1,111 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import '../AdminCommon.css';
+import { supabase } from '../../../supabaseClient.js';
 
-const USUARIOS_MOCK = [
-  {
-    id: '1',
-    nombre: 'Gabriela Rojas',
-    email: 'g.rojas@fecovol.cr',
-    rol: 'Administración FECOVOL',
-    alcance: 'Toda la Federación',
-    ultimoIngreso: 'Hoy 14:20',
-    estado: 'ACTIVA'
-  },
-  {
-    id: '2',
-    nombre: 'Andrés Vargas Solís',
-    email: 'a.vargas@fecovol.cr',
-    rol: 'Personal de competencias',
-    alcance: 'Todas las competencias',
-    ultimoIngreso: 'Hoy 09:12',
-    estado: 'ACTIVA'
-  },
-  {
-    id: '3',
-    nombre: 'Luis Mora Brenes',
-    email: 'l.mora@adcartago.cr',
-    rol: 'Representante de asociación',
-    alcance: 'Asoc. Cartago',
-    ultimoIngreso: 'Ayer 18:40',
-    estado: 'ACTIVA'
-  },
-  {
-    id: '4',
-    nombre: 'Ana Lucía Ramírez',
-    email: 'a.ramirez@avsj.cr',
-    rol: 'Representante de asociación',
-    alcance: 'Asoc. San José',
-    ultimoIngreso: '11 set',
-    estado: 'ACTIVA'
-  },
-  {
-    id: '5',
-    nombre: 'Marta Vega González',
-    email: 'm.vega@fecovol.cr',
-    rol: 'Cuerpo arbitral',
-    alcance: 'Sus designaciones',
-    ultimoIngreso: 'Ayer 21:38',
-    estado: 'ACTIVA'
-  },
-  {
-    id: '6',
-    nombre: 'Rodolfo Baltodano',
-    email: 'r.baltodano@avg.cr',
-    rol: 'Representante de asociación',
-    alcance: 'Asoc. Guanacaste',
-    ultimoIngreso: '28 ago',
-    estado: 'SUSPENDIDA'
-  }
-];
+const ELEMENTOS_POR_PAGINA = 10;
 
 export default function UsuariosPermisos() {
-  const [usuarios, setUsuarios] = useState(USUARIOS_MOCK);
+  const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [asociaciones, setAsociaciones] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+
+  // Filtros
   const [filtroRol, setFiltroRol] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
   
-  // Modal de crear usuario
+  // Modal de crear usuario (invitación por correo)
   const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: '',
     email: '',
-    telefono: '',
-    rol: 'Personal de competencias',
-    alcance: 'Todas las competencias',
+    rolId: '',
+    organizationId: '',
     estado: 'ACTIVA'
   });
 
   // Modal de editar usuario
   const [usuarioEditando, setUsuarioEditando] = useState(null);
 
+  // 1. Cargar perfiles, roles y asociaciones desde Supabase
+  async function cargarDatos() {
+    setCargando(true);
+    setError(null);
+    try {
+      const { data: rolesData, error: errRoles } = await supabase
+        .from('roles')
+        .select('id, name')
+        .order('name');
+      if (errRoles) console.warn('Aviso al cargar roles:', errRoles);
+      setRoles(rolesData || []);
+
+      const { data: asocData } = await supabase
+        .from('associations')
+        .select('id, name')
+        .order('name');
+      setAsociaciones(asocData || []);
+
+      const { data: profiles, error: errProfiles } = await supabase
+        .from('user_profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          status,
+          last_login,
+          role_id,
+          organization_id,
+          roles ( id, name )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (errProfiles) throw errProfiles;
+
+      const formateados = (profiles || []).map((u) => {
+        let alcance = 'Toda la Federación';
+        const rolName = u.roles?.name || 'Sin rol';
+        if (rolName === 'Representante') {
+          const asoc = (asocData || []).find((a) => a.id === u.organization_id);
+          alcance = asoc ? asoc.name : 'Asociación asignada';
+        } else if (rolName === 'Arbitro') {
+          alcance = 'Sus designaciones';
+        } else if (rolName === 'Personal') {
+          alcance = 'Todas las competencias';
+        }
+
+        return {
+          id: u.id,
+          nombre: u.full_name,
+          email: u.email,
+          rol: rolName,
+          rolId: u.role_id,
+          organizationId: u.organization_id,
+          alcance,
+          ultimoIngreso: u.last_login ? new Date(u.last_login).toLocaleString('es-CR', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca',
+          estado: u.status || 'ACTIVA'
+        };
+      });
+
+      setUsuarios(formateados);
+    } catch (err) {
+      console.error('Error al cargar usuarios:', err);
+      setError('No se pudieron cargar los usuarios de Supabase: ' + err.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  // Filtrado
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter(u => {
       const matchRol = filtroRol === 'todos' || u.rol === filtroRol;
@@ -89,48 +117,98 @@ export default function UsuariosPermisos() {
     });
   }, [usuarios, filtroRol, filtroEstado, busqueda]);
 
-  // Conteos
+  // Al cambiar filtros volvemos a la página 1
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroRol, filtroEstado, busqueda]);
+
+  // Paginación: 10 registros por página
+  const totalPaginas = Math.ceil(usuariosFiltrados.length / ELEMENTOS_POR_PAGINA) || 1;
+  const usuariosPaginados = useMemo(() => {
+    const inicio = (paginaActual - 1) * ELEMENTOS_POR_PAGINA;
+    return usuariosFiltrados.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
+  }, [usuariosFiltrados, paginaActual]);
+
+  // Conteos para tarjeta lateral
   const cuentasPorRol = useMemo(() => {
     return {
-      admin: usuarios.filter(u => u.rol === 'Administración FECOVOL').length,
-      personal: usuarios.filter(u => u.rol === 'Personal de competencias').length,
-      asoc: usuarios.filter(u => u.rol === 'Representante de asociación').length,
-      arbitro: usuarios.filter(u => u.rol === 'Cuerpo arbitral').length,
+      admin: usuarios.filter(u => u.rol === 'Administrador').length,
+      personal: usuarios.filter(u => u.rol === 'Personal').length,
+      asoc: usuarios.filter(u => u.rol === 'Representante').length,
+      arbitro: usuarios.filter(u => u.rol === 'Arbitro').length,
     };
   }, [usuarios]);
 
-  const handleCrearUsuario = (e) => {
+  // Crear usuario con inviteUserByEmail (llamando a la API backend o función de invitación)
+  const handleCrearUsuario = async (e) => {
     e.preventDefault();
     if (!nuevoUsuario.email || !nuevoUsuario.nombre) return;
 
-    const userObj = {
-      id: Date.now().toString(),
-      nombre: nuevoUsuario.nombre,
-      email: nuevoUsuario.email,
-      rol: nuevoUsuario.rol,
-      alcance: nuevoUsuario.rol === 'Representante de asociación' ? nuevoUsuario.alcance : (nuevoUsuario.rol === 'Administración FECOVOL' ? 'Toda la Federación' : (nuevoUsuario.rol === 'Cuerpo arbitral' ? 'Sus designaciones' : 'Todas las competencias')),
-      ultimoIngreso: 'Nunca',
-      estado: nuevoUsuario.estado
-    };
+    setGuardando(true);
+    try {
+      // Llamada al endpoint backend que usa supabase.auth.admin.inviteUserByEmail
+      const respuesta = await fetch('http://localhost:4000/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: nuevoUsuario.email,
+          full_name: nuevoUsuario.nombre,
+          role_id: nuevoUsuario.rolId || null,
+          organization_id: nuevoUsuario.organizationId || null,
+          status: nuevoUsuario.estado
+        })
+      });
 
-    setUsuarios([userObj, ...usuarios]);
-    setMostrarModalCrear(false);
-    setNuevoUsuario({
-      nombre: '',
-      email: '',
-      telefono: '',
-      rol: 'Personal de competencias',
-      alcance: 'Todas las competencias',
-      estado: 'ACTIVA'
-    });
+      if (!respuesta.ok) {
+        const errorData = await respuesta.json();
+        throw new Error(errorData.error || 'Error al enviar la invitación');
+      }
+
+      setMostrarModalCrear(false);
+      setNuevoUsuario({
+        nombre: '',
+        email: '',
+        rolId: '',
+        organizationId: '',
+        estado: 'ACTIVA'
+      });
+      await cargarDatos();
+      alert('Invitación enviada por correo al usuario con éxito.');
+    } catch (err) {
+      console.error('Error al invitar usuario:', err);
+      alert('No se pudo enviar la invitación: ' + err.message);
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const handleGuardarEdicion = (e) => {
+  // Guardar edición de usuario
+  const handleGuardarEdicion = async (e) => {
     e.preventDefault();
     if (!usuarioEditando) return;
 
-    setUsuarios(usuarios.map(u => u.id === usuarioEditando.id ? usuarioEditando : u));
-    setUsuarioEditando(null);
+    setGuardando(true);
+    try {
+      const { error: errUpdate } = await supabase
+        .from('user_profiles')
+        .update({
+          full_name: usuarioEditando.nombre,
+          role_id: usuarioEditando.rolId || null,
+          status: usuarioEditando.estado,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', usuarioEditando.id);
+
+      if (errUpdate) throw errUpdate;
+
+      setUsuarioEditando(null);
+      await cargarDatos();
+    } catch (err) {
+      console.error('Error al editar usuario:', err);
+      alert('Error al actualizar usuario: ' + err.message);
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
@@ -139,21 +217,35 @@ export default function UsuariosPermisos() {
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
           <h1>Usuarios y permisos</h1>
-          <p className="admin-page-header__subtitle">{usuarios.filter(u => u.estado === 'ACTIVA').length} usuarios activos</p>
+          <p className="admin-page-header__subtitle">
+            {usuarios.filter(u => u.estado === 'ACTIVA').length} usuarios activos
+          </p>
         </div>
         <div className="admin-page-header__actions">
-          <button type="button" className="admin-btn admin-btn--secondary">
-            Exportar
-          </button>
           <button 
             type="button" 
             className="admin-btn admin-btn--primary"
-            onClick={() => setMostrarModalCrear(true)}
+            onClick={() => {
+              setNuevoUsuario({
+                nombre: '',
+                email: '',
+                rolId: roles[0]?.id || '',
+                organizationId: '',
+                estado: 'ACTIVA'
+              });
+              setMostrarModalCrear(true);
+            }}
           >
             Crear usuario
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="admin-banner" style={{ marginBottom: '20px', background: '#fee2e2', borderColor: '#ef4444', color: '#991b1b' }}>
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="admin-filters-bar">
@@ -163,10 +255,9 @@ export default function UsuariosPermisos() {
           onChange={(e) => setFiltroRol(e.target.value)}
         >
           <option value="todos">Rol: todos</option>
-          <option value="Administración FECOVOL">Administración FECOVOL</option>
-          <option value="Personal de competencias">Personal de competencias</option>
-          <option value="Representante de asociación">Representante de asociación</option>
-          <option value="Cuerpo arbitral">Cuerpo arbitral</option>
+          {roles.map(r => (
+            <option key={r.id} value={r.name}>{r.name}</option>
+          ))}
         </select>
 
         <select 
@@ -192,61 +283,83 @@ export default function UsuariosPermisos() {
       <div className="admin-grid-layout">
         {/* Table card */}
         <div className="admin-card">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                <th>Alcance</th>
-                <th>Último ingreso</th>
-                <th>Estado</th>
-                <th style={{ textAlign: 'right' }}>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usuariosFiltrados.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <div className="admin-table__user-cell">
-                      <span className="admin-table__user-name">{u.nombre}</span>
-                      <span className="admin-table__user-email">{u.email}</span>
-                    </div>
-                  </td>
-                  <td>{u.rol}</td>
-                  <td>{u.alcance}</td>
-                  <td>{u.ultimoIngreso}</td>
-                  <td>
-                    <span className={`badge-status ${u.estado === 'ACTIVA' ? 'badge-status--activa' : 'badge-status--suspendida'}`}>
-                      {u.estado}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button 
-                      type="button" 
-                      className="admin-btn admin-btn--secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                      onClick={() => setUsuarioEditando({ ...u })}
-                    >
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {usuariosFiltrados.length === 0 && (
+          {cargando ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)' }}>
+              Cargando usuarios desde Supabase...
+            </div>
+          ) : (
+            <table className="admin-table">
+              <thead>
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
-                    No se encontraron usuarios que coincidan con los filtros.
-                  </td>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th>Alcance</th>
+                  <th>Último ingreso</th>
+                  <th>Estado</th>
+                  <th style={{ textAlign: 'right' }}>Acción</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {usuariosPaginados.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <div className="admin-table__user-cell">
+                        <span className="admin-table__user-name">{u.nombre}</span>
+                        <span className="admin-table__user-email">{u.email}</span>
+                      </div>
+                    </td>
+                    <td>{u.rol}</td>
+                    <td>{u.alcance}</td>
+                    <td>{u.ultimoIngreso}</td>
+                    <td>
+                      <span className={`badge-status ${u.estado === 'ACTIVA' ? 'badge-status--activa' : 'badge-status--suspendida'}`}>
+                        {u.estado}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button 
+                        type="button" 
+                        className="admin-btn admin-btn--secondary"
+                        style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                        onClick={() => setUsuarioEditando({ ...u })}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {usuariosPaginados.length === 0 && (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
+                      No se encontraron usuarios registrados en la base de datos.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
 
+          {/* Pagination Controls */}
           <div className="admin-table-footer">
-            <span>{usuariosFiltrados.length} de {usuarios.length} usuarios mostrados</span>
+            <span>
+              Mostrando {usuariosPaginados.length} de {usuariosFiltrados.length} usuarios
+              {totalPaginas > 1 && ` (Página ${paginaActual} de ${totalPaginas})`}
+            </span>
             <div className="admin-pagination-links">
-              <button type="button" disabled>&lt; Anterior</button>
-              <button type="button" disabled>Siguiente &gt;</button>
+              <button 
+                type="button" 
+                onClick={() => setPaginaActual(p => Math.max(p - 1, 1))}
+                disabled={paginaActual <= 1}
+              >
+                &lt; Anterior
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setPaginaActual(p => Math.min(p + 1, totalPaginas))}
+                disabled={paginaActual >= totalPaginas}
+              >
+                Siguiente &gt;
+              </button>
             </div>
           </div>
         </div>
@@ -257,68 +370,43 @@ export default function UsuariosPermisos() {
           <div className="admin-side-card">
             <div className="admin-side-card__header">
               <h2 className="admin-side-card__title">Roles del sistema</h2>
-              <p className="admin-side-card__subtitle">{usuarios.length} cuentas</p>
+              <p className="admin-side-card__subtitle">{usuarios.length} cuentas registradas</p>
             </div>
             <ul className="admin-side-card__list">
               <li className="admin-side-card__item">
                 <span className="admin-side-card__item-label">
                   <span className="admin-side-card__dot" style={{ background: '#c8102e' }} />
-                  Administración FECOVOL
+                  Administrador
                 </span>
                 <span className="admin-side-card__item-val">{cuentasPorRol.admin}</span>
               </li>
               <li className="admin-side-card__item">
                 <span className="admin-side-card__item-label">
                   <span className="admin-side-card__dot" style={{ background: '#1b6b31' }} />
-                  Personal de competencias
+                  Personal
                 </span>
                 <span className="admin-side-card__item-val">{cuentasPorRol.personal}</span>
               </li>
               <li className="admin-side-card__item">
                 <span className="admin-side-card__item-label">
                   <span className="admin-side-card__dot" style={{ background: '#7c3aed' }} />
-                  Representante de asociación
+                  Representante
                 </span>
                 <span className="admin-side-card__item-val">{cuentasPorRol.asoc}</span>
               </li>
               <li className="admin-side-card__item">
                 <span className="admin-side-card__item-label">
                   <span className="admin-side-card__dot" style={{ background: '#0e3b6b' }} />
-                  Cuerpo arbitral
+                  Arbitro
                 </span>
                 <span className="admin-side-card__item-val">{cuentasPorRol.arbitro}</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Security stats */}
-          <div className="admin-side-card">
-            <div className="admin-side-card__header">
-              <h2 className="admin-side-card__title">Seguridad</h2>
-            </div>
-            <ul className="admin-side-card__list">
-              <li className="admin-side-card__item">
-                <span style={{ color: 'var(--texto-suave)' }}>Sesiones abiertas ahora</span>
-                <strong style={{ color: 'var(--texto)' }}>9</strong>
-              </li>
-              <li className="admin-side-card__item">
-                <span style={{ color: 'var(--texto-suave)' }}>Intentos fallidos hoy</span>
-                <strong style={{ color: 'var(--texto)' }}>4</strong>
-              </li>
-              <li className="admin-side-card__item">
-                <span style={{ color: 'var(--texto-suave)' }}>Cuentas sin ingresar en 90 días</span>
-                <strong style={{ color: 'var(--texto)' }}>3</strong>
-              </li>
-              <li className="admin-side-card__item" style={{ borderTop: '1px solid var(--linea)', paddingTop: '8px' }}>
-                <span style={{ color: 'var(--texto-suave)' }}>Último respaldo</span>
-                <strong style={{ color: 'var(--texto)' }}>Hoy 03:00</strong>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Modal: Crear Usuario */}
+      {/* Modal: Crear Usuario (InviteUserByEmail) */}
       {mostrarModalCrear && (
         <div className="admin-modal-overlay">
           <div className="admin-modal" style={{ maxWidth: '580px' }}>
@@ -334,32 +422,20 @@ export default function UsuariosPermisos() {
             </div>
             <form onSubmit={handleCrearUsuario}>
               <div className="admin-modal__body">
-                <p style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)', marginTop: 0, marginBottom: '18px' }}>
-                  La persona recibe un correo para definir su contraseña. El rol decide qué partes del sistema ve.
+                <p style={{ fontSize: '0.84rem', color: 'var(--texto-mudo)', marginTop: 0, marginBottom: '18px', lineHeight: 1.4 }}>
+                  La persona recibirá una invitación por correo electrónico con un enlace para establecer su contraseña y acceder al sistema.
                 </p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                  <div className="campo">
-                    <label className="campo__etiqueta">Nombre completo *</label>
-                    <input 
-                      type="text" 
-                      required 
-                      className="campo__input" 
-                      placeholder="Ej. Esteban Mora Chaves"
-                      value={nuevoUsuario.nombre}
-                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, nombre: e.target.value })}
-                    />
-                  </div>
-                  <div className="campo">
-                    <label className="campo__etiqueta">Teléfono</label>
-                    <input 
-                      type="tel" 
-                      className="campo__input" 
-                      placeholder="8888-8888"
-                      value={nuevoUsuario.telefono}
-                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, telefono: e.target.value })}
-                    />
-                  </div>
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Nombre completo *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="campo__input" 
+                    placeholder="Ej. Laura Campos Morales"
+                    value={nuevoUsuario.nombre}
+                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, nombre: e.target.value })}
+                  />
                 </div>
 
                 <div className="campo" style={{ marginBottom: '14px' }}>
@@ -375,33 +451,34 @@ export default function UsuariosPermisos() {
                 </div>
 
                 <div className="campo" style={{ marginBottom: '14px' }}>
-                  <label className="campo__etiqueta">Rol en el sistema</label>
+                  <label className="campo__etiqueta">Rol en el sistema *</label>
                   <select 
                     className="admin-select"
                     style={{ width: '100%' }}
-                    value={nuevoUsuario.rol}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, rol: e.target.value })}
+                    value={nuevoUsuario.rolId}
+                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, rolId: e.target.value })}
+                    required
                   >
-                    <option value="Administración FECOVOL">Administración FECOVOL (Todo el sistema)</option>
-                    <option value="Personal de competencias">Personal de competencias (Competencias, resultados)</option>
-                    <option value="Representante de asociación">Representante de asociación (Solo su club)</option>
-                    <option value="Cuerpo arbitral">Cuerpo arbitral (Sus designaciones)</option>
+                    <option value="">Seleccione un rol...</option>
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
                   </select>
                 </div>
 
-                {nuevoUsuario.rol === 'Representante de asociación' && (
+                {asociaciones.length > 0 && (
                   <div className="campo" style={{ marginBottom: '14px' }}>
-                    <label className="campo__etiqueta">Asociación asignada *</label>
+                    <label className="campo__etiqueta">Asociación (Opcional, para representantes)</label>
                     <select 
                       className="admin-select"
                       style={{ width: '100%' }}
-                      value={nuevoUsuario.alcance}
-                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, alcance: e.target.value })}
+                      value={nuevoUsuario.organizationId}
+                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, organizationId: e.target.value })}
                     >
-                      <option value="Asoc. Cartago">Asociación de Voleibol de Cartago</option>
-                      <option value="Asoc. San José">Asociación de Voleibol de San José</option>
-                      <option value="Asoc. Guanacaste">Asociación de Voleibol de Guanacaste</option>
-                      <option value="Asoc. Alajuela">Asociación de Voleibol de Alajuela</option>
+                      <option value="">Ninguna / Toda la Federación</option>
+                      {asociaciones.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -428,8 +505,8 @@ export default function UsuariosPermisos() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="admin-btn admin-btn--primary">
-                  Crear y enviar invitación
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardando}>
+                  {guardando ? 'Enviando invitación…' : 'Crear y enviar invitación'}
                 </button>
               </div>
             </form>
@@ -480,13 +557,13 @@ export default function UsuariosPermisos() {
                   <select 
                     className="admin-select"
                     style={{ width: '100%' }}
-                    value={usuarioEditando.rol}
-                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, rol: e.target.value })}
+                    value={usuarioEditando.rolId || ''}
+                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, rolId: e.target.value })}
                   >
-                    <option value="Administración FECOVOL">Administración FECOVOL</option>
-                    <option value="Personal de competencias">Personal de competencias</option>
-                    <option value="Representante de asociación">Representante de asociación</option>
-                    <option value="Cuerpo arbitral">Cuerpo arbitral</option>
+                    <option value="">Seleccione un rol...</option>
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -512,8 +589,8 @@ export default function UsuariosPermisos() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="admin-btn admin-btn--primary">
-                  Guardar cambios
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardando}>
+                  {guardando ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </div>
             </form>

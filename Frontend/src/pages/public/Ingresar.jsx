@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo.jsx';
 import './Ingresar.css';
 import { supabase } from '../../supabaseClient.js';
@@ -55,6 +55,7 @@ const RUTA_POR_ROL = {
    ═══════════════════════════════════════════════════════════════════ */
 function FormularioLogin({ onRecuperar }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [correo, setCorreo]         = useState('');
   const [contrasena, setContrasena] = useState('');
   const [verPass, setVerPass]       = useState(false);
@@ -116,9 +117,23 @@ function FormularioLogin({ onRecuperar }) {
         .update({ last_login: new Date().toISOString() })
         .eq('id', data.user.id);
 
-      // 5. Redirigir según el rol
-      const rol = profile.roles?.name;
-      const ruta = RUTA_POR_ROL[rol] ?? '/';
+      // 5. Redirigir según el rol o hacia la ruta que intentaba acceder
+      const rol = Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name;
+      const destinoPrevio = location.state?.from?.pathname;
+      let ruta = RUTA_POR_ROL[rol] ?? '/';
+
+      if (destinoPrevio && destinoPrevio !== '/ingresar') {
+        if (rol === 'Administrador' && destinoPrevio.startsWith('/admin')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Personal' && destinoPrevio.startsWith('/personal')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Representante' && destinoPrevio.startsWith('/asociacion')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Arbitro' && destinoPrevio.startsWith('/arbitro')) {
+          ruta = destinoPrevio;
+        }
+      }
+
       navigate(ruta, { replace: true });
 
     } finally {
@@ -228,10 +243,8 @@ function FormularioRecuperar({ onVolver }) {
     }
     setCargando(true);
     try {
-      // Por seguridad (RF-SEG-008), siempre mostramos el mensaje de éxito
-      // para no revelar si el correo existe o no en el sistema.
       await supabase.auth.resetPasswordForEmail(correo, {
-        redirectTo: `${window.location.origin}/restablecer-contrasena`,
+        redirectTo: `${window.location.origin}/ingresar`,
       });
       setEnviado(true);
     } finally {
@@ -308,10 +321,157 @@ function FormularioRecuperar({ onVolver }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Página principal – alterna entre Login y Recuperar
+   Vista de ESTABLECER / CAMBIAR CONTRASEÑA (Para Invitaciones y Recuperación)
+   ═══════════════════════════════════════════════════════════════════ */
+function FormularioEstablecerContrasena() {
+  const navigate = useNavigate();
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [verPass, setVerPass] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
+  const [exito, setExito] = useState(false);
+
+  async function handleSubmit(ev) {
+    ev.preventDefault();
+    setError('');
+
+    if (nuevaPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (nuevaPassword !== confirmarPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setCargando(true);
+    try {
+      // 1. Actualizar la contraseña del usuario en Supabase Auth
+      const { data, error: updateError } = await supabase.auth.updateUser({
+        password: nuevaPassword
+      });
+
+      if (updateError) throw updateError;
+
+      // 2. Consultar perfil para redirigir
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('status, roles(name)')
+        .eq('id', data.user.id)
+        .single();
+
+      // 3. Actualizar last_login
+      await supabase
+        .from('user_profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', data.user.id);
+
+      setExito(true);
+
+      setTimeout(() => {
+        const rol = profile?.roles?.name;
+        const ruta = RUTA_POR_ROL[rol] ?? '/admin';
+        navigate(ruta, { replace: true });
+      }, 1500);
+
+    } catch (err) {
+      console.error('Error al actualizar contraseña:', err);
+      setError('No se pudo establecer la contraseña: ' + (err.message || 'Error de sesión'));
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="ingresar__titulo">Definir contraseña</h1>
+      <p className="ingresar__subtitulo">
+        Cree una contraseña para completar el acceso a su cuenta de FECOVOL.
+      </p>
+
+      {error && <div className="alerta alerta--error" role="alert">{error}</div>}
+      {exito && (
+        <div className="alerta" style={{ background: 'var(--ok-fondo)', color: 'var(--ok)', border: '1px solid #bbf7d0', marginBottom: '18px' }} role="status">
+          ✓ Contraseña establecida con éxito. Redirigiendo al sistema...
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        {/* Nueva Contraseña */}
+        <div className="campo">
+          <label htmlFor="nueva-pass" className="campo__etiqueta">Nueva contraseña</label>
+          <div className="campo__input-wrap">
+            <input
+              id="nueva-pass"
+              type={verPass ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="Mínimo 6 caracteres"
+              className="campo__input"
+              value={nuevaPassword}
+              onChange={(e) => setNuevaPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="campo__ojo"
+              onClick={() => setVerPass((v) => !v)}
+              aria-label={verPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <IconoOjo visible={verPass} />
+            </button>
+          </div>
+        </div>
+
+        {/* Confirmar Contraseña */}
+        <div className="campo" style={{ marginBottom: '24px' }}>
+          <label htmlFor="confirm-pass" className="campo__etiqueta">Confirmar nueva contraseña</label>
+          <input
+            id="confirm-pass"
+            type={verPass ? 'text' : 'password'}
+            autoComplete="new-password"
+            placeholder="Repita la contraseña"
+            className="campo__input"
+            value={confirmarPassword}
+            onChange={(e) => setConfirmarPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        <button type="submit" className="btn-primario" disabled={cargando || exito}>
+          {cargando ? 'Guardando contraseña…' : 'Establecer contraseña y acceder'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Página principal – alterna entre Login, Recuperar y Establecer Contraseña
    ═══════════════════════════════════════════════════════════════════ */
 export default function Ingresar() {
-  const [vista, setVista] = useState('login'); // 'login' | 'recuperar'
+  const [vista, setVista] = useState('login'); // 'login' | 'recuperar' | 'establecer'
+
+  // Detectar si el enlace trae un token de invitacion o recuperacion
+  useEffect(() => {
+    // 1. Escuchar eventos de cambio de estado de autenticación (ej. PASSWORD_RECOVERY o USER_UPDATED)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setVista('establecer');
+      }
+    });
+
+    // 2. Comprobar si el hash de la URL contiene type=invite o type=recovery
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      setVista('establecer');
+    }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="ingresar">
@@ -324,10 +484,14 @@ export default function Ingresar() {
         </div>
 
         <div className="ingresar__caja">
-          {vista === 'login' ? (
+          {vista === 'login' && (
             <FormularioLogin onRecuperar={() => setVista('recuperar')} />
-          ) : (
+          )}
+          {vista === 'recuperar' && (
             <FormularioRecuperar onVolver={() => setVista('login')} />
+          )}
+          {vista === 'establecer' && (
+            <FormularioEstablecerContrasena />
           )}
         </div>
       </div>

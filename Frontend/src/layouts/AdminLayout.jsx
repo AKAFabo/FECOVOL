@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import './AdminLayout.css';
+import { supabase } from '../supabaseClient.js';
 
 const NAV_ITEMS = [
   { to: '/admin/panel', texto: 'Panel general' },
@@ -16,8 +18,49 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) {
   const navigate = useNavigate();
+  const [usuarioActual, setUsuarioActual] = useState({
+    nombre: 'Usuario FECOVOL',
+    rol: 'Administración FECOVOL',
+    iniciales: 'US'
+  });
 
-  const handleCerrarSesion = () => {
+  useEffect(() => {
+    async function obtenerUsuario() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Intentar obtener el perfil de la base de datos
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('full_name, roles(name)')
+            .eq('id', user.id)
+            .single();
+
+          const nombre = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario';
+          const rol = profile?.roles?.name || 'Administración FECOVOL';
+          
+          // Obtener iniciales (hasta 2 letras)
+          const palabras = nombre.trim().split(' ').filter(Boolean);
+          const iniciales = palabras.length > 1
+            ? (palabras[0][0] + palabras[1][0]).toUpperCase()
+            : (nombre.substring(0, 2)).toUpperCase();
+
+          setUsuarioActual({
+            nombre,
+            rol,
+            iniciales
+          });
+        }
+      } catch (err) {
+        console.error('Error al obtener usuario actual:', err);
+      }
+    }
+
+    obtenerUsuario();
+  }, []);
+
+  const handleCerrarSesion = async () => {
+    await supabase.auth.signOut();
     navigate('/ingresar');
   };
 
@@ -37,7 +80,7 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
 
         <div className="admin-sidebar__role-box">
           <span className="admin-sidebar__role-label">Rol</span>
-          <span className="admin-sidebar__role-title">Administración FECOVOL</span>
+          <span className="admin-sidebar__role-title">{usuarioActual.rol}</span>
         </div>
 
         <nav className="admin-sidebar__nav">
@@ -81,10 +124,10 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           <div className="admin-topbar__right">
             <span className="admin-topbar__season">Temporada 2026</span>
             <div className="admin-topbar__user">
-              <div className="admin-topbar__avatar">GR</div>
+              <div className="admin-topbar__avatar">{usuarioActual.iniciales}</div>
               <div className="admin-topbar__user-info">
-                <span className="admin-topbar__user-name">Gabriela Rojas</span>
-                <span className="admin-topbar__user-role">Administración FECOVOL</span>
+                <span className="admin-topbar__user-name">{usuarioActual.nombre}</span>
+                <span className="admin-topbar__user-role">{usuarioActual.rol}</span>
               </div>
             </div>
           </div>
