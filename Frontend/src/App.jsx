@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layout público (portal web)
 import PublicLayout from './layouts/PublicLayout.jsx';
@@ -12,10 +12,17 @@ import PersonalPanel   from './pages/personal/PersonalPanel.jsx';
 import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
 import ArbitroPanel    from './pages/arbitro/ArbitroPanel.jsx';
 
+// Layout administrativo
+import AdminLayout from './layouts/AdminLayout.jsx';
+import AdminInicio from './pages/admin/AdminInicio.jsx';
+import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
+import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
+import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
+
+
 export default function App() {
   return (
     <Routes>
-
       {/* ── Portal público ────────────────────────────────────────── */}
       <Route element={<PublicLayout />}>
         <Route index element={<Inicio />} />
@@ -29,13 +36,20 @@ export default function App() {
         <Route path="*"              element={<EnConstruccion titulo="Página no encontrada" noEncontrada />} />
       </Route>
 
-      {/* ── Dashboards por rol (fuera del layout público) ─────────── */}
-      {/* Cada uno tendrá su propio layout cuando esté listo el módulo */}
-      <Route path="/admin/*"      element={<AdminPanel />} />
-      <Route path="/personal/*"   element={<PersonalPanel />} />
-      <Route path="/asociacion/*" element={<AsociacionPanel />} />
-      <Route path="/arbitro/*"    element={<ArbitroPanel />} />
+      {/* ── Entorno de Administración FECOVOL ─────────────────────── */}
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/panel" replace />} />
+        <Route path="panel" element={<AdminInicio />} />
+        <Route path="usuarios" element={<UsuariosPermisos />} />
+        <Route path="listas-valores" element={<ListasValores />} />
+        <Route path="auditoria" element={<AuditoriaRespaldos />} />
+        <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
+      </Route>
 
+      {/* ── Dashboards temporales para los demás roles ────────────── */}
+      <Route path="/personal/*" element={<EnConstruccion titulo="Personal de competencias" />} />
+      <Route path="/asociacion/*" element={<EnConstruccion titulo="Representante de asociación" />} />
+      <Route path="/arbitro/*" element={<EnConstruccion titulo="Cuerpo arbitral" />} />
     </Routes>
   );
 }
