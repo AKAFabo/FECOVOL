@@ -1,0 +1,331 @@
+/* =======================================================================
+   Ingresar.css – Pantalla de Login y Recuperación de acceso
+   Sigue el sistema de diseño de index.css (variables globales).
+   ======================================================================= */
+
+/* ── Contenedor raíz ─────────────────────────────────────────────── */
+.ingresar {
+  display: flex;
+  min-height: 100%;
+  flex: 1;
+}
+
+/* ── Panel izquierdo (ilustración + eslogan) ─────────────────────── */
+.ingresar__panel {
+  display: none; /* oculto en móvil */
+  flex-direction: column;
+  justify-content: space-between;
+  width: 38%;
+  flex-shrink: 0;
+  background-color: var(--azul);
+  color: #fff;
+  padding: 40px 48px 36px;
+}
+
+@media (min-width: 860px) {
+  .ingresar__panel {
+    display: flex;
+  }
+}
+
+.ingresar__eslogan {
+  margin-top: auto;
+  margin-bottom: 40px;
+}
+
+.ingresar__eslogan h2 {
+  font-family: var(--fuente-titulo);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.ingresar__eslogan p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--sobre-oscuro);
+}
+
+.ingresar__pie-panel {
+  font-size: 0.78rem;
+  color: var(--sobre-oscuro);
+}
+
+.ingresar__pie-panel a {
+  color: var(--sobre-oscuro-enlace);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Panel derecho (formulario) ──────────────────────────────────── */
+.ingresar__form-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 24px;
+  background: var(--superficie);
+}
+
+/* Logo visible solo en móvil (el panel izquierdo lo oculta en escritorio) */
+.ingresar__logo-movil {
+  display: flex;
+  margin-bottom: 32px;
+}
+@media (min-width: 860px) {
+  .ingresar__logo-movil { display: none; }
+}
+
+.ingresar__caja {
+  width: 100%;
+  max-width: 380px;
+}
+
+/* ── Encabezados ─────────────────────────────────────────────────── */
+.ingresar__titulo {
+  font-family: var(--fuente-titulo);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--texto);
+  margin-bottom: 4px;
+}
+
+.ingresar__subtitulo {
+  font-size: 0.875rem;
+  color: var(--texto-mudo);
+  margin-bottom: 28px;
+}
+
+/* ── Campos ──────────────────────────────────────────────────────── */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.campo__etiqueta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.campo__input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--campo);
+  color: var(--texto);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.campo__input:focus {
+  border-color: var(--azul);
+  box-shadow: var(--sombra-foco);
+}
+
+.campo__input--error {
+  border-color: var(--rojo);
+}
+
+/* Wrapper para mostrar/ocultar contraseña */
+.campo__input-wrap {
+  position: relative;
+}
+
+.campo__input-wrap .campo__input {
+  padding-right: 42px;
+}
+
+.campo__ojo {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--texto-tenue);
+  display: flex;
+  align-items: center;
+}
+
+.campo__ojo:hover {
+  color: var(--texto-mudo);
+}
+
+.campo__error {
+  font-size: 0.78rem;
+  color: var(--rojo);
+}
+
+/* ── Fila recordar / recuperar ───────────────────────────────────── */
+.ingresar__opciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  font-size: 0.8125rem;
+}
+
+.ingresar__recordar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--texto-suave);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ingresar__recordar input {
+  accent-color: var(--azul);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.ingresar__recuperar {
+  color: var(--azul);
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.ingresar__recuperar:hover {
+  text-decoration: underline;
+}
+
+/* ── Botón principal ─────────────────────────────────────────────── */
+.btn-primario {
+  display: block;
+  width: 100%;
+  padding: 11px;
+  background: var(--azul);
+  color: #fff;
+  border: none;
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-titulo);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: center;
+}
+
+.btn-primario:hover {
+  background: var(--azul-oscuro);
+}
+
+.btn-primario:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Divider / consultar resultados ──────────────────────────────── */
+.ingresar__separador {
+  text-align: center;
+  margin: 20px 0 0;
+  font-size: 0.8125rem;
+  color: var(--texto-mudo);
+}
+
+.ingresar__separador a,
+.ingresar__separador button {
+  color: var(--azul);
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.ingresar__separador a:hover,
+.ingresar__separador button:hover {
+  text-decoration: underline;
+}
+
+/* ── Alerta global (error de credenciales, etc.) ─────────────────── */
+.alerta {
+  border-radius: var(--radio-sm);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 18px;
+}
+
+.alerta--error {
+  background: #fde8e8;
+  color: #7b1d1d;
+  border: 1px solid #f9c6c6;
+}
+
+.alerta--aviso {
+  background: var(--aviso-fondo);
+  color: var(--aviso);
+  border: 1px solid #f3c9af;
+}
+
+/* ── Pasos de recuperación ───────────────────────────────────────── */
+.ingresar__pasos {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ingresar__pasos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.ingresar__paso-icono {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ingresar__paso-icono--1 { background: #fde8e8; color: var(--rojo); }
+.ingresar__paso-icono--2 { background: var(--ok-fondo); color: var(--ok); }
+.ingresar__paso-icono--3 { background: #e8edf8; color: var(--azul); }
+
+/* ── Volver al login ─────────────────────────────────────────────── */
+.ingresar__volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--texto-mudo);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.ingresar__volver:hover {
+  color: var(--texto);
+}
