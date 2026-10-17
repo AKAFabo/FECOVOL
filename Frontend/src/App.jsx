@@ -6,19 +6,12 @@ import Inicio from './pages/public/Inicio.jsx';
 import EnConstruccion from './pages/public/EnConstruccion.jsx';
 import Ingresar from './pages/public/Ingresar.jsx';
 
-// Dashboards por rol (temporales – reemplazar con layouts reales)
-import AdminPanel      from './pages/admin/AdminPanel.jsx';
-import PersonalPanel   from './pages/personal/PersonalPanel.jsx';
-import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
-import ArbitroPanel    from './pages/arbitro/ArbitroPanel.jsx';
-
 // Layout administrativo
 import AdminLayout from './layouts/AdminLayout.jsx';
 import AdminInicio from './pages/admin/AdminInicio.jsx';
 import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
-
 
 export default function App() {
   return (

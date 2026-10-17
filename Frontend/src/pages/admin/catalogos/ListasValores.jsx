@@ -1,78 +1,171 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import '../AdminCommon.css';
+import { supabase } from '../../../supabaseClient.js';
 
-const CATALOGOS_MOCK = [
-  { id: '1', nombre: 'Categorías', total: 6, activos: 5 },
-  { id: '2', nombre: 'Ramas', total: 3, activos: 3 },
-  { id: '3', nombre: 'Modalidades', total: 2, activos: 2 },
-  { id: '4', nombre: 'Posiciones', total: 6, activos: 6 },
-  { id: '5', nombre: 'Tipos de documento', total: 7, activos: 7 },
-  { id: '6', nombre: 'Tipos de incidente', total: 12, activos: 12 },
-  { id: '7', nombre: 'Tipos de sanción', total: 8, activos: 8 },
-  { id: '8', nombre: 'Tipos de oficial', total: 4, activos: 4 },
-  { id: '9', nombre: 'Estados de partido', total: 6, activos: 6 }
-];
-
-const VALORES_CATEGORIAS_MOCK = [
-  { id: 'v1', catalogo: 'Categorías', codigo: 'CAT-MAY', valor: 'Mayor', descripcion: 'Sin límite de edad', seUsaEn: '18 registros', estado: 'ACTIVO' },
-  { id: 'v2', catalogo: 'Categorías', codigo: 'CAT-U21', valor: 'Sub-21', descripcion: 'Nacidas a partir de 2005', seUsaEn: '4 registros', estado: 'ACTIVO' },
-  { id: 'v3', catalogo: 'Categorías', codigo: 'CAT-U19', valor: 'Sub-19', descripcion: 'Nacidas a partir de 2007', seUsaEn: '9 registros', estado: 'ACTIVO' },
-  { id: 'v4', catalogo: 'Categorías', codigo: 'CAT-U17', valor: 'Sub-17', descripcion: 'Nacidas a partir de 2009', seUsaEn: '8 registros', estado: 'ACTIVO' },
-  { id: 'v5', catalogo: 'Categorías', codigo: 'CAT-U15', valor: 'Sub-15', descripcion: 'Nacidas a partir de 2011', seUsaEn: '6 registros', estado: 'ACTIVO' },
-  { id: 'v6', catalogo: 'Categorías', codigo: 'CAT-U13', valor: 'Sub-13', descripcion: 'Descontinuada en 2024', seUsaEn: '2 registros', estado: 'INACTIVO' }
-];
+const ELEMENTOS_POR_PAGINA = 10;
 
 export default function ListasValores() {
-  const [catalogos] = useState(CATALOGOS_MOCK);
-  const [catalogoSeleccionado, setCatalogoSeleccionado] = useState(CATALOGOS_MOCK[0]);
-  const [valores, setValores] = useState(VALORES_CATEGORIAS_MOCK);
+  const [catalogos, setCatalogos] = useState([]);
+  const [catalogoSeleccionado, setCatalogoSeleccionado] = useState(null);
+  const [valores, setValores] = useState([]);
+  const [paginaValores, setPaginaValores] = useState(1);
+  const [cargandoCatalogos, setCargandoCatalogos] = useState(true);
+  const [cargandoValores, setCargandoValores] = useState(false);
+  const [error, setError] = useState(null);
   
-  // Modal de agregar valor
+  // Modal de agregar/editar valor
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const [nuevoValor, setNuevoValor] = useState({
     codigo: '',
     valor: '',
     descripcion: '',
-    orden: 1,
     estado: 'ACTIVO'
   });
 
-  const handleAgregarValor = (e) => {
-    e.preventDefault();
-    if (!nuevoValor.codigo || !nuevoValor.valor) return;
+  // Paginación de valores
+  const totalPaginasValores = Math.ceil(valores.length / ELEMENTOS_POR_PAGINA) || 1;
+  const valoresPaginados = useMemo(() => {
+    const inicio = (paginaValores - 1) * ELEMENTOS_POR_PAGINA;
+    return valores.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
+  }, [valores, paginaValores]);
 
-    const valorObj = {
-      id: `v-${Date.now()}`,
-      catalogo: catalogoSeleccionado.nombre,
-      codigo: nuevoValor.codigo,
-      valor: nuevoValor.valor,
-      descripcion: nuevoValor.descripcion,
-      seUsaEn: '0 registros',
-      estado: nuevoValor.estado
-    };
+  // 1. Cargar la lista de catálogos y el conteo de valores
+  async function cargarCatalogos() {
+    setCargandoCatalogos(true);
+    setError(null);
+    try {
+      const { data: cats, error: errCats } = await supabase
+        .from('catalogs')
+        .select(`
+          id,
+          name,
+          description,
+          catalog_values ( id, is_active )
+        `)
+        .order('name');
 
-    setValores([...valores, valorObj]);
-    setMostrarModal(false);
-    setNuevoValor({
-      codigo: '',
-      valor: '',
-      descripcion: '',
-      orden: 1,
-      estado: 'ACTIVO'
-    });
-  };
+      if (errCats) throw errCats;
 
-  const toggleEstadoValor = (id) => {
-    setValores(valores.map(v => {
-      if (v.id === id) {
-        return {
-          ...v,
-          estado: v.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
-        };
+      const formateados = (cats || []).map((c) => ({
+        id: c.id,
+        nombre: c.name,
+        descripcion: c.description,
+        total: c.catalog_values?.length || 0,
+        activos: c.catalog_values?.filter((v) => v.is_active).length || 0
+      }));
+
+      setCatalogos(formateados);
+      if (formateados.length > 0 && !catalogoSeleccionado) {
+        setCatalogoSeleccionado(formateados[0]);
       }
-      return v;
-    }));
+    } catch (err) {
+      console.error('Error al cargar catálogos:', err);
+      setError('No se pudieron cargar los catálogos.');
+    } finally {
+      setCargandoCatalogos(false);
+    }
+  }
+
+  // 2. Cargar valores del catálogo seleccionado
+  async function cargarValores(catalogId) {
+    if (!catalogId) return;
+    setCargandoValores(true);
+    try {
+      const { data: vals, error: errVals } = await supabase
+        .from('catalog_values')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .order('value');
+
+      if (errVals) throw errVals;
+
+      const formateados = (vals || []).map((v) => ({
+        id: v.id,
+        codigo: v.code,
+        valor: v.value,
+        descripcion: v.description || '—',
+        is_active: v.is_active,
+        estado: v.is_active ? 'ACTIVO' : 'INACTIVO'
+      }));
+
+      setValores(formateados);
+    } catch (err) {
+      console.error('Error al cargar valores:', err);
+      setError('No se pudieron cargar los valores del catálogo.');
+    } finally {
+      setCargandoValores(false);
+    }
+  }
+
+  useEffect(() => {
+    cargarCatalogos();
+  }, []);
+
+  useEffect(() => {
+    if (catalogoSeleccionado) {
+      setPaginaValores(1);
+      cargarValores(catalogoSeleccionado.id);
+    }
+  }, [catalogoSeleccionado]);
+
+  // 3. Agregar nuevo valor (upsert)
+  const handleAgregarValor = async (e) => {
+    e.preventDefault();
+    if (!nuevoValor.codigo.trim() || !nuevoValor.valor.trim() || !catalogoSeleccionado) return;
+
+    setGuardando(true);
+    try {
+      const { error: errInsert } = await supabase
+        .from('catalog_values')
+        .insert({
+          catalog_id: catalogoSeleccionado.id,
+          code: nuevoValor.codigo.trim().toUpperCase(),
+          value: nuevoValor.valor.trim(),
+          description: nuevoValor.descripcion.trim() || null,
+          is_active: nuevoValor.estado === 'ACTIVO'
+        });
+
+      if (errInsert) throw errInsert;
+
+      setMostrarModal(false);
+      setNuevoValor({
+        codigo: '',
+        valor: '',
+        descripcion: '',
+        estado: 'ACTIVO'
+      });
+      // Recargar valores y contadores
+      await cargarValores(catalogoSeleccionado.id);
+      await cargarCatalogos();
+    } catch (err) {
+      console.error('Error al guardar valor:', err);
+      alert('Error al guardar el valor: ' + (err.message || 'Código duplicado o error de servidor'));
+    } finally {
+      setGuardando(false);
+    }
   };
+
+  // 4. Inactivar / Activar valor (Soft delete para proteger histórico)
+  const toggleEstadoValor = async (valorItem) => {
+    const nuevoEstado = !valorItem.is_active;
+    try {
+      const { error: errUpdate } = await supabase
+        .from('catalog_values')
+        .update({ is_active: nuevoEstado, updated_at: new Date().toISOString() })
+        .eq('id', valorItem.id);
+
+      if (errUpdate) throw errUpdate;
+
+      await cargarValores(catalogoSeleccionado.id);
+      await cargarCatalogos();
+    } catch (err) {
+      console.error('Error al cambiar estado del valor:', err);
+      alert('No se pudo actualizar el estado: ' + err.message);
+    }
+  };
+
+  const totalValoresEnSistema = catalogos.reduce((acc, c) => acc + c.total, 0);
 
   return (
     <div>
@@ -81,37 +174,26 @@ export default function ListasValores() {
         <div className="admin-page-header__title-group">
           <h1>Listas de valores</h1>
           <p className="admin-page-header__subtitle">
-            {catalogos.length} listas · {valores.length} valores en {catalogoSeleccionado.nombre}
+            {catalogos.length} listas · {totalValoresEnSistema} valores registrados
           </p>
         </div>
         <div className="admin-page-header__actions">
-          <button type="button" className="admin-btn admin-btn--secondary">
-            Exportar
-          </button>
           <button 
             type="button" 
             className="admin-btn admin-btn--primary"
             onClick={() => setMostrarModal(true)}
+            disabled={!catalogoSeleccionado}
           >
             Agregar valor
           </button>
         </div>
       </div>
 
-      {/* Notice Banner */}
-      <div className="admin-card" style={{ padding: '14px 20px', marginBottom: '24px', background: '#eff6ff', borderColor: '#bfdbfe' }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-          <span style={{ color: '#2563eb', fontWeight: 700, fontSize: '1rem' }}>ℹ</span>
-          <div>
-            <strong style={{ color: '#1e40af', fontSize: '0.88rem', display: 'block', marginBottom: '2px' }}>
-              Los valores no se borran, se desactivan
-            </strong>
-            <p style={{ color: '#3b82f6', fontSize: '0.82rem', margin: 0 }}>
-              Un valor que ya se usó en un partido, una nómina o un expediente queda para siempre en el histórico. Desactivarlo lo saca de los formularios nuevos sin romper lo ya registrado.
-            </p>
-          </div>
+      {error && (
+        <div className="admin-banner" style={{ marginBottom: '20px', background: '#fee2e2', borderColor: '#ef4444', color: '#991b1b' }}>
+          {error}
         </div>
-      </div>
+      )}
 
       {/* Two Column Layout: Catalog List + Values Table */}
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px', alignItems: 'start' }}>
@@ -121,48 +203,54 @@ export default function ListasValores() {
             <h2 className="admin-card__title">Listas</h2>
             <span className="admin-card__badge">{catalogos.length} listas</span>
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {catalogos.map((cat) => {
-              const isSelected = cat.id === catalogoSeleccionado.id;
-              return (
-                <li key={cat.id}>
-                  <button
-                    type="button"
-                    onClick={() => setCatalogoSeleccionado(cat)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: isSelected ? '#f1f5f9' : 'transparent',
-                      border: 'none',
-                      borderLeft: isSelected ? '3px solid #c8102e' : '3px solid transparent',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.15s'
-                    }}
-                  >
-                    <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--texto)' : 'var(--texto-suave)', fontSize: '0.88rem' }}>
-                      {cat.nombre}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--texto-mudo)' }}>
-                      {cat.total} valores
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          {cargandoCatalogos ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--texto-mudo)', fontSize: '0.85rem' }}>
+              Cargando catálogos de Supabase...
+            </div>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {catalogos.map((cat) => {
+                const isSelected = catalogoSeleccionado?.id === cat.id;
+                return (
+                  <li key={cat.id}>
+                    <button
+                      type="button"
+                      onClick={() => setCatalogoSeleccionado(cat)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: isSelected ? '#f1f5f9' : 'transparent',
+                        border: 'none',
+                        borderLeft: isSelected ? '3px solid #c8102e' : '3px solid transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 0.15s'
+                      }}
+                    >
+                      <span style={{ fontWeight: isSelected ? 700 : 500, color: isSelected ? 'var(--texto)' : 'var(--texto-suave)', fontSize: '0.88rem' }}>
+                        {cat.nombre}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--texto-mudo)' }}>
+                        {cat.total} valores
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Right Column: Values Table */}
         <div className="admin-card">
           <div className="admin-card__header">
             <div>
-              <h2 className="admin-card__title">{catalogoSeleccionado.nombre}</h2>
+              <h2 className="admin-card__title">{catalogoSeleccionado?.nombre || 'Seleccione un catálogo'}</h2>
               <span style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)' }}>
-                {valores.length} valores · {valores.filter(v => v.estado === 'ACTIVO').length} activos
+                {valores.length} valores · {valores.filter(v => v.is_active).length} activos
               </span>
             </div>
             <button 
@@ -170,55 +258,85 @@ export default function ListasValores() {
               className="admin-btn admin-btn--secondary"
               style={{ padding: '6px 14px', fontSize: '0.82rem' }}
               onClick={() => setMostrarModal(true)}
+              disabled={!catalogoSeleccionado}
             >
               Agregar valor
             </button>
           </div>
 
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Valor</th>
-                <th>Descripción</th>
-                <th>Se usa en</th>
-                <th>Estado</th>
-                <th style={{ textAlign: 'right' }}>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valores.map((v) => (
-                <tr key={v.id}>
-                  <td><strong>{v.codigo}</strong></td>
-                  <td style={{ color: 'var(--texto)', fontWeight: 600 }}>{v.valor}</td>
-                  <td>{v.descripcion}</td>
-                  <td>{v.seUsaEn}</td>
-                  <td>
-                    <span className={`badge-status ${v.estado === 'ACTIVO' ? 'badge-status--activa' : 'badge-status--inactivo'}`}>
-                      {v.estado}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button 
-                      type="button" 
-                      className="admin-btn admin-btn--secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                      onClick={() => toggleEstadoValor(v.id)}
-                    >
-                      {v.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Sub-13 inactiva notice if exists in categories */}
-          {valores.some(v => v.codigo === 'CAT-U13' && v.estado === 'INACTIVO') && (
-            <div className="admin-banner" style={{ margin: '16px 20px' }}>
-              <strong>SUB-13 ESTÁ INACTIVA: </strong>
-              No aparece al crear competencias nuevas, pero los registros históricos que la usan siguen mostrándola con normalidad.
+          {cargandoValores ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)', fontSize: '0.88rem' }}>
+              Cargando valores...
             </div>
+          ) : (
+            <>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Valor</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th style={{ textAlign: 'right' }}>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {valoresPaginados.map((v) => (
+                    <tr key={v.id}>
+                      <td><strong>{v.codigo}</strong></td>
+                      <td style={{ color: 'var(--texto)', fontWeight: 600 }}>{v.valor}</td>
+                      <td>{v.descripcion}</td>
+                      <td>
+                        <span className={`badge-status ${v.is_active ? 'badge-status--activa' : 'badge-status--inactivo'}`}>
+                          {v.estado}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button 
+                          type="button" 
+                          className="admin-btn admin-btn--secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                          onClick={() => toggleEstadoValor(v)}
+                        >
+                          {v.is_active ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {valoresPaginados.length === 0 && (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
+                        No hay valores registrados en este catálogo.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* Pagination Controls */}
+              <div className="admin-table-footer">
+                <span>
+                  Mostrando {valoresPaginados.length} de {valores.length} valores
+                  {totalPaginasValores > 1 && ` (Página ${paginaValores} de ${totalPaginasValores})`}
+                </span>
+                <div className="admin-pagination-links">
+                  <button 
+                    type="button" 
+                    onClick={() => setPaginaValores(p => Math.max(p - 1, 1))}
+                    disabled={paginaValores <= 1}
+                  >
+                    &lt; Anterior
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setPaginaValores(p => Math.min(p + 1, totalPaginasValores))}
+                    disabled={paginaValores >= totalPaginasValores}
+                  >
+                    Siguiente &gt;
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -249,7 +367,7 @@ export default function ListasValores() {
                     type="text" 
                     disabled 
                     className="campo__input" 
-                    value={catalogoSeleccionado.nombre}
+                    value={catalogoSeleccionado?.nombre || ''}
                     style={{ opacity: 0.8 }}
                   />
                 </div>
@@ -261,7 +379,7 @@ export default function ListasValores() {
                       type="text" 
                       required 
                       className="campo__input" 
-                      placeholder="Ej. CAT-U23"
+                      placeholder="Ej. CAT-MAY"
                       value={nuevoValor.codigo}
                       onChange={(e) => setNuevoValor({ ...nuevoValor, codigo: e.target.value })}
                     />
@@ -272,7 +390,7 @@ export default function ListasValores() {
                       type="text" 
                       required 
                       className="campo__input" 
-                      placeholder="Ej. Sub-23"
+                      placeholder="Ej. Mayor"
                       value={nuevoValor.valor}
                       onChange={(e) => setNuevoValor({ ...nuevoValor, valor: e.target.value })}
                     />
@@ -284,39 +402,23 @@ export default function ListasValores() {
                   <input 
                     type="text" 
                     className="campo__input" 
-                    placeholder="Ej. Nacidas a partir de 2003"
+                    placeholder="Descripción o restricción"
                     value={nuevoValor.descripcion}
                     onChange={(e) => setNuevoValor({ ...nuevoValor, descripcion: e.target.value })}
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  <div className="campo">
-                    <label className="campo__etiqueta">Orden en la lista</label>
-                    <input 
-                      type="number" 
-                      className="campo__input" 
-                      min="1"
-                      value={nuevoValor.orden}
-                      onChange={(e) => setNuevoValor({ ...nuevoValor, orden: parseInt(e.target.value) || 1 })}
-                    />
-                  </div>
-                  <div className="campo">
-                    <label className="campo__etiqueta">Estado</label>
-                    <select 
-                      className="admin-select"
-                      style={{ width: '100%' }}
-                      value={nuevoValor.estado}
-                      onChange={(e) => setNuevoValor({ ...nuevoValor, estado: e.target.value })}
-                    >
-                      <option value="ACTIVO">Activo</option>
-                      <option value="INACTIVO">Inactivo</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', marginTop: '16px', fontSize: '0.78rem', color: 'var(--texto-suave)' }}>
-                  Ejemplo: al agregar «Sub-23», esa opción aparece en el campo Categoría al crear una competencia, registrar un equipo o una persona.
+                <div className="campo">
+                  <label className="campo__etiqueta">Estado</label>
+                  <select 
+                    className="admin-select"
+                    style={{ width: '100%' }}
+                    value={nuevoValor.estado}
+                    onChange={(e) => setNuevoValor({ ...nuevoValor, estado: e.target.value })}
+                  >
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
                 </div>
               </div>
 
@@ -328,8 +430,8 @@ export default function ListasValores() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="admin-btn admin-btn--primary">
-                  Agregar valor
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardando}>
+                  {guardando ? 'Guardando…' : 'Agregar valor'}
                 </button>
               </div>
             </form>
