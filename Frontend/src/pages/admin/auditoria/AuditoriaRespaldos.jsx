@@ -168,13 +168,6 @@ export default function AuditoriaRespaldos() {
     cargarBitacora();
   }, []);
 
-  const usuariosUnicos = useMemo(() => {
-    return Array.from(new Set(logs.map(l => l.usuario))).filter(Boolean);
-  }, [logs]);
-
-  const tablasUnicas = useMemo(() => {
-    return Array.from(new Set(logs.map(l => l.modulo))).filter(Boolean);
-  }, [logs]);
 
   const logsFiltrados = useMemo(() => {
     return logs.filter(l => {
