@@ -59,6 +59,17 @@
   color: var(--texto);
 }
 
+.admin-btn--danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.admin-btn--danger:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
 /* Filter bar */
 .admin-filters-bar {
   display: flex;
@@ -206,6 +217,11 @@
 .badge-status--inactivo {
   background-color: #e2e8f0;
   color: #64748b;
+}
+
+.badge-status--logout {
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 /* Table pagination / footer */

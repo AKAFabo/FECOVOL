@@ -137,6 +137,40 @@
 .admin-sidebar__footer {
   padding: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-sidebar__profile-btn {
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--sobre-oscuro-2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radio-sm);
+  transition: all 0.15s;
+  box-sizing: border-box;
+}
+
+.admin-sidebar__profile-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.admin-sidebar__profile-btn--active {
+  background: rgba(14, 59, 107, 0.85);
+  color: #fff;
+  font-weight: 600;
+  border-color: #0e3b6b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .admin-sidebar__logout {
