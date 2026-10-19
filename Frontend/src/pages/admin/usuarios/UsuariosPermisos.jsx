@@ -61,7 +61,7 @@ export default function UsuariosPermisos() {
           last_login,
           role_id,
           organization_id,
-          roles ( id, name )
+          roles!user_profiles_role_id_fkey ( id, name )
         `)
         .order('created_at', { ascending: false });
 

@@ -51,7 +51,7 @@ export default function RutaProtegida({ rolesPermitidos = [] }) {
         // 2. Obtener el perfil y rol del usuario
         const { data: profile, error } = await supabase
           .from('user_profiles')
-          .select('status, roles(name)')
+          .select('status, roles!user_profiles_role_id_fkey(name)')
           .eq('id', session.user.id)
           .single();
 

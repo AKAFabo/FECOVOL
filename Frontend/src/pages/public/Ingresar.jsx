@@ -94,11 +94,12 @@ function FormularioLogin({ onRecuperar }) {
       // 2. Consultar perfil y rol desde la base de datos
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('status, roles(name)')
+        .select('status, roles!user_profiles_role_id_fkey(name)')
         .eq('id', data.user.id)
         .single();
 
       if (profileError || !profile) {
+        console.error('Error al cargar perfil:', profileError);
         setError('No se encontró el perfil de usuario. Contacte a FECOVOL.');
         await supabase.auth.signOut();
         return;
@@ -358,7 +359,7 @@ function FormularioEstablecerContrasena() {
       // 2. Consultar perfil para redirigir
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('status, roles(name)')
+        .select('status, roles!user_profiles_role_id_fkey(name)')
         .eq('id', data.user.id)
         .single();
 
