@@ -81,6 +81,31 @@
   color: #fff;
 }
 
+.admin-sidebar__role-select {
+  width: 100%;
+  background: rgba(14, 59, 107, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+}
+
+.admin-sidebar__role-select:hover {
+  background: #0e3b6b;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.admin-sidebar__role-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
 .admin-sidebar__nav {
   flex: 1;
   padding: 8px 10px;

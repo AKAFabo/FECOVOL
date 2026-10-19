@@ -2,15 +2,55 @@ const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
+const authorize = require('../middleware/authorize');
+const { logDeniedAttempt, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
 
 const router = express.Router();
 
+// POST /api/users/record-denied-attempt -> Registra en bitácora un intento denegado detectado por el frontend (RF-SEG-010)
+router.post('/record-denied-attempt', asyncHandler(async (req, res) => {
+  const { email, subruta, motivo, user_id, rol } = req.body;
+  await logDeniedAttempt({
+    usuario: email || 'Usuario anónimo',
+    accion: 'ACCESO_DENEGADO',
+    tabla: 'rutas_sistema',
+    registroId: user_id || null,
+    motivo: motivo || `Acceso denegado a "${subruta || 'subruta'}" desde el rol "${rol || 'Sin rol'}"`,
+    endpoint: subruta || 'Navegación directa',
+    ip: getAuditClientIp(req),
+    datosIntentados: { subruta, email, rol, user_id }
+  });
+  res.status(201).json({ success: true, recorded: true });
+}));
+
 // POST /api/users/invite -> Invita un usuario por correo usando Supabase Auth Admin
-router.post('/invite', asyncHandler(async (req, res) => {
-  const { email, full_name, role_id, organization_id, status, admin_email } = req.body;
+router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'auth.users' }), asyncHandler(async (req, res) => {
+  const { email, full_name, role_id, role_ids, organization_id, status, admin_email } = req.body;
 
   if (!email || !full_name) {
     throw new HttpError(400, 'El correo y el nombre completo son obligatorios');
+  }
+
+  // Normalizar lista de roles asignados (RF-SEG-006)
+  const roleIds = Array.isArray(role_ids) && role_ids.length > 0
+    ? role_ids
+    : (role_id ? [role_id] : []);
+
+  const estadoFinal = status || 'PENDIENTE_CONTRASENA';
+
+  // Validación de negocio RF-SEG-006 / RF-SEG-010: Toda cuenta activa debe tener al menos un rol asignado
+  if (estadoFinal === 'ACTIVA' && roleIds.length === 0) {
+    await logDeniedAttempt({
+      usuario: admin_email || req.authorizedUser?.email || 'Administrador',
+      accion: 'OPERACION_INVALIDA',
+      tabla: 'auth.users',
+      motivo: 'Operación denegada: Intento de crear cuenta activa sin roles asignados',
+      endpoint: 'POST /api/users/invite',
+      ip: getAuditClientIp(req),
+      datosIntentados: { email, full_name, status: estadoFinal }
+    });
+
+    throw new HttpError(400, 'Operación denegada: Toda cuenta activa debe tener al menos un rol asignado.');
   }
 
   // 1. Enviar invitación por email con Supabase Admin API
@@ -24,15 +64,16 @@ router.post('/invite', asyncHandler(async (req, res) => {
   const userId = inviteData.user.id;
 
   // 2. Crear o actualizar el perfil en public.user_profiles
+  const primaryRoleId = roleIds[0] || null;
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .upsert({
       id: userId,
       email,
       full_name,
-      role_id: role_id || null,
+      role_id: primaryRoleId,
       organization_id: organization_id || null,
-      status: status || 'PENDIENTE_CONTRASENA',
+      status: estadoFinal,
       updated_at: new Date().toISOString()
     })
     .select()
@@ -41,7 +82,17 @@ router.post('/invite', asyncHandler(async (req, res) => {
   const errProfile = fromSupabase(profileError);
   if (errProfile) throw errProfile;
 
-  // 3. Registrar envío de invitación en bitácora de auditoría (RF-SEG-009)
+  // 3. Registrar roles en public.user_roles (N * M)
+  if (roleIds.length > 0) {
+    try {
+      const rows = roleIds.map(rId => ({ user_id: userId, role_id: rId }));
+      await supabase.from('user_roles').upsert(rows, { onConflict: 'user_id,role_id' });
+    } catch (errUserRoles) {
+      console.warn('Aviso: No se pudieron guardar user_roles en BD:', errUserRoles.message);
+    }
+  }
+
+  // 4. Registrar envío de invitación en bitácora de auditoría (RF-SEG-009)
   try {
     await supabase.from('audit_logs').insert([{
       usuario: admin_email || 'Administrador',
@@ -49,12 +100,12 @@ router.post('/invite', asyncHandler(async (req, res) => {
       tabla: 'auth.users',
       registro_id: userId,
       registro_nuevo: {
-        evento: 'Envío de invitación con enlace para establecer contraseña',
+        evento: 'Envío de invitación con asignación de roles',
         email,
         full_name,
-        role_id: role_id || null,
+        roles_asignados: roleIds,
         organization_id: organization_id || null,
-        status: status || 'PENDIENTE_CONTRASENA',
+        status: estadoFinal,
         enviado_por: admin_email || 'Administrador',
         timestamp: new Date().toISOString()
       }
@@ -70,7 +121,7 @@ router.post('/invite', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/users/resend-password-link -> Reenvía enlace para definir/restablecer contraseña (RF-SEG-009)
-router.post('/resend-password-link', asyncHandler(async (req, res) => {
+router.post('/resend-password-link', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'auth.users' }), asyncHandler(async (req, res) => {
   const { user_id, email, admin_email } = req.body;
 
   if (!user_id && !email) {
@@ -91,8 +142,19 @@ router.post('/resend-password-link', asyncHandler(async (req, res) => {
     throw new HttpError(404, 'No se encontró la cuenta de usuario especificada');
   }
 
-  // 2. REGLA DE SEGURIDAD CRÍTICA: Cuenta suspendida no puede recibir restablecimiento
+  // 2. REGLA DE SEGURIDAD CRÍTICA (RF-SEG-009 / RF-SEG-010): Cuenta suspendida no puede recibir restablecimiento
   if (profile.status === 'SUSPENDIDA') {
+    await logDeniedAttempt({
+      usuario: admin_email || req.authorizedUser?.email || 'Administrador',
+      accion: 'OPERACION_INVALIDA',
+      tabla: 'auth.users',
+      registroId: profile.id,
+      motivo: `Operación denegada: Intento de enviar enlace de acceso a cuenta suspendida (${profile.email})`,
+      endpoint: 'POST /api/users/resend-password-link',
+      ip: getAuditClientIp(req),
+      datosIntentados: { user_id: profile.id, email: profile.email }
+    });
+
     throw new HttpError(
       403,
       'Operación denegada: No se puede enviar un enlace de acceso a una cuenta suspendida. Active la cuenta previamente si desea otorgarle acceso.'
@@ -517,71 +579,182 @@ router.post('/establish-password', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/users -> Lista todos los usuarios con sus roles (bypasses RLS con service_role)
-router.get('/', asyncHandler(async (req, res) => {
-  const { data: profiles, error } = await supabase
-    .from('user_profiles')
-    .select(`
-      id,
-      email,
-      full_name,
-      status,
-      last_login,
-      role_id,
-      organization_id,
-      roles ( id, name )
-    `)
-    .order('created_at', { ascending: false });
+router.get('/', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'user_profiles' }), asyncHandler(async (req, res) => {
+  let profiles = [];
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        status,
+        last_login,
+        role_id,
+        organization_id,
+        roles:roles!user_profiles_role_id_fkey ( id, name ),
+        user_roles (
+          role_id,
+          roles ( id, name )
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    const err = fromSupabase(error);
-    throw err || new HttpError(500, 'Error al obtener usuarios');
+    if (error) {
+      // Fallback a select sin user_roles si la tabla aún no se ha creado
+      const { data: fallbackData, error: errFallback } = await supabase
+        .from('user_profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          status,
+          last_login,
+          role_id,
+          organization_id,
+          roles:roles!user_profiles_role_id_fkey ( id, name )
+        `)
+        .order('created_at', { ascending: false });
+      if (errFallback) throw errFallback;
+      profiles = fallbackData || [];
+    } else {
+      profiles = data || [];
+    }
+  } catch (err) {
+    const httpErr = fromSupabase(err);
+    throw httpErr || new HttpError(500, 'Error al obtener usuarios');
   }
 
-  res.json({ data: profiles });
+  // Normalizar los roles para cada usuario
+  const formatProfiles = profiles.map(p => {
+    let rolesList = [];
+    if (Array.isArray(p.user_roles) && p.user_roles.length > 0) {
+      rolesList = p.user_roles.map(ur => ur.roles).filter(Boolean);
+    } else if (p.roles) {
+      rolesList = [p.roles];
+    }
+    return {
+      ...p,
+      roles_list: rolesList,
+      role_ids: rolesList.map(r => r.id),
+      roles_names: rolesList.map(r => r.name),
+      primary_role: p.roles?.name || (rolesList[0]?.name || 'Sin rol')
+    };
+  });
+
+  res.json({ data: formatProfiles });
 }));
 
-// PUT /api/users/:id -> Actualiza perfil de usuario y revoca sesiones si cambia rol o estado (RF-SEG-003)
-router.put('/:id', asyncHandler(async (req, res) => {
+// PUT /api/users/:id -> Actualiza perfil de usuario y gestiona múltiples roles (RF-SEG-006 / RF-SEG-010)
+router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'user_profiles' }), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { full_name, role_id, organization_id, status, admin_email } = req.body;
+  const { full_name, role_id, role_ids, organization_id, status, admin_email } = req.body;
 
   // 1. Consultar estado previo para detectar cambios sensibles (rol o estado)
   const { data: usuarioPrevio } = await supabase
     .from('user_profiles')
-    .select('role_id, status, email, full_name, roles(name)')
+    .select('role_id, status, email, full_name, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
     .eq('id', id)
     .single();
 
-  // Validación RF-SEG-004: Impedir desactivar o degradar la única cuenta Administrador activa
-  const esAdminActivo = usuarioPrevio?.roles?.name === 'Administrador' && usuarioPrevio?.status === 'ACTIVA';
-  const vaADesactivar = status && status !== 'ACTIVA';
-  const vaACambiarRol = role_id && role_id !== usuarioPrevio?.role_id;
+  // Consultar roles asignados previamente en user_roles
+  let rolesPreviosIds = [];
+  try {
+    const { data: prevRoles } = await supabase
+      .from('user_roles')
+      .select('role_id, roles(name)')
+      .eq('user_id', id);
+    if (prevRoles && prevRoles.length > 0) {
+      rolesPreviosIds = prevRoles.map(r => r.role_id);
+    } else if (usuarioPrevio?.role_id) {
+      rolesPreviosIds = [usuarioPrevio.role_id];
+    }
+  } catch (e) {
+    if (usuarioPrevio?.role_id) rolesPreviosIds = [usuarioPrevio.role_id];
+  }
 
-  if (esAdminActivo && (vaADesactivar || vaACambiarRol)) {
+  // Normalizar nuevos role_ids (RF-SEG-006)
+  let nuevosRoleIds = null;
+  if (Array.isArray(role_ids)) {
+    nuevosRoleIds = role_ids;
+  } else if (role_id) {
+    nuevosRoleIds = [role_id];
+  }
+
+  const nuevoEstado = status !== undefined ? status : usuarioPrevio?.status;
+
+  // Validación de negocio RF-SEG-006 / RF-SEG-010: Toda cuenta activa debe tener al menos un rol asignado
+  if (nuevoEstado === 'ACTIVA' && nuevosRoleIds !== null && nuevosRoleIds.length === 0) {
+    await logDeniedAttempt({
+      usuario: admin_email || req.authorizedUser?.email || 'Administrador',
+      accion: 'OPERACION_INVALIDA',
+      tabla: 'user_profiles',
+      registroId: id,
+      motivo: `Operación denegada: Intento de dejar cuenta activa sin roles (${usuarioPrevio?.email})`,
+      endpoint: `PUT /api/users/${id}`,
+      ip: getAuditClientIp(req),
+      datosIntentados: { id, email: usuarioPrevio?.email, nuevosRoleIds }
+    });
+
+    throw new HttpError(400, 'Operación denegada: Toda cuenta activa debe tener al menos un rol asignado.');
+  }
+
+  // Validación RF-SEG-004 / RF-SEG-010: Impedir desactivar o quitar Administrador a la única cuenta Administrador activa
+  const tieneRolAdminPrevio = usuarioPrevio?.roles?.name === 'Administrador';
+  const esAdminActivo = tieneRolAdminPrevio && usuarioPrevio?.status === 'ACTIVA';
+  const vaADesactivar = nuevoEstado && nuevoEstado !== 'ACTIVA';
+  
+  let vaAQuitarAdmin = false;
+  if (esAdminActivo && nuevosRoleIds !== null) {
+    const { data: rolAdminData } = await supabase.from('roles').select('id').eq('name', 'Administrador').single();
+    if (rolAdminData && !nuevosRoleIds.includes(rolAdminData.id)) {
+      vaAQuitarAdmin = true;
+    }
+  }
+
+  if (esAdminActivo && (vaADesactivar || vaAQuitarAdmin)) {
     const { count, error: errCount } = await supabase
       .from('user_profiles')
-      .select('id, roles!inner(name)', { count: 'exact', head: true })
+      .select('id, roles:roles!user_profiles_role_id_fkey!inner(name)', { count: 'exact', head: true })
       .eq('roles.name', 'Administrador')
       .eq('status', 'ACTIVA')
       .neq('id', id);
 
     if (!errCount && count === 0) {
+      await logDeniedAttempt({
+        usuario: admin_email || req.authorizedUser?.email || 'Administrador',
+        accion: 'OPERACION_INVALIDA',
+        tabla: 'user_profiles',
+        registroId: id,
+        motivo: `Operación denegada: Intento de remover o desactivar el único Administrador activo (${usuarioPrevio?.email})`,
+        endpoint: `PUT /api/users/${id}`,
+        ip: getAuditClientIp(req),
+        datosIntentados: { id, email: usuarioPrevio?.email, nuevoEstado, nuevosRoleIds }
+      });
+
       throw new HttpError(
         400,
-        'Operación denegada: No se puede desactivar o cambiar el rol de la única cuenta Administrador activa en el sistema.'
+        'Operación denegada: No se puede desactivar o quitar el rol Administrador a la única cuenta Administrador activa en el sistema.'
       );
     }
   }
 
+  // 2. Actualizar user_profiles (solo las celdas provistas de forma aislada, sin efectos colaterales)
+  const updatePayload = {
+    updated_at: new Date().toISOString()
+  };
+  if (full_name !== undefined) updatePayload.full_name = full_name;
+  if (organization_id !== undefined) updatePayload.organization_id = organization_id || null;
+  if (status !== undefined) updatePayload.status = status;
+  if (nuevosRoleIds !== null && nuevosRoleIds.length > 0) {
+    updatePayload.role_id = nuevosRoleIds[0];
+  } else if (nuevosRoleIds !== null && nuevosRoleIds.length === 0) {
+    updatePayload.role_id = null;
+  }
+
   const { data, error } = await supabase
     .from('user_profiles')
-    .update({
-      full_name,
-      role_id: role_id || null,
-      organization_id: organization_id || null,
-      status,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq('id', id)
     .select(`
       id,
@@ -600,22 +773,61 @@ router.put('/:id', asyncHandler(async (req, res) => {
     throw err || new HttpError(500, 'Error al actualizar usuario');
   }
 
-  // 2. Comprobar si hubo cambio de rol o de estado (RF-SEG-003)
-  const rolCambio = usuarioPrevio && role_id && usuarioPrevio.role_id !== role_id;
+  // 3. Sincronizar tabla user_roles (N * M)
+  if (nuevosRoleIds !== null) {
+    try {
+      await supabase.from('user_roles').delete().eq('user_id', id);
+      if (nuevosRoleIds.length > 0) {
+        const rows = nuevosRoleIds.map(rId => ({ user_id: id, role_id: rId }));
+        await supabase.from('user_roles').insert(rows);
+      }
+    } catch (errUr) {
+      console.warn('Aviso: Error sincronizando user_roles:', errUr.message);
+    }
+  }
+
+  // 4. Auditar cambios de roles o alcance organizacional (RF-SEG-006)
+  const orgCambio = usuarioPrevio && organization_id !== undefined && usuarioPrevio.organization_id !== organization_id;
+  const rolesCambiaron = nuevosRoleIds !== null && (
+    nuevosRoleIds.length !== rolesPreviosIds.length ||
+    nuevosRoleIds.some(r => !rolesPreviosIds.includes(r))
+  );
+
+  if (orgCambio || rolesCambiaron) {
+    try {
+      await supabase.from('audit_logs').insert([{
+        usuario: admin_email || 'Administrador',
+        accion: 'UPDATE',
+        tabla: 'user_profiles',
+        registro_id: id,
+        registro_viejo: {
+          organization_id: usuarioPrevio?.organization_id,
+          roles_ids: rolesPreviosIds
+        },
+        registro_nuevo: {
+          evento: 'Modificación de roles y alcance organizacional (RF-SEG-006)',
+          organization_id: organization_id !== undefined ? organization_id : usuarioPrevio?.organization_id,
+          roles_ids: nuevosRoleIds || rolesPreviosIds,
+          solicitado_por: admin_email
+        }
+      }]);
+    } catch (e) {}
+  }
+
+  // 5. Comprobar si hubo cambio de rol o de estado para revocar sesión activa (RF-SEG-003)
   const estadoCambio = usuarioPrevio && status && (
     (status === 'SUSPENDIDA' && usuarioPrevio.status !== 'SUSPENDIDA') ||
     (status === 'PENDIENTE_CONTRASENA' && usuarioPrevio.status !== 'PENDIENTE_CONTRASENA')
   );
 
   let razonRevocacion = null;
-  if (rolCambio) {
-    razonRevocacion = 'Revocación de sesión por cambio de rol';
+  if (rolesCambiaron) {
+    razonRevocacion = 'Revocación de sesión por cambio de roles';
   } else if (estadoCambio) {
     razonRevocacion = `Revocación de sesión por cambio de estado a ${status}`;
   }
 
   if (razonRevocacion) {
-    // A) Auditar en audit_logs como evento de cierre forzado de sesión
     try {
       await supabase.from('audit_logs').insert([{
         usuario: admin_email || 'Administrador',
@@ -630,28 +842,109 @@ router.put('/:id', asyncHandler(async (req, res) => {
         registro_nuevo: {
           evento: razonRevocacion,
           email: data.email,
-          nuevo_rol_id: role_id,
-          nuevo_rol_nombre: data.roles?.name,
           nuevo_estado: status,
           razon: razonRevocacion
         }
       }]);
-    } catch (errAudit) {
-      console.warn('Error auditando revocación de sesión:', errAudit);
-    }
+    } catch (errAudit) {}
 
-    // B) Revocar sesiones activas en la BD vía stored procedure si está disponible
     try {
       await supabase.rpc('fn_revoke_user_sessions', { p_user_id: id });
-    } catch (errRpc) {
-      // Procedimiento opcional si no se ha ejecutado la migración SQL aún
-    }
+    } catch (errRpc) {}
   }
 
   res.json({
-    data,
+    message: 'Usuario actualizado exitosamente',
+    data: {
+      ...data,
+      role_ids: nuevosRoleIds || rolesPreviosIds
+    },
     sessionRevoked: Boolean(razonRevocacion),
     revocationReason: razonRevocacion
+  });
+}));
+
+// POST /api/users/switch-active-role -> Permite al usuario cambiar su visualización / rol activo (RF-SEG-006 / RF-SEG-010)
+router.post('/switch-active-role', asyncHandler(async (req, res) => {
+  const { user_id, role_id } = req.body;
+
+  if (!user_id || !role_id) {
+    throw new HttpError(400, 'user_id y role_id son requeridos');
+  }
+
+  // Verificar cuenta en user_profiles
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('id, email, status, role_id')
+    .eq('id', user_id)
+    .maybeSingle();
+
+  if (!profile || profile.status === 'SUSPENDIDA') {
+    await logDeniedAttempt({
+      usuario: profile?.email || user_id,
+      accion: 'ACCESO_DENEGADO',
+      tabla: 'user_profiles',
+      registroId: user_id,
+      motivo: `Intento de cambio de rol activo desde cuenta ${profile ? profile.status : 'inexistente'}`,
+      endpoint: 'POST /api/users/switch-active-role',
+      ip: getAuditClientIp(req),
+      datosIntentados: { user_id, role_id }
+    });
+
+    throw new HttpError(403, 'Acceso denegado: Cuenta suspendida o inexistente.');
+  }
+
+  // 1. Verificar que el usuario tenga ese rol asignado en user_roles
+  let tieneRol = false;
+  try {
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', user_id)
+      .eq('role_id', role_id)
+      .maybeSingle();
+
+    if (userRole) {
+      tieneRol = true;
+    }
+  } catch (e) {}
+
+  if (!tieneRol && profile.role_id === role_id) {
+    tieneRol = true;
+  }
+
+  if (!tieneRol) {
+    await logDeniedAttempt({
+      usuario: profile.email || user_id,
+      accion: 'ACCESO_DENEGADO',
+      tabla: 'user_roles',
+      registroId: user_id,
+      motivo: `Intento no autorizado de activar rol no asignado (escalación de privilegios para role_id: ${role_id})`,
+      endpoint: 'POST /api/users/switch-active-role',
+      ip: getAuditClientIp(req),
+      datosIntentados: { user_id, role_id, email: profile.email }
+    });
+
+    throw new HttpError(403, 'No tiene asignado el rol solicitado');
+  }
+
+  // 2. Actualizar role_id activo en user_profiles
+  const { data: updated, error } = await supabase
+    .from('user_profiles')
+    .update({ role_id, updated_at: new Date().toISOString() })
+    .eq('id', user_id)
+    .select('id, role_id, roles(id, name)')
+    .single();
+
+  if (error) {
+    throw fromSupabase(error) || new HttpError(500, 'Error al cambiar rol activo');
+  }
+
+  res.json({
+    success: true,
+    message: 'Rol activo actualizado',
+    active_role: updated.roles?.name,
+    role_id: updated.role_id
   });
 }));
 

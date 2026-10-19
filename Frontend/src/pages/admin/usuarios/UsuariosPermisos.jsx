@@ -27,7 +27,7 @@ export default function UsuariosPermisos() {
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: '',
     email: '',
-    rolId: '',
+    rolesIds: [],
     organizationId: '',
     estado: 'PENDIENTE_CONTRASENA'
   });
@@ -73,7 +73,11 @@ export default function UsuariosPermisos() {
       // 1. Intentar cargar perfiles vía Backend API (service_role para evitar filtrado por RLS)
       let profiles = null;
       try {
-        const resUsers = await fetch('http://localhost:4000/api/users');
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+        const resUsers = await fetch(`${backendUrl}/api/users`, {
+          headers: { 'x-user-email': currentUser?.email || '' }
+        });
         if (resUsers.ok) {
           const resJson = await resUsers.json();
           profiles = resJson.data;
@@ -94,7 +98,8 @@ export default function UsuariosPermisos() {
             last_login,
             role_id,
             organization_id,
-            roles ( id, name )
+            roles:roles!user_profiles_role_id_fkey ( id, name ),
+            user_roles ( role_id, roles ( id, name ) )
           `)
           .order('created_at', { ascending: false });
 
@@ -104,16 +109,35 @@ export default function UsuariosPermisos() {
 
       const formateados = (profiles || []).map((u) => {
         let alcance = 'Toda la Federación';
-        const rolName = u.roles?.name || 'Sin rol';
+        
+        // Roles múltiples o único
+        let rolesIds = [];
+        let rolesNombres = [];
+        if (Array.isArray(u.role_ids) && u.role_ids.length > 0) {
+          rolesIds = u.role_ids;
+          rolesNombres = u.roles_names || [];
+        } else if (Array.isArray(u.user_roles) && u.user_roles.length > 0) {
+          rolesIds = u.user_roles.map(ur => ur.role_id || ur.roles?.id).filter(Boolean);
+          rolesNombres = u.user_roles.map(ur => ur.roles?.name).filter(Boolean);
+        } else if (u.role_id) {
+          rolesIds = [u.role_id];
+          rolesNombres = u.roles?.name ? [u.roles.name] : ['Sin rol'];
+        }
+
+        if (rolesNombres.length === 0) {
+          rolesNombres = u.roles?.name ? [u.roles.name] : ['Sin rol'];
+        }
+
+        const rolName = rolesNombres.join(', ');
         const asoc = (asocs || []).find((a) => a.id === u.organization_id);
 
         if (asoc) {
           alcance = asoc.name;
-        } else if (rolName === 'Representante') {
+        } else if (rolesNombres.includes('Representante')) {
           alcance = 'Asociación no asignada';
-        } else if (rolName === 'Arbitro') {
+        } else if (rolesNombres.includes('Arbitro') && !rolesNombres.includes('Administrador')) {
           alcance = 'Sus designaciones';
-        } else if (rolName === 'Personal') {
+        } else if (rolesNombres.includes('Personal') && !rolesNombres.includes('Administrador')) {
           alcance = 'Todas las competencias';
         }
 
@@ -122,7 +146,9 @@ export default function UsuariosPermisos() {
           nombre: u.full_name,
           email: u.email,
           rol: rolName,
-          rolId: u.role_id,
+          rolId: u.role_id || rolesIds[0] || null,
+          rolesIds,
+          rolesNombres,
           organizationId: u.organization_id,
           asociacionNombre: asoc ? asoc.name : null,
           asociacionEstado: asoc ? asoc.status : null,
@@ -148,7 +174,7 @@ export default function UsuariosPermisos() {
   // Filtrado
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter(u => {
-      const matchRol = filtroRol === 'todos' || u.rol === filtroRol;
+      const matchRol = filtroRol === 'todos' || (u.rolesNombres && u.rolesNombres.includes(filtroRol)) || u.rol === filtroRol;
       const matchEstado = filtroEstado === 'todos' || u.estado === filtroEstado;
       const matchBusqueda = busqueda === '' || 
         u.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -172,10 +198,10 @@ export default function UsuariosPermisos() {
   // Conteos para tarjeta lateral
   const cuentasPorRol = useMemo(() => {
     return {
-      admin: usuarios.filter(u => u.rol === 'Administrador').length,
-      personal: usuarios.filter(u => u.rol === 'Personal').length,
-      asoc: usuarios.filter(u => u.rol === 'Representante').length,
-      arbitro: usuarios.filter(u => u.rol === 'Arbitro').length,
+      admin: usuarios.filter(u => u.rolesNombres?.includes('Administrador') || u.rol === 'Administrador').length,
+      personal: usuarios.filter(u => u.rolesNombres?.includes('Personal') || u.rol === 'Personal').length,
+      asoc: usuarios.filter(u => u.rolesNombres?.includes('Representante') || u.rol === 'Representante').length,
+      arbitro: usuarios.filter(u => u.rolesNombres?.includes('Arbitro') || u.rol === 'Arbitro').length,
     };
   }, [usuarios]);
 
@@ -183,6 +209,10 @@ export default function UsuariosPermisos() {
   const handleCrearUsuario = async (e) => {
     e.preventDefault();
     if (!nuevoUsuario.email || !nuevoUsuario.nombre) return;
+    if (!nuevoUsuario.rolesIds || nuevoUsuario.rolesIds.length === 0) {
+      alert('Debe seleccionar al menos un rol para el usuario.');
+      return;
+    }
 
     setGuardando(true);
     try {
@@ -190,11 +220,15 @@ export default function UsuariosPermisos() {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
       const respuesta = await fetch(`${backendUrl}/api/users/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': currentUser?.email || ''
+        },
         body: JSON.stringify({
           email: nuevoUsuario.email,
           full_name: nuevoUsuario.nombre,
-          role_id: nuevoUsuario.rolId || null,
+          role_id: nuevoUsuario.rolesIds[0] || null,
+          role_ids: nuevoUsuario.rolesIds,
           organization_id: nuevoUsuario.organizationId || null,
           status: nuevoUsuario.estado,
           admin_email: currentUser?.email || 'Administrador'
@@ -210,7 +244,7 @@ export default function UsuariosPermisos() {
       setNuevoUsuario({
         nombre: '',
         email: '',
-        rolId: '',
+        rolesIds: roles[0] ? [roles[0].id] : [],
         organizationId: '',
         estado: 'PENDIENTE_CONTRASENA'
       });
@@ -247,7 +281,10 @@ export default function UsuariosPermisos() {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
       const res = await fetch(`${backendUrl}/api/users/resend-password-link`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': currentUser?.email || ''
+        },
         body: JSON.stringify({
           user_id: usuarioEditando.id,
           email: usuarioEditando.email,
@@ -284,12 +321,12 @@ export default function UsuariosPermisos() {
     }
   };
 
-  // Detectar si el usuario que se está editando es el único administrador activo (RF-SEG-004)
+  // Detectar si el usuario que se está editando es el único administrador activo (RF-SEG-004 / RF-SEG-006)
   const esUnicoAdminActivo = useMemo(() => {
     if (!usuarioEditando) return false;
     const original = usuarios.find(u => u.id === usuarioEditando.id);
-    if (!original || original.rol !== 'Administrador' || original.estado !== 'ACTIVA') return false;
-    const totalAdminsActivos = usuarios.filter(u => u.rol === 'Administrador' && u.estado === 'ACTIVA').length;
+    if (!original || !(original.rolesNombres?.includes('Administrador') || original.rol === 'Administrador') || original.estado !== 'ACTIVA') return false;
+    const totalAdminsActivos = usuarios.filter(u => (u.rolesNombres?.includes('Administrador') || u.rol === 'Administrador') && u.estado === 'ACTIVA').length;
     return totalAdminsActivos <= 1;
   }, [usuarioEditando, usuarios]);
 
@@ -298,22 +335,36 @@ export default function UsuariosPermisos() {
     e.preventDefault();
     if (!usuarioEditando) return;
 
+    // Validación preventiva: toda cuenta activa debe tener al menos un rol asignado (RF-SEG-006)
+    if (usuarioEditando.estado === 'ACTIVA' && (!usuarioEditando.rolesIds || usuarioEditando.rolesIds.length === 0)) {
+      alert('Operación no permitida: Toda cuenta activa debe tener al menos un rol asignado.');
+      return;
+    }
+
     setGuardando(true);
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       const usuarioOriginal = usuarios.find(u => u.id === usuarioEditando.id);
-      const rolCambio = usuarioOriginal && usuarioOriginal.rolId !== usuarioEditando.rolId;
+      
+      const origIds = (usuarioOriginal?.rolesIds || [usuarioOriginal?.rolId]).filter(Boolean).sort().join(',');
+      const newIds = (usuarioEditando.rolesIds || []).filter(Boolean).sort().join(',');
+      const rolCambio = origIds !== newIds;
+
       const estadoCambio = usuarioOriginal && (
         (usuarioEditando.estado === 'SUSPENDIDA' && usuarioOriginal.estado !== 'SUSPENDIDA') ||
         (usuarioEditando.estado === 'PENDIENTE_CONTRASENA' && usuarioOriginal.estado !== 'PENDIENTE_CONTRASENA')
       );
       const esMismoUsuario = currentUser && currentUser.id === usuarioEditando.id;
 
-      // Validación preventiva: Impedir desactivar o degradar la única cuenta Administrador activa (RF-SEG-004)
-      if (esUnicoAdminActivo && (rolCambio || estadoCambio)) {
+      // Validación preventiva: Impedir desactivar o quitar rol admin al único Administrador activo (RF-SEG-004)
+      const adminRole = roles.find(r => r.name === 'Administrador');
+      const perdioAdmin = adminRole && !usuarioEditando.rolesIds.includes(adminRole.id);
+      const desactivoCuenta = usuarioEditando.estado !== 'ACTIVA';
+
+      if (esUnicoAdminActivo && (perdioAdmin || desactivoCuenta)) {
         alert(
           'Operación no permitida: Esta es la única cuenta de Administrador activa en el sistema. ' +
-          'No puede ser suspendida ni cambiada de rol para garantizar la continuidad del acceso administrativo.'
+          'No puede ser suspendida ni despojada del rol Administrador para garantizar la continuidad del acceso administrativo.'
         );
         setGuardando(false);
         return;
@@ -325,10 +376,14 @@ export default function UsuariosPermisos() {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
         const resUpdate = await fetch(`${backendUrl}/api/users/${usuarioEditando.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': currentUser?.email || ''
+          },
           body: JSON.stringify({
             full_name: usuarioEditando.nombre,
-            role_id: usuarioEditando.rolId || null,
+            role_id: usuarioEditando.rolesIds[0] || null,
+            role_ids: usuarioEditando.rolesIds,
             organization_id: usuarioEditando.organizationId || null,
             status: usuarioEditando.estado,
             admin_email: currentUser?.email || 'Administrador'
@@ -353,7 +408,7 @@ export default function UsuariosPermisos() {
           .from('user_profiles')
           .update({
             full_name: usuarioEditando.nombre,
-            role_id: usuarioEditando.rolId || null,
+            role_id: usuarioEditando.rolesIds[0] || null,
             organization_id: usuarioEditando.organizationId || null,
             status: usuarioEditando.estado,
             updated_at: new Date().toISOString()
@@ -361,6 +416,20 @@ export default function UsuariosPermisos() {
           .eq('id', usuarioEditando.id);
 
         if (errUpdate) throw errUpdate;
+
+        // Sync user_roles
+        try {
+          await supabase.from('user_roles').delete().eq('user_id', usuarioEditando.id);
+          if (usuarioEditando.rolesIds.length > 0) {
+            const inserts = usuarioEditando.rolesIds.map(rId => ({
+              user_id: usuarioEditando.id,
+              role_id: rId
+            }));
+            await supabase.from('user_roles').insert(inserts);
+          }
+        } catch (eUr) {
+          console.warn('user_roles fallback sync warning:', eUr);
+        }
 
         // Si cambió el rol o estado y no pasó por backend, auditarlo directo
         if (rolCambio || estadoCambio) {
@@ -376,7 +445,7 @@ export default function UsuariosPermisos() {
               registro_nuevo: {
                 evento: razon,
                 email: usuarioEditando.email,
-                nuevo_rol_id: usuarioEditando.rolId,
+                nuevos_roles: usuarioEditando.rolesIds,
                 nuevo_estado: usuarioEditando.estado,
                 razon
               }
@@ -389,14 +458,14 @@ export default function UsuariosPermisos() {
       if (esMismoUsuario && (rolCambio || estadoCambio)) {
         alert(
           rolCambio
-            ? 'Ha modificado el rol de su propia cuenta. Su sesión se cerrará para aplicar los nuevos permisos.'
+            ? 'Ha modificado los roles de su propia cuenta. Su sesión se cerrará para aplicar los nuevos permisos.'
             : `Ha modificado el estado de su propia cuenta a ${usuarioEditando.estado}. Su sesión ha sido finalizada.`
         );
         await supabase.auth.signOut();
         navigate('/ingresar', {
           state: {
             mensaje: rolCambio
-              ? 'Su rol de usuario fue actualizado. Inicie sesión nuevamente para acceder con sus nuevos permisos.'
+              ? 'Sus roles de usuario fueron actualizados. Inicie sesión nuevamente para acceder con sus nuevos permisos.'
               : `Su cuenta ahora se encuentra en estado ${usuarioEditando.estado}.`,
             vista: 'login'
           },
@@ -433,7 +502,7 @@ export default function UsuariosPermisos() {
               setNuevoUsuario({
                 nombre: '',
                 email: '',
-                rolId: roles[0]?.id || '',
+                rolesIds: roles[0] ? [roles[0].id] : [],
                 organizationId: '',
                 estado: 'PENDIENTE_CONTRASENA'
               });
@@ -513,7 +582,26 @@ export default function UsuariosPermisos() {
                         <span className="admin-table__user-email">{u.email}</span>
                       </div>
                     </td>
-                    <td>{u.rol}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {(u.rolesNombres && u.rolesNombres.length > 0 ? u.rolesNombres : [u.rol]).map((rn, idx) => (
+                          <span 
+                            key={idx}
+                            className="badge-status"
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '2px 8px',
+                              fontWeight: 600,
+                              background: rn === 'Administrador' ? '#fee2e2' : rn === 'Personal' ? '#dcfce7' : rn === 'Representante' ? '#f3e8ff' : '#e0f2fe',
+                              color: rn === 'Administrador' ? '#991b1b' : rn === 'Personal' ? '#166534' : rn === 'Representante' ? '#6b21a8' : '#075985',
+                              border: `1px solid ${rn === 'Administrador' ? '#fca5a5' : rn === 'Personal' ? '#86efac' : rn === 'Representante' ? '#d8b4fe' : '#7dd3fc'}`
+                            }}
+                          >
+                            {rn}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                     <td>
                       {u.asociacionNombre ? (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -556,7 +644,10 @@ export default function UsuariosPermisos() {
                         style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                         onClick={() => {
                           setMensajeFeedbackModal(null);
-                          setUsuarioEditando({ ...u });
+                          setUsuarioEditando({ 
+                            ...u,
+                            rolesIds: u.rolesIds ? [...u.rolesIds] : (u.rolId ? [u.rolId] : [])
+                          });
                         }}
                       >
                         Editar
@@ -687,19 +778,53 @@ export default function UsuariosPermisos() {
                 </div>
 
                 <div className="campo" style={{ marginBottom: '14px' }}>
-                  <label className="campo__etiqueta">Rol en el sistema *</label>
-                  <select 
-                    className="admin-select"
-                    style={{ width: '100%' }}
-                    value={nuevoUsuario.rolId}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, rolId: e.target.value })}
-                    required
-                  >
-                    <option value="">Seleccione un rol...</option>
-                    {roles.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
+                  <label className="campo__etiqueta">Roles en el sistema * (Seleccione uno o varios)</label>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: '8px', 
+                    padding: '12px', 
+                    background: '#f8fafc', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '6px' 
+                  }}>
+                    {roles.map(r => {
+                      const seleccionado = nuevoUsuario.rolesIds?.includes(r.id);
+                      return (
+                        <label 
+                          key={r.id} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            fontSize: '0.85rem', 
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                        >
+                          <input 
+                            type="checkbox"
+                            checked={seleccionado || false}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setNuevoUsuario(prev => ({
+                                ...prev,
+                                rolesIds: checked 
+                                  ? [...(prev.rolesIds || []), r.id] 
+                                  : (prev.rolesIds || []).filter(id => id !== r.id)
+                              }));
+                            }}
+                          />
+                          <span style={{ fontWeight: seleccionado ? 600 : 400 }}>{r.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(!nuevoUsuario.rolesIds || nuevoUsuario.rolesIds.length === 0) && (
+                    <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px', display: 'block' }}>
+                      * Debe seleccionar al menos un rol para el usuario
+                    </span>
+                  )}
                 </div>
 
                 {asociaciones.length > 0 && (
@@ -823,20 +948,61 @@ export default function UsuariosPermisos() {
 
                 <div className="campo" style={{ marginBottom: '14px' }}>
                   <label className="campo__etiqueta">
-                    Rol {esUnicoAdminActivo && <span style={{ color: '#b45309', fontWeight: 'normal', fontSize: '0.78rem' }}>(Protegido: único admin)</span>}
+                    Roles en el sistema * (Seleccione uno o varios)
+                    {esUnicoAdminActivo && <span style={{ color: '#b45309', fontWeight: 'normal', fontSize: '0.78rem' }}> (Rol Administrador protegido: único admin)</span>}
                   </label>
-                  <select 
-                    className="admin-select"
-                    style={{ width: '100%', ...(esUnicoAdminActivo ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}) }}
-                    value={usuarioEditando.rolId || ''}
-                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, rolId: e.target.value })}
-                    disabled={esUnicoAdminActivo}
-                  >
-                    <option value="">Seleccione un rol...</option>
-                    {roles.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: '8px', 
+                    padding: '12px', 
+                    background: '#f8fafc', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '6px' 
+                  }}>
+                    {roles.map(r => {
+                      const esAdminRol = r.name === 'Administrador';
+                      const deshabilitado = esUnicoAdminActivo && esAdminRol;
+                      const seleccionado = usuarioEditando.rolesIds?.includes(r.id);
+                      return (
+                        <label 
+                          key={r.id} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            fontSize: '0.85rem', 
+                            cursor: deshabilitado ? 'not-allowed' : 'pointer',
+                            opacity: deshabilitado ? 0.8 : 1,
+                            userSelect: 'none'
+                          }}
+                        >
+                          <input 
+                            type="checkbox"
+                            checked={seleccionado || false}
+                            disabled={deshabilitado}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setUsuarioEditando(prev => ({
+                                ...prev,
+                                rolesIds: checked 
+                                  ? [...(prev.rolesIds || []), r.id] 
+                                  : (prev.rolesIds || []).filter(id => id !== r.id)
+                              }));
+                            }}
+                          />
+                          <span style={{ fontWeight: seleccionado ? 600 : 400 }}>
+                            {r.name} {deshabilitado && '🔒'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {usuarioEditando.estado === 'ACTIVA' && (!usuarioEditando.rolesIds || usuarioEditando.rolesIds.length === 0) && (
+                    <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '4px', display: 'block' }}>
+                      * Una cuenta activa no puede quedar sin roles
+                    </span>
+                  )}
                 </div>
 
                 <div className="campo" style={{ marginBottom: '14px' }}>

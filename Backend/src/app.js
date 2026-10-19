@@ -11,6 +11,7 @@ const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const usersRoutes = require('./routes/users.routes');
+const rolesRoutes = require('./routes/roles.routes');
 
 const app = express();
 
@@ -29,7 +30,8 @@ app.get('/', (req, res) => {
       '/api/documents',
       '/api/referee-assignments',
       '/api/catalogs',
-      '/api/users'
+      '/api/users',
+      '/api/roles'
     ]
   });
 });
@@ -41,6 +43,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/roles', rolesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

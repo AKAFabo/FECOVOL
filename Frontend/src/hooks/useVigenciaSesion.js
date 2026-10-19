@@ -146,6 +146,12 @@ export function useVigenciaSesion({
 
       // A) Cambio de rol
       if (rolInicial && perfilActual.role_id && perfilActual.role_id !== rolInicial) {
+        const justSwitched = sessionStorage.getItem('fecovol_role_switched_locally');
+        if (justSwitched) {
+          sessionStorage.removeItem('fecovol_role_switched_locally');
+          refRolInicial.current = perfilActual.role_id;
+          return;
+        }
         await auditarYDesconectar(
           'Su rol de usuario ha sido modificado por un administrador. Inicie sesión nuevamente para acceder con sus nuevos permisos.',
           'Revocación de sesión por cambio de rol'

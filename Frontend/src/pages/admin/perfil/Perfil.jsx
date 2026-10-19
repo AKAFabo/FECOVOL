@@ -55,7 +55,7 @@ export default function Perfil() {
           status,
           last_login,
           organization_id,
-          roles ( name ),
+          roles:roles!user_profiles_role_id_fkey ( name ),
           associations:organization_id ( name )
         `)
         .eq('id', user.id)

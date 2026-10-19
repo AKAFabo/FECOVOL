@@ -1,25 +1,27 @@
-import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './AdminLayout.css';
 import '../pages/admin/AdminCommon.css';
 import { supabase } from '../supabaseClient.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
 
 const NAV_ITEMS = [
-  { to: '/admin/panel', texto: 'Panel general' },
-  { to: '/admin/asociaciones', texto: 'Asociaciones y equipos' },
-  { to: '/admin/personas', texto: 'Personas federadas' },
-  { to: '/admin/competencias', texto: 'Competencias' },
-  { to: '/admin/arbitraje', texto: 'Arbitraje' },
-  { to: '/admin/incidentes', texto: 'Incidentes y sanciones' },
-  { to: '/admin/noticias', texto: 'Noticias y comunicados' },
-  { to: '/admin/listas-valores', texto: 'Listas de valores' },
-  { to: '/admin/usuarios', texto: 'Usuarios y permisos' },
-  { to: '/admin/auditoria', texto: 'Auditoría y respaldos' },
+  { to: '/admin/panel', texto: 'Panel general', subruta: '/admin' },
+
+  { to: '/admin/asociaciones', texto: 'Asociaciones y equipos', subruta: '/admin' },
+  { to: '/admin/personas', texto: 'Personas federadas', subruta: '/admin' },
+  { to: '/admin/competencias', texto: 'Competencias', subruta: '/admin' },
+  { to: '/admin/arbitraje', texto: 'Arbitraje', subruta: '/admin' },
+  { to: '/admin/incidentes', texto: 'Incidentes y sanciones', subruta: '/admin' },
+  { to: '/admin/noticias', texto: 'Noticias y comunicados', subruta: '/admin' },
+  { to: '/admin/usuarios', texto: 'Usuarios y permisos', subruta: '/admin/usuarios' },
+  { to: '/admin/listas-valores', texto: 'Listas de valores', subruta: '/admin/listas-valores' },
+  { to: '/admin/auditoria', texto: 'Auditoría y respaldos', subruta: '/admin/auditoria' },
 ];
 
 export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [usuarioActual, setUsuarioActual] = useState({
     id: null,
     email: '',
@@ -29,6 +31,9 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
     rol: 'Administración FECOVOL',
     iniciales: 'US'
   });
+  const [rolesDisponibles, setRolesDisponibles] = useState([]);
+  const [permisosActivos, setPermisosActivos] = useState([]);
+  const [cambiandoRol, setCambiandoRol] = useState(false);
   const [mostrarModalLogout, setMostrarModalLogout] = useState(false);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
 
@@ -49,7 +54,7 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           // Intentar obtener el perfil de la base de datos
           const { data: profile } = await supabase
             .from('user_profiles')
-            .select('role_id, status, full_name, roles(name)')
+            .select('role_id, status, full_name, roles:roles!user_profiles_role_id_fkey(name)')
             .eq('id', user.id)
             .single();
 
@@ -62,6 +67,25 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
             ? (palabras[0][0] + palabras[1][0]).toUpperCase()
             : (nombre.substring(0, 2)).toUpperCase();
 
+          // Obtener todos los roles asignados desde public.user_roles (RF-SEG-006)
+          let listaRoles = [];
+          try {
+            const { data: userRoles } = await supabase
+              .from('user_roles')
+              .select('role_id, roles(id, name)')
+              .eq('user_id', user.id);
+
+            if (userRoles && userRoles.length > 0) {
+              listaRoles = userRoles.map(ur => ur.roles).filter(Boolean);
+            }
+          } catch (e) {}
+
+          if (listaRoles.length === 0 && profile?.roles) {
+            listaRoles = [{ id: profile.role_id, name: profile.roles.name }];
+          }
+
+          setRolesDisponibles(listaRoles);
+
           setUsuarioActual({
             id: user.id,
             email: user.email || '',
@@ -71,6 +95,8 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
             rol,
             iniciales
           });
+
+          await cargarPermisosDeRol(profile?.role_id, rol);
         }
       } catch (err) {
         console.error('Error al obtener usuario actual:', err);
@@ -79,6 +105,92 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
 
     obtenerUsuario();
   }, []);
+
+  // Cargar matriz de permisos del rol activo (RF-SEG-005)
+  async function cargarPermisosDeRol(roleId, rolNombre) {
+    if (rolNombre === 'Administrador') {
+      setPermisosActivos(['/admin', '/arbitro', '/asociacion', '/personal', '/admin/usuarios', '/admin/listas-valores', '/admin/auditoria', '/admin/perfil']);
+      return;
+    }
+
+    try {
+      if (roleId) {
+        const { data: perms } = await supabase
+          .from('role_permissions')
+          .select('screen_key')
+          .eq('role_id', roleId);
+
+        if (perms && perms.length > 0) {
+          setPermisosActivos(perms.map(p => p.screen_key));
+          return;
+        }
+      }
+      setPermisosActivos(['/admin']);
+    } catch (e) {
+      console.warn('Aviso al cargar permisos del rol activo:', e);
+      setPermisosActivos(['/admin']);
+    }
+  }
+
+  // Filtrar los items de navegación visibles según la matriz de permisos (RF-SEG-005)
+  const navItemsVisibles = useMemo(() => {
+    if (usuarioActual.rol === 'Administrador') return NAV_ITEMS;
+    if (permisosActivos.length === 0) return NAV_ITEMS;
+    return NAV_ITEMS.filter(it => 
+      permisosActivos.includes(it.subruta) || 
+      permisosActivos.includes('/admin') ||
+      permisosActivos.includes(it.to)
+    );
+  }, [usuarioActual.rol, permisosActivos]);
+
+  // Verificar si la pantalla actual está permitida para el rol
+  const rutaActualItem = NAV_ITEMS.find(it => location.pathname === it.to || location.pathname.startsWith(it.to + '/'));
+  const tienePermisoRuta = !rutaActualItem || navItemsVisibles.some(it => it.to === rutaActualItem.to);
+
+  // Cambiar visualización/rol activo desde el dropdown del sidebar (RF-SEG-006)
+  const handleCambiarRolActivo = async (nuevoRoleId) => {
+    if (!usuarioActual.id || nuevoRoleId === usuarioActual.roleId) return;
+    const rolObj = rolesDisponibles.find(r => r.id === nuevoRoleId);
+    if (!rolObj) return;
+
+    setCambiandoRol(true);
+    try {
+      // 1. Notificar a useVigenciaSesion que el cambio de rol fue voluntario por el usuario
+      sessionStorage.setItem('fecovol_role_switched_locally', 'true');
+
+      // 2. Actualizar rol activo en el backend / base de datos
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+      await fetch(`${backendUrl}/api/users/switch-active-role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: usuarioActual.id,
+          role_id: nuevoRoleId
+        })
+      });
+
+      setUsuarioActual(prev => ({
+        ...prev,
+        roleId: nuevoRoleId,
+        rol: rolObj.name
+      }));
+
+      await cargarPermisosDeRol(nuevoRoleId, rolObj.name);
+
+      // 3. Redirigir a la vista correspondiente al nuevo rol
+      const RUTA_POR_ROL = {
+        'Administrador': '/admin/panel',
+        'Personal':      '/personal',
+        'Representante': '/asociacion',
+        'Arbitro':       '/arbitro',
+      };
+      navigate(RUTA_POR_ROL[rolObj.name] || '/admin/panel');
+    } catch (err) {
+      console.error('Error al cambiar de rol activo:', err);
+    } finally {
+      setCambiandoRol(false);
+    }
+  };
 
   const handleConfirmarCerrarSesion = async () => {
     setCerrandoSesion(true);
@@ -150,13 +262,36 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
         </div>
 
         <div className="admin-sidebar__role-box">
-          <span className="admin-sidebar__role-label">Rol</span>
-          <span className="admin-sidebar__role-title">{usuarioActual.rol}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+            <span className="admin-sidebar__role-label">Rol</span>
+            {rolesDisponibles.length > 1 && (
+              <span style={{ fontSize: '0.62rem', color: '#fca5a5', opacity: 0.85, fontWeight: 700 }}>
+                {rolesDisponibles.length} roles
+              </span>
+            )}
+          </div>
+          {rolesDisponibles.length > 1 ? (
+            <select
+              className="admin-sidebar__role-select"
+              value={usuarioActual.roleId || ''}
+              onChange={(e) => handleCambiarRolActivo(e.target.value)}
+              disabled={cambiandoRol}
+              aria-label="Cambiar visualización de rol"
+            >
+              {rolesDisponibles.map((r) => (
+                <option key={r.id} value={r.id} style={{ color: '#0f172a', background: '#fff' }}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="admin-sidebar__role-title">{usuarioActual.rol}</span>
+          )}
         </div>
 
         <nav className="admin-sidebar__nav">
           <ul>
-            {NAV_ITEMS.map((item) => (
+            {navItemsVisibles.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
@@ -219,7 +354,24 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
 
         {/* Content Outlet */}
         <main className="admin-content">
-          <Outlet />
+          {tienePermisoRuta ? (
+            <Outlet />
+          ) : (
+            <div style={{ padding: '36px', maxWidth: '600px', margin: '40px auto', textAlign: 'center', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🔒</div>
+              <h2 style={{ color: 'var(--texto)', marginBottom: '8px', fontSize: '1.4rem' }}>Acceso restringido</h2>
+              <p style={{ color: 'var(--texto-suave)', lineHeight: 1.5, marginBottom: '20px' }}>
+                Su rol actual (<strong>{usuarioActual.rol}</strong>) no tiene autorización en la matriz de permisos para acceder al módulo de <strong>{rutaActualItem?.texto}</strong>.
+              </p>
+              <button 
+                type="button" 
+                className="admin-btn admin-btn--primary"
+                onClick={() => navigate(navItemsVisibles[0]?.to || '/admin/panel')}
+              >
+                Ir a una sección autorizada
+              </button>
+            </div>
+          )}
         </main>
       </div>
 

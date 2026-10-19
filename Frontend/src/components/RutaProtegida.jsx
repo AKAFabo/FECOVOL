@@ -21,7 +21,7 @@ const RUTA_POR_ROL = {
  * @param {Array<string>} rolesPermitidos - Lista de nombres de rol autorizados (ej: ['Administrador']).
  * Si se omite o está vacío, solo requiere estar autenticado.
  */
-export default function RutaProtegida({ rolesPermitidos = [] }) {
+export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess = false, subruta = null }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -66,7 +66,7 @@ export default function RutaProtegida({ rolesPermitidos = [] }) {
             status,
             full_name,
             organization_id,
-            roles ( name ),
+            roles:roles!user_profiles_role_id_fkey ( name ),
             associations:organization_id ( id, name, status )
           `)
           .eq('id', session.user.id)
@@ -162,31 +162,111 @@ export default function RutaProtegida({ rolesPermitidos = [] }) {
           }
         }
 
-        // 6. Validar rol si se especificaron roles permitidos
-        const rolUsuario = (Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name)?.trim();
-        const listaPermitidos = rolesPermitidosClave ? rolesPermitidosClave.split(',').map(r => r.trim().toLowerCase()) : [];
-        const tieneRol = listaPermitidos.length === 0 || (rolUsuario && listaPermitidos.includes(rolUsuario.toLowerCase()));
+        // 6. Validar roles y permisos por subruta (RF-SEG-005, RF-SEG-006)
+        let todosLosRoles = [];
+        let roleIds = [];
+        try {
+          const { data: userRoles } = await supabase
+            .from('user_roles')
+            .select('role_id, roles(name)')
+            .eq('user_id', session.user.id);
 
-        if (!tieneRol) {
-          // RF-SEG-003: Hacer logout a cuenta cuando se realiza un cambio de rol
+          if (userRoles && userRoles.length > 0) {
+            todosLosRoles = userRoles.map(ur => ur.roles?.name?.trim()).filter(Boolean);
+            roleIds = userRoles.map(ur => ur.role_id).filter(Boolean);
+          }
+        } catch (e) {}
+
+        if (todosLosRoles.length === 0) {
+          const rolFallback = (Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name)?.trim();
+          if (rolFallback) todosLosRoles = [rolFallback];
+        }
+        if (profile.role_id && !roleIds.includes(profile.role_id)) {
+          roleIds.push(profile.role_id);
+        }
+
+        const rolUsuario = todosLosRoles[0] || 'Sin rol';
+        const listaPermitidos = rolesPermitidosClave ? rolesPermitidosClave.split(',').map(r => r.trim().toLowerCase()) : [];
+
+        // Obtener matriz de subrutas y permisos autorizados para los roles del usuario
+        let permisosUsuario = [];
+        if (roleIds.length > 0) {
+          try {
+            const { data: permsData } = await supabase
+              .from('role_permissions')
+              .select('screen_key')
+              .in('role_id', roleIds);
+            if (permsData) {
+              permisosUsuario = permsData.map(p => p.screen_key);
+            }
+          } catch (ePerms) {
+            console.warn('Aviso al consultar role_permissions en RutaProtegida:', ePerms);
+          }
+        }
+
+        // Determinar la subruta destino
+        const targetSubruta = subruta || (
+          location.pathname.startsWith('/admin') ? '/admin' :
+          location.pathname.startsWith('/arbitro') || location.pathname.startsWith('/arbitros') ? '/arbitro' :
+          location.pathname.startsWith('/asociacion') ? '/asociacion' :
+          location.pathname.startsWith('/personal') ? '/personal' : null
+        );
+
+        // Evaluar autorización
+        let autorizado = false;
+
+        // 1. Administrador siempre tiene acceso total a cualquier subruta (Superuser)
+        if (todosLosRoles.some(r => r.toLowerCase() === 'administrador')) {
+          autorizado = true;
+        }
+        // 2. Si el rol tiene permiso explícito para esta subruta en role_permissions
+        else if (targetSubruta && permisosUsuario.includes(targetSubruta)) {
+          autorizado = true;
+        }
+        // 3. Si accede a /admin y tiene permiso para /admin o módulos de /admin
+        else if (targetSubruta === '/admin' && (requireAdminAccess || permisosUsuario.some(p => p.startsWith('/admin')))) {
+          autorizado = true;
+        }
+        // 4. Mapeo estándar por rol (compatibilidad base)
+        else if (targetSubruta === '/arbitro' && todosLosRoles.some(r => r.toLowerCase().includes('arbitr'))) {
+          autorizado = true;
+        }
+        else if (targetSubruta === '/asociacion' && todosLosRoles.some(r => r.toLowerCase().includes('repres') || r.toLowerCase().includes('asoc'))) {
+          autorizado = true;
+        }
+        else if (targetSubruta === '/personal' && todosLosRoles.some(r => r.toLowerCase().includes('person'))) {
+          autorizado = true;
+        }
+        // 5. Lista de roles permitidos tradicional
+        else if (listaPermitidos.length > 0 && todosLosRoles.some(r => listaPermitidos.includes(r.toLowerCase()))) {
+          autorizado = true;
+        }
+        // 6. Sin restricción de subruta ni roles
+        else if (!targetSubruta && listaPermitidos.length === 0 && !requireAdminAccess) {
+          autorizado = true;
+        }
+
+        if (!autorizado) {
+          // Registrar intento denegado en la bitácora de auditoría (RF-SEG-010)
           try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-            await fetch(`${backendUrl}/api/users/logout-audit`, {
+            fetch(`${backendUrl}/api/users/record-denied-attempt`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                user_id: user.id,
                 email: user.email,
-                full_name: profile.full_name,
-                razon: `Cierre forzado: rol ${rolUsuario || 'Sin rol'} no autorizado para esta ruta`
+                user_id: user.id,
+                rol: rolUsuario,
+                subruta: location.pathname,
+                motivo: `Intento de acceso no autorizado al módulo "${location.pathname}" desde el rol "${rolUsuario}"`
               })
-            });
+            }).catch(() => {});
           } catch (e) {}
-          await supabase.auth.signOut();
+
           if (montado) {
             setEstado({
               cargando: false,
-              autenticado: false,
+              autenticado: true,
               autorizado: false,
               rolUsuario: rolUsuario || 'Sin rol',
               asociacionNombre: profile.associations?.name || null,

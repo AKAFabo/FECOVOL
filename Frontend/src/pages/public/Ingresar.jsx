@@ -179,7 +179,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
           id,
           status,
           organization_id,
-          roles ( name ),
+          roles:roles!user_profiles_role_id_fkey ( name ),
           associations:organization_id ( id, name, status )
         `)
         .eq('id', data.user.id)
@@ -222,8 +222,21 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
         .update({ last_login: new Date().toISOString() })
         .eq('id', data.user.id);
 
-      // 7. Redirigir según el rol o hacia la ruta que intentaba acceder
-      const rol = Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name;
+      // 7. Redirigir según el rol o hacia la ruta que intentaba acceder (RF-SEG-006)
+      let rol = Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name;
+      try {
+        const { data: userRoles } = await supabase
+          .from('user_roles')
+          .select('role_id, roles(id, name)')
+          .eq('user_id', data.user.id);
+
+        if (userRoles && userRoles.length > 0) {
+          // Priorizar Administrador si lo posee, o el primer rol registrado en la tabla muchos a muchos
+          const adminRole = userRoles.find(r => r.roles?.name === 'Administrador');
+          rol = adminRole ? 'Administrador' : (userRoles[0].roles?.name || rol);
+        }
+      } catch (e) {}
+
       const destinoPrevio = location.state?.from?.pathname;
       let ruta = RUTA_POR_ROL[rol] ?? '/';
 
@@ -583,7 +596,7 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
         .select(`
           status,
           organization_id,
-          roles ( name ),
+          roles:roles!user_profiles_role_id_fkey ( name ),
           associations:organization_id ( id, name, status )
         `)
         .eq('id', userId)
