@@ -10,6 +10,8 @@ const personsRoutes = require('./routes/persons.routes');
 const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
+const competitionsRoutes = require('./routes/competitions.routes');
+const matchesRoutes = require('./routes/matches.routes');
 
 const app = express();
 
@@ -38,6 +40,8 @@ app.use('/api/persons', personsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
+app.use('/api/competitions', competitionsRoutes);
+app.use('/api/matches', matchesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

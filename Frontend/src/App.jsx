@@ -19,6 +19,10 @@ import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
 
+// --- NUEVOS IMPORTS PARA EL MÓDULO DE COMPETENCIAS ---
+import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
+import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
+import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
 
 export default function App() {
   return (
@@ -26,7 +30,8 @@ export default function App() {
       {/* ── Portal público ────────────────────────────────────────── */}
       <Route element={<PublicLayout />}>
         <Route index element={<Inicio />} />
-        <Route path="competencias/*" element={<EnConstruccion titulo="Competencias" />} />
+        <Route path="competencias" element={<CompetenciasPublicas />} />
+        <Route path="competencias/:id" element={<CompetenciaDetallePublica />} />
         <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
         <Route path="asociaciones/*" element={<EnConstruccion titulo="Asociaciones afiliadas" />} />
         <Route path="noticias/*"     element={<EnConstruccion titulo="Noticias" />} />
@@ -47,7 +52,8 @@ export default function App() {
       </Route>
 
       {/* ── Dashboards temporales para los demás roles ────────────── */}
-      <Route path="/personal/*" element={<EnConstruccion titulo="Personal de competencias" />} />
+      <Route path="/personal/*" element={<PersonalPanel />} />
+      <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
       <Route path="/asociacion/*" element={<EnConstruccion titulo="Representante de asociación" />} />
       <Route path="/arbitro/*" element={<EnConstruccion titulo="Cuerpo arbitral" />} />
     </Routes>
