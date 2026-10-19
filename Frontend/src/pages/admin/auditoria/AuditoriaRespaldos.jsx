@@ -118,6 +118,62 @@ export default function AuditoriaRespaldos() {
     return Array.from(new Set(logs.map(l => l.modulo))).filter(Boolean);
   }, [logs]);
 
+  // Cargar registros de audit_logs desde Supabase
+  async function cargarBitacora() {
+    setCargando(true);
+    setError(null);
+    try {
+      const { data, error: errLogs } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('fecha_hora', { ascending: false });
+
+      if (errLogs) throw errLogs;
+
+      const formateados = (data || []).map((l) => {
+        // Formatear texto descriptivo de lo que cambió
+        let registroDesc = `ID: ${l.registro_id || '—'}`;
+        if (l.accion === 'UPDATE' && l.registro_viejo && l.registro_nuevo) {
+          const cambios = [];
+          for (const key of Object.keys(l.registro_nuevo)) {
+            if (l.registro_viejo[key] !== l.registro_nuevo[key] && key !== 'updated_at') {
+              cambios.push(`${key}: ${l.registro_viejo[key] ?? '—'} → ${l.registro_nuevo[key] ?? '—'}`);
+            }
+          }
+          if (cambios.length > 0) {
+            registroDesc = cambios.slice(0, 2).join(' · ');
+          }
+        } else if (l.accion === 'INSERT' && l.registro_nuevo) {
+          registroDesc = l.registro_nuevo.name || l.registro_nuevo.full_name || l.registro_nuevo.value || `Nuevo registro (${l.tabla})`;
+        } else if (l.accion === 'DELETE' && l.registro_viejo) {
+          registroDesc = l.registro_viejo.name || l.registro_viejo.full_name || l.registro_viejo.value || `Eliminado (${l.tabla})`;
+        }
+
+        return {
+          id: l.id,
+          fechaHora: new Date(l.fecha_hora).toLocaleString('es-CR', { dateStyle: 'short', timeStyle: 'short' }),
+          usuario: l.usuario || 'Sistema',
+          accion: l.accion,
+          modulo: l.tabla,
+          registroAfectado: registroDesc,
+          detalleViejo: l.registro_viejo,
+          detalleNuevo: l.registro_nuevo,
+        };
+      });
+
+      setLogs(formateados);
+    } catch (err) {
+      console.error('Error al cargar bitácora:', err);
+      setError('No se pudieron cargar los registros de auditoría: ' + err.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  useEffect(() => {
+    cargarBitacora();
+  }, []);
+
 
   const logsFiltrados = useMemo(() => {
     return logs.filter(l => {
