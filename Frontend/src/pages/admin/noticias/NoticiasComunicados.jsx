@@ -102,9 +102,9 @@ export default function NoticiasComunicados() {
           <Link to="/noticias" className="admin-btn admin-btn--secondary">
             Ver el sitio público
           </Link>
-          <button type="button" className="admin-btn admin-btn--primary">
+          <Link to="/admin/noticias/redactar" className="admin-btn admin-btn--primary">
             Redactar noticia
-          </button>
+          </Link>
         </div>
       </div>
 

@@ -16,6 +16,7 @@ import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
 import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx';
+import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="listas-valores" element={<ListasValores />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
           <Route path="noticias" element={<NoticiasComunicados />} />
+          <Route path="noticias/redactar" element={<RedactarNoticia />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>
       </Route>
