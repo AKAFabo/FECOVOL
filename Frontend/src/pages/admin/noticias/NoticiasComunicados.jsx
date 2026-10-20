@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../AdminCommon.css';
 import './NoticiasComunicados.css';
+import { listarNoticias } from './noticiasDatos.js';
 
 // Datos de ejemplo: TODO agregar logica
 const RESUMEN = {
@@ -12,62 +13,15 @@ const RESUMEN = {
   lecturasMes: 12400
 };
 
-const NOTICIAS_DUMMY = [
-  {
-    id: 1,
-    titulo: 'CD Sarchí se impone en el clásico y toma la punta',
-    autor: 'Prensa FECOVOL',
-    categoria: 'Liga Superior',
-    publicacion: '12 set · 22:40',
-    estado: 'PUBLICADA',
-    lecturas: 3180
-  },
-  {
-    id: 2,
-    titulo: 'Convocatoria de la Selección Femenina para NORCECA',
-    autor: 'Prensa FECOVOL',
-    categoria: 'Selecciones',
-    publicacion: '10 set · 09:00',
-    estado: 'PUBLICADA',
-    lecturas: 2460
-  },
-  {
-    id: 3,
-    titulo: 'Abren las inscripciones del Nacional U-19',
-    autor: 'Andrés Vargas',
-    categoria: 'Competencias',
-    publicacion: '8 set · 08:30',
-    estado: 'PUBLICADA',
-    lecturas: 1890
-  },
-  {
-    id: 4,
-    titulo: 'Curso de actualización para el cuerpo arbitral',
-    autor: 'Prensa FECOVOL',
-    categoria: 'Arbitraje',
-    publicacion: '5 set · 16:00',
-    estado: 'PUBLICADA',
-    lecturas: 940
-  },
-  {
-    id: 5,
-    titulo: 'Calendario del circuito de playa 2026',
-    autor: 'Prensa FECOVOL',
-    categoria: 'Voleibol de playa',
-    publicacion: '20 set · 08:00',
-    estado: 'PROGRAMADA',
-    lecturas: null
-  },
-  {
-    id: 6,
-    titulo: 'Balance de la primera vuelta',
-    autor: 'Prensa FECOVOL',
-    categoria: 'Liga Superior',
-    publicacion: null,
-    estado: 'BORRADOR',
-    lecturas: null
-  }
-];
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
+
+// '2026-09-12T22:40' → '12 set · 22:40'
+function formatearPublicacion(valor) {
+  if (!valor) return 'Sin fecha';
+  const f = new Date(valor);
+  const hora = f.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${f.getDate()} ${MESES[f.getMonth()]} · ${hora}`;
+}
 
 const CATEGORIAS = ['Liga Superior', 'Selecciones', 'Competencias', 'Arbitraje', 'Voleibol de playa'];
 const AUTORES = ['Prensa FECOVOL', 'Fabricio Herrera'];
@@ -86,7 +40,11 @@ export default function NoticiasComunicados() {
   const [filtroAutor, setFiltroAutor] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
 
-  const noticias = NOTICIAS_DUMMY;
+  const [noticias, setNoticias] = useState([]);
+
+  useEffect(() => {
+    listarNoticias().then(setNoticias);
+  }, []);
 
   return (
     <div>
@@ -183,19 +141,19 @@ export default function NoticiasComunicados() {
                   </div>
                 </td>
                 <td>{n.categoria}</td>
-                <td style={{ whiteSpace: 'nowrap' }}>{n.publicacion ?? 'Sin fecha'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{formatearPublicacion(n.fechaPublicacion)}</td>
                 <td>
                   <span className={`badge-status ${CLASE_ESTADO[n.estado]}`}>{n.estado}</span>
                 </td>
                 <td>{n.lecturas != null ? formatoNumero(n.lecturas) : '—'}</td>
                 <td style={{ textAlign: 'right' }}>
-                  <button
-                    type="button"
+                  <Link
+                    to={`/admin/noticias/${n.id}/editar`}
                     className="admin-btn admin-btn--secondary"
                     style={{ padding: '4px 14px', fontSize: '0.82rem' }}
                   >
                     Editar
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}

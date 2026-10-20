@@ -19,6 +19,9 @@ export default function RecorteImagen({ src, aspecto, recorteInicial, onCancelar
 
   useEffect(() => {
     const img = new Image();
+    // Imágenes ya guardadas (p. ej. Supabase Storage) vienen de otro dominio: sin CORS el canvas
+    // queda bloqueado y no se puede exportar el recorte.
+    if (!/^(blob|data):/.test(src)) img.crossOrigin = 'anonymous';
     img.onload = () => setImagen(img);
     img.src = src;
   }, [src]);

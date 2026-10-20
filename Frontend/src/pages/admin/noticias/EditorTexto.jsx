@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Editor de texto enriquecido sin dependencias, basado en contentEditable + execCommand.
-// Entrega el HTML resultante mediante onChange.
+// Entrega el HTML resultante mediante onChange. valorInicial solo se lee al montar:
+// para cargar otro contenido, remontar el componente con una key distinta.
 
 const HERRAMIENTAS = [
   { id: 'negrita', texto: 'Negrita', titulo: 'Negrita (Ctrl+B)', clase: 'editor-barra__btn--negrita' },
@@ -26,13 +27,19 @@ const normalizarUrl = (url) => {
   return /^(https?:\/\/|mailto:|\/)/i.test(limpia) ? limpia : `https://${limpia}`;
 };
 
-export default function EditorTexto({ onChange, placeholder = 'Escriba el cuerpo de la noticia…' }) {
+export default function EditorTexto({ valorInicial = '', onChange, placeholder = 'Escriba el cuerpo de la noticia…' }) {
   const editorRef = useRef(null);
   const inputImagenRef = useRef(null);
   const rangoGuardado = useRef(null);
   const [activos, setActivos] = useState({});
   const [vacio, setVacio] = useState(true);
   const [modalEnlace, setModalEnlace] = useState(null); // { url, texto, conSeleccion } | null
+
+  useLayoutEffect(() => {
+    const editor = editorRef.current;
+    editor.innerHTML = valorInicial;
+    setVacio(!editor.textContent.trim() && !editor.querySelector('img'));
+  }, []);
 
   // Los saltos de línea generan <p> en lugar de <div>.
   useEffect(() => {

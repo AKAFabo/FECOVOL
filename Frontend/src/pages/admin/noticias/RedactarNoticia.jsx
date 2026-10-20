@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import '../AdminCommon.css';
 import './RedactarNoticia.css';
 import EditorTexto from './EditorTexto.jsx';
 import RecorteImagen from './RecorteImagen.jsx';
+import { obtenerNoticia } from './noticiasDatos.js';
 
 const NOTICIA_VACIA = {
   titulo: '',
@@ -34,7 +36,17 @@ const formatearFecha = (valor) =>
     ? new Date(valor).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Sin fecha de publicación';
 
+// Toma de la noticia guardada solo los campos que maneja el formulario.
+const aFormulario = (guardada) =>
+  Object.fromEntries(Object.keys(NOTICIA_VACIA).map((campo) => [campo, guardada[campo] ?? NOTICIA_VACIA[campo]]));
+
+// Sirve para redactar (/admin/noticias/redactar) y para editar (/admin/noticias/:id/editar).
 export default function RedactarNoticia() {
+  const { id } = useParams();
+  const esEdicion = Boolean(id);
+  const [cargando, setCargando] = useState(esEdicion);
+  const [noEncontrada, setNoEncontrada] = useState(false);
+
   const [noticia, setNoticia] = useState(NOTICIA_VACIA);
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState('');
 
@@ -58,6 +70,32 @@ export default function RedactarNoticia() {
     },
     []
   );
+
+  // En modo edición, carga la noticia existente en el formulario.
+  useEffect(() => {
+    if (!esEdicion) return;
+    let cancelado = false;
+    setCargando(true);
+    setNoEncontrada(false);
+    setNoticia(NOTICIA_VACIA);
+    setImagen(null);
+    obtenerNoticia(id).then((guardada) => {
+      if (cancelado) return;
+      if (!guardada) {
+        setNoEncontrada(true);
+      } else {
+        setNoticia(aFormulario(guardada));
+        if (guardada.imagenUrl) {
+          // Imagen ya subida: no hay archivo local, el recorte se hace sobre la URL guardada.
+          setImagen({ archivo: null, urlOriginal: guardada.imagenUrl, blob: null, url: guardada.imagenUrl, recorte: null });
+        }
+      }
+      setCargando(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [id, esEdicion]);
 
   const actualizar = (campo) => (e) => setNoticia((n) => ({ ...n, [campo]: e.target.value }));
   const estadoActual = ESTADOS.find((e) => e.valor === noticia.estado);
@@ -137,20 +175,50 @@ export default function RedactarNoticia() {
 
   const imagenEnRecorte = imagenPendiente ?? imagen;
 
+  if (cargando || noEncontrada) {
+    return (
+      <div>
+        <div className="admin-page-header">
+          <div className="admin-page-header__title-group">
+            <h1>Editar noticia</h1>
+          </div>
+        </div>
+        <div className="admin-card redactar-card redactar-mensaje">
+          {cargando ? (
+            <p>Cargando noticia…</p>
+          ) : (
+            <>
+              <p>No se encontró la noticia solicitada.</p>
+              <Link to="/admin/noticias" className="admin-btn admin-btn--secondary">
+                Volver a noticias
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
-          <h1>Redactar noticia</h1>
+          <h1>{esEdicion ? 'Editar noticia' : 'Redactar noticia'}</h1>
           <div className="redactar-estado">
             <span className={`badge-status ${estadoActual.clase}`}>{estadoActual.texto}</span>
           </div>
         </div>
         <div className="admin-page-header__actions">
           <button type="button" className="admin-btn admin-btn--secondary">Vista previa</button>
-          <button type="button" className="admin-btn admin-btn--secondary">Guardar borrador</button>
-          <button type="button" className="admin-btn admin-btn--primary">Publicar</button>
+          {esEdicion ? (
+            <button type="button" className="admin-btn admin-btn--primary">Guardar cambios</button>
+          ) : (
+            <>
+              <button type="button" className="admin-btn admin-btn--secondary">Guardar borrador</button>
+              <button type="button" className="admin-btn admin-btn--primary">Publicar</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -182,7 +250,11 @@ export default function RedactarNoticia() {
               />
             </div>
 
-            <EditorTexto onChange={(html) => setNoticia((n) => ({ ...n, cuerpo: html }))} />
+            <EditorTexto
+              key={id ?? 'nueva'}
+              valorInicial={noticia.cuerpo}
+              onChange={(html) => setNoticia((n) => ({ ...n, cuerpo: html }))}
+            />
           </section>
 
           <section className="admin-card">

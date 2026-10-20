@@ -31,6 +31,18 @@
   padding: 24px;
 }
 
+.redactar-mensaje {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--texto-mudo);
+}
+
+.redactar-mensaje p {
+  margin: 0;
+}
+
 .redactar-card__header {
   padding: 18px 24px;
 }

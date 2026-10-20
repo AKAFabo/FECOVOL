@@ -44,7 +44,9 @@ export default function App() {
           <Route path="listas-valores" element={<ListasValores />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
           <Route path="noticias" element={<NoticiasComunicados />} />
-          <Route path="noticias/redactar" element={<RedactarNoticia />} />
+          {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
+          <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
+          <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>
       </Route>
