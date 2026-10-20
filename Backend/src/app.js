@@ -12,6 +12,7 @@ const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const matchesRoutes = require('./routes/matches.routes');
+const publicRoutes = require('./routes/public.routes');
 
 const app = express();
 
@@ -33,6 +34,9 @@ app.get('/', (req, res) => {
     ]
   });
 });
+
+// Portal público: solo lectura, sin sesión (ver routes/public.routes.js).
+app.use('/api/public', publicRoutes);
 
 app.use('/api/associations', associationsRoutes);
 app.use('/api/teams', teamsRoutes);

@@ -50,7 +50,7 @@ export const noticias = [
     id: 2,
     categoria: 'Selecciones',
     fecha: '10 de setiembre, 2026',
-    titulo: 'Convocatoria de la Selección Nacional Femenina para el Campeonato NORCECA',
+    titulo: 'Convocatoria de la Selección Nacional Femenina para el próximo ciclo de entrenamiento',
     color: '#14532d'
   },
   {
@@ -115,16 +115,14 @@ export const selecciones = [
     id: 1,
     rama: 'Femenina · Mayor',
     nombre: 'Selección Nacional Femenina',
-    compromiso: 'Próximo compromiso: Campeonato NORCECA, del 3 al 11 de octubre en Santo Domingo.',
+    compromiso: 'Concentración y entrenamientos en el Gimnasio Nacional durante octubre.',
     color: '#0e3b6b'
   },
   {
     id: 2,
     rama: 'Masculina · Mayor',
     nombre: 'Selección Nacional Masculina',
-    compromiso: 'Próximo compromiso: Copa Centroamericana, del 18 al 24 de noviembre en Guatemala.',
+    compromiso: 'Convocatoria abierta para el proceso de selección de noviembre.',
     color: '#12335a'
   }
 ];
-
-export const aliados = ['FIVB', 'NORCECA', 'ICODER', 'Comité Olímpico', 'Patrocinador'];

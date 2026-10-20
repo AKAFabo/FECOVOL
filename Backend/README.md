@@ -62,6 +62,28 @@ encabezado `x-user-email`. Si no viene, se registra como `sistema`.
 | POST | `/api/referee-assignments` | Designar árbitro (`match_id`, `person_id`, `official_type_code`) |
 | PATCH | `/api/referee-assignments/:id` | Confirmar, rechazar, cumplir o anular |
 
+## API pública (portal web)
+
+`/api/public` es la parte de la API que consume el portal público, sin iniciar sesión. Está
+separada de las rutas internas a propósito (`src/routes/public.routes.js`):
+
+- Solo tiene `GET`; cualquier otro método responde 404.
+- Cada respuesta se arma campo por campo en `src/public/competitionsDto.js` (lista blanca). Una
+  columna nueva en la base de datos no se publica sola.
+- Las competencias en `PLANIFICACION` (borradores) no se muestran; pedirlas da 404, igual que si
+  no existieran.
+- Límite de 120 solicitudes por minuto por IP (`src/middleware/rateLimit.js`). Si la API se
+  publica detrás de un proxy hay que configurar `app.set('trust proxy', ...)`.
+- Un error de la base devuelve 503 con un mensaje genérico; el detalle solo queda en la consola
+  del servidor.
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/api/public/competitions?status=&season=` | Competencias publicadas (`status`: INSCRIPCIONES, EN_CURSO, FINALIZADA o CERRADA; `season`: año) |
+| GET | `/api/public/competitions/:id` | Datos de una competencia |
+| GET | `/api/public/competitions/:id/standings` | Tabla de posiciones, con todos los equipos inscritos |
+| GET | `/api/public/competitions/:id/matches` | Calendario y resultados, con los puntos por set de los partidos terminados |
+
 ## Códigos de respuesta
 
 - `400`: falta un dato, un valor no permitido o un id que no es UUID.
