@@ -24,6 +24,10 @@ import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
 import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
 import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
 
+// Asociaciones afiliadas (portal público)
+import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
+import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
+
 export default function App() {
   return (
     <Routes>
@@ -33,7 +37,8 @@ export default function App() {
         <Route path="competencias" element={<CompetenciasPublicas />} />
         <Route path="competencias/:id" element={<CompetenciaDetallePublica />} />
         <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
-        <Route path="asociaciones/*" element={<EnConstruccion titulo="Asociaciones afiliadas" />} />
+        <Route path="asociaciones" element={<AsociacionesPublicas />} />
+        <Route path="asociaciones/:id" element={<AsociacionDetallePublica />} />
         <Route path="noticias/*"     element={<EnConstruccion titulo="Noticias" />} />
         <Route path="federacion/*"   element={<EnConstruccion titulo="La Federación" />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />

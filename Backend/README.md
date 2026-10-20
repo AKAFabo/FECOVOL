@@ -65,11 +65,15 @@ encabezado `x-user-email`. Si no viene, se registra como `sistema`.
 ## API pública (portal web)
 
 `/api/public` es la parte de la API que consume el portal público, sin iniciar sesión. Está
-separada de las rutas internas a propósito (`src/routes/public.routes.js`):
+separada de las rutas internas a propósito. `src/routes/public.routes.js` aplica el límite de
+solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/public/`:
 
 - Solo tiene `GET`; cualquier otro método responde 404.
-- Cada respuesta se arma campo por campo en `src/public/competitionsDto.js` (lista blanca). Una
-  columna nueva en la base de datos no se publica sola.
+- Cada respuesta se arma campo por campo en `src/public/*Dto.js` (lista blanca). Una columna
+  nueva en la base de datos no se publica sola.
+- De las asociaciones no se publican cédula jurídica, dirección, correo, teléfono ni junta
+  directiva, y de los equipos no se publican sus integrantes. Solo aparecen asociaciones
+  `AFILIADA` y equipos `ACTIVO`.
 - Las competencias en `PLANIFICACION` (borradores) no se muestran; pedirlas da 404, igual que si
   no existieran.
 - Límite de 120 solicitudes por minuto por IP (`src/middleware/rateLimit.js`). Si la API se
@@ -83,6 +87,8 @@ separada de las rutas internas a propósito (`src/routes/public.routes.js`):
 | GET | `/api/public/competitions/:id` | Datos de una competencia |
 | GET | `/api/public/competitions/:id/standings` | Tabla de posiciones, con todos los equipos inscritos |
 | GET | `/api/public/competitions/:id/matches` | Calendario y resultados, con los puntos por set de los partidos terminados |
+| GET | `/api/public/associations` | Asociaciones afiliadas con su cantidad de equipos activos |
+| GET | `/api/public/associations/:id` | Datos públicos de la asociación, sus equipos y las competencias en que participan |
 
 ## Códigos de respuesta
 

@@ -230,3 +230,110 @@ test('aPartido no publica el marcador de un partido que no ha terminado', () => 
   assert.equal(p.home_sets, null);
   assert.deepEqual(p.sets, []);
 });
+
+/* ------------------------------------------------------------------------------------------------
+   Asociaciones
+   ------------------------------------------------------------------------------------------------ */
+const { sitioWeb } = require('../src/public/associationsDto');
+const ASO = '55555555-5555-4555-8555-555555555555';
+
+const filaAsociacion = {
+  id: ASO,
+  name: 'Asociación Deportiva de Cartago',
+  short_name: 'AD Cartago',
+  province: 'Cartago',
+  canton: 'Central',
+  home_venue: 'Gimnasio Municipal de Cartago',
+  website: 'adcartago.cr',
+  affiliation_date: '2019-03-01',
+  // Campos que la base podría devolver y que nunca deben salir:
+  tax_id: '3-002-123456',
+  email: 'presidencia@adcartago.cr',
+  phone: '2551-0000',
+  address: '200 m norte de la basílica'
+};
+
+test('el listado de asociaciones solo pide afiliadas y cuenta los equipos activos', async () => {
+  fake.alResponderTabla('associations', { data: [filaAsociacion], error: null });
+  fake.alResponderTabla('teams', { data: [{ association_id: ASO }, { association_id: ASO }], error: null });
+
+  const r = await get('/api/public/associations');
+
+  assert.equal(r.status, 200);
+  assert.deepEqual(paso('associations', 'eq'), ['eq', 'status', 'AFILIADA']);
+  assert.doesNotMatch(paso('associations', 'select')[1], /tax_id|email|phone|address|\*/);
+  assert.deepEqual(r.json.data, [{
+    id: ASO,
+    name: 'Asociación Deportiva de Cartago',
+    short_name: 'AD Cartago',
+    province: 'Cartago',
+    canton: 'Central',
+    home_venue: 'Gimnasio Municipal de Cartago',
+    team_count: 2
+  }]);
+  const pasosEquipos = pasos('teams');
+  assert.deepEqual(pasosEquipos.find((p) => p[0] === 'in'), ['in', 'association_id', [ASO]]);
+  assert.deepEqual(pasosEquipos.find((p) => p[0] === 'eq'), ['eq', 'status', 'ACTIVO']);
+});
+
+test('sin asociaciones afiliadas no se consulta la tabla de equipos', async () => {
+  fake.alResponderTabla('associations', { data: [], error: null });
+  const r = await get('/api/public/associations');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.data, []);
+  assert.equal(pasos('teams').length, 0);
+});
+
+test('el detalle de una asociación no afiliada o inexistente da 404', async () => {
+  fake.alResponderTabla('associations', { data: null, error: null });
+  const r = await get(`/api/public/associations/${ASO}`);
+  assert.equal(r.status, 404);
+  assert.equal(pasos('teams').length, 0);
+});
+
+test('el detalle no publica contactos ni cédula, y oculta competencias en borrador', async () => {
+  const EQ = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  fake.alResponderTabla('associations', { data: filaAsociacion, error: null });
+  fake.alResponderTabla('teams', {
+    data: [{
+      id: EQ, name: 'AD Cartago Mayor F', short_name: 'CAR', home_venue: null,
+      categoria: { value: 'Mayor' }, rama: { value: 'Femenina' }, modalidad: { value: 'Sala' },
+      primary_color: '#123456'
+    }],
+    error: null
+  });
+  fake.alResponderTabla('competition_teams', {
+    data: [
+      { team_id: EQ, competencia: { id: COMP, name: 'Liga Superior Femenina 2026', status: 'EN_CURSO' } },
+      { team_id: EQ, competencia: { id: 'x', name: 'Copa en preparación', status: 'PLANIFICACION' } }
+    ],
+    error: null
+  });
+
+  const r = await get(`/api/public/associations/${ASO}`);
+
+  assert.equal(r.status, 200);
+  const texto = JSON.stringify(r.json);
+  assert.doesNotMatch(texto, /3-002|presidencia@|2551|basílica|#123456|preparación/);
+  assert.equal(r.json.data.website, 'https://adcartago.cr/');
+  assert.deepEqual(r.json.data.teams[0], {
+    id: EQ,
+    name: 'AD Cartago Mayor F',
+    short_name: 'CAR',
+    category: 'Mayor',
+    branch: 'Femenina',
+    modality: 'Sala',
+    home_venue: null,
+    competitions: [{ id: COMP, name: 'Liga Superior Femenina 2026', status: 'EN_CURSO' }]
+  });
+  assert.deepEqual(paso('competition_teams', 'in'), ['in', 'team_id', [EQ]]);
+});
+
+test('sitioWeb solo acepta direcciones http(s)', () => {
+  assert.equal(sitioWeb('https://fecovol.cr'), 'https://fecovol.cr/');
+  assert.equal(sitioWeb('www.club.cr'), 'https://www.club.cr/');
+  assert.equal(sitioWeb('javascript:alert(1)'), null);
+  assert.equal(sitioWeb('data:text/html,hola'), null);
+  assert.equal(sitioWeb('   '), null);
+  assert.equal(sitioWeb(null), null);
+});

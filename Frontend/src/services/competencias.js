@@ -1,11 +1,8 @@
 // Acceso a los datos públicos de competencias (GET /api/public/competitions...).
 import { obtener } from './apiPublica.js';
+import { esIdValido } from '../utils/ids.js';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function esIdValido(id) {
-  return typeof id === 'string' && UUID.test(id);
-}
+export { esIdValido };
 
 function ruta(id, sufijo = '') {
   if (!esIdValido(id)) throw new Error('Identificador de competencia inválido');

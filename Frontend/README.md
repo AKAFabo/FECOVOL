@@ -21,8 +21,8 @@ src/
 │                          EstadoContenido (cargando / error / sin resultados)
 ├── services/              Acceso a la API: apiPublica.js (cliente HTTP) y un archivo por módulo
 ├── hooks/useCarga.js      Estado de una carga asíncrona, con cancelación y reintento
-├── utils/formato.js       Formato de fechas
-├── pages/public/          Inicio, Competencias, detalle de competencia y "Sección en desarrollo"
+├── utils/                 Formato de fechas, validación de ids y siglas para distintivos
+├── pages/public/          Inicio, Competencias, Asociaciones (listado y detalle) y "Sección en desarrollo"
 └── data/portada.js        Contenido de ejemplo de la portada (ver abajo)
 ```
 

@@ -1,0 +1,177 @@
+.asociaciones-publicas {
+  flex: 1;
+  background: var(--fondo);
+}
+
+/* ----- Búsqueda y filtro ----- */
+.asociaciones-publicas__herramientas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.buscador {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto-mudo);
+}
+
+.buscador:focus-within {
+  border-color: var(--azul);
+  box-shadow: var(--sombra-foco);
+}
+
+.buscador input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 15px;
+}
+
+.selector-provincia {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--texto-mudo);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.selector-provincia select {
+  min-width: 190px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.selector-provincia select:focus {
+  border-color: var(--azul);
+  outline: none;
+  box-shadow: var(--sombra-foco);
+}
+
+.asociaciones-publicas__conteo {
+  margin-bottom: 16px;
+  color: var(--texto-mudo);
+  font-size: 14px;
+}
+
+/* ----- Tarjetas ----- */
+.lista-asociaciones {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta-asociacion {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tarjeta-asociacion:hover {
+  border-color: #b9c4d0;
+  box-shadow: 0 6px 18px rgba(8, 40, 70, 0.08);
+}
+
+.tarjeta-asociacion:focus-within {
+  box-shadow: var(--sombra-foco);
+}
+
+.tarjeta-asociacion__sigla {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radio-sm);
+  background: var(--avatar);
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.tarjeta-asociacion__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tarjeta-asociacion__nombre {
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-asociacion__enlace {
+  color: var(--texto);
+}
+
+.tarjeta-asociacion__enlace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.tarjeta-asociacion__enlace:focus-visible {
+  outline: none;
+}
+
+.tarjeta-asociacion:hover .tarjeta-asociacion__enlace {
+  color: var(--azul);
+}
+
+.tarjeta-asociacion__lugar {
+  color: var(--texto-cuerpo);
+  font-size: 14.5px;
+}
+
+.tarjeta-asociacion__equipos {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+@media (max-width: 1100px) {
+  .lista-asociaciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .lista-asociaciones { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .tarjeta-asociacion { padding: 16px; }
+  .buscador { max-width: none; }
+  .selector-provincia { flex: 1 1 100%; }
+  .selector-provincia select { width: 100%; }
+}
