@@ -638,20 +638,31 @@ export default function UsuariosPermisos() {
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button 
-                        type="button" 
-                        className="admin-btn admin-btn--secondary"
-                        style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                        onClick={() => {
-                          setMensajeFeedbackModal(null);
-                          setUsuarioEditando({ 
-                            ...u,
-                            rolesIds: u.rolesIds ? [...u.rolesIds] : (u.rolId ? [u.rolId] : [])
-                          });
-                        }}
-                      >
-                        Editar
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <button 
+                          type="button" 
+                          className="admin-btn admin-btn--secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                          onClick={() => {
+                            setMensajeFeedbackModal(null);
+                            setUsuarioEditando({ 
+                              ...u,
+                              rolesIds: u.rolesIds ? [...u.rolesIds] : (u.rolId ? [u.rolId] : [])
+                            });
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button 
+                          type="button" 
+                          className="admin-btn admin-btn--secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                          onClick={() => navigate(`/admin/auditoria?tabla=user_profiles&registroId=${u.id}`)}
+                          title="Ver historial de este usuario en la bitácora"
+                        >
+                          Bitácora
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

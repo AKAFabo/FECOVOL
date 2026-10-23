@@ -272,7 +272,7 @@ router.patch('/values/:valueId/toggle', authorize(['Administrador', 'Personal'])
     if (activeCount <= 1) {
       throw new HttpError(
         400,
-        `No es posible desactivar este valor porque es el único valor activo en el catálogo "${actual.catalogs?.name || 'actual'}". Debe existir al menos un valor activo disponible (RF-AUD-002).`
+        `No es posible desactivar este valor porque es el único valor activo en el catálogo "${actual.catalogs?.name || 'actual'}". Debe existir al menos un valor activo disponible.`
       );
     }
 

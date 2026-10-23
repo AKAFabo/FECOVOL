@@ -55,10 +55,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 INSERT INTO public.system_parameters (name, value, description, category, data_type, is_active, is_readonly)
 VALUES 
     -- Competencias y Puntuación FIVB / FECOVOL (RF-COM-008)
-    ('COMPETENCIA_PUNTOS_VICTORIA_MAX', '3', 'Puntos otorgados al equipo ganador por marcador 3-0 o 3-1 (Reglamento FIVB / RF-COM-008).', 'COMPETENCIAS', 'NUMBER', true, false),
-    ('COMPETENCIA_PUNTOS_VICTORIA_MIN', '2', 'Puntos otorgados al equipo ganador por marcador 3-2 en muerte súbita (RF-COM-008).', 'COMPETENCIAS', 'NUMBER', true, false),
-    ('COMPETENCIA_PUNTOS_DERROTA_MIN', '1', 'Puntos otorgados al equipo perdedor que alcanzó el quinto set (marcador 2-3) (RF-COM-008).', 'COMPETENCIAS', 'NUMBER', true, false),
-    ('COMPETENCIA_PUNTOS_DERROTA_MAX', '0', 'Puntos otorgados al equipo perdedor por marcador 0-3 o 1-3 (RF-COM-008).', 'COMPETENCIAS', 'NUMBER', true, false),
+    ('COMPETENCIA_PUNTOS_VICTORIA_MAX', '3', 'Puntos otorgados al equipo ganador por marcador 3-0 o 3-1 según Reglamento Oficial FIVB.', 'COMPETENCIAS', 'NUMBER', true, false),
+    ('COMPETENCIA_PUNTOS_VICTORIA_MIN', '2', 'Puntos otorgados al equipo ganador por marcador 3-2 en muerte súbita (Tie-break).', 'COMPETENCIAS', 'NUMBER', true, false),
+    ('COMPETENCIA_PUNTOS_DERROTA_MIN', '1', 'Puntos otorgados al equipo perdedor que alcanzó el quinto set decisivo (marcador 2-3).', 'COMPETENCIAS', 'NUMBER', true, false),
+    ('COMPETENCIA_PUNTOS_DERROTA_MAX', '0', 'Puntos otorgados al equipo perdedor por marcador 0-3 o 1-3.', 'COMPETENCIAS', 'NUMBER', true, false),
     ('COMPETENCIA_SETS_MAXIMOS', '5', 'Cantidad máxima reglamentaria de sets a disputar por encuentro oficial.', 'COMPETENCIAS', 'NUMBER', true, false),
     ('COMPETENCIA_TOLERANCIA_MINUTOS', '15', 'Tiempo de espera reglamentario en minutos antes de decretar No Presentación (Default).', 'COMPETENCIAS', 'NUMBER', true, false),
 

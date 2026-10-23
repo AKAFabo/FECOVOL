@@ -184,7 +184,7 @@ router.post('/', authorize({ requiredPermission: '/admin/listas-valores', resour
       tabla: 'roles',
       registro_id: nuevoRol.id,
       registro_nuevo: {
-        evento: 'Creación de rol y configuración de permisos (RF-SEG-005)',
+        evento: 'Creación de rol y configuración de permisos',
         role_id: nuevoRol.id,
         name: nuevoRol.name,
         description: nuevoRol.description,
@@ -307,7 +307,7 @@ router.put('/:id', authorize({ requiredPermission: '/admin/listas-valores', reso
         description: rolActual.description
       },
       registro_nuevo: {
-        evento: 'Actualización de rol y matriz de permisos (RF-SEG-005)',
+        evento: 'Actualización de rol y matriz de permisos',
         name: nuevoNombre,
         description: nuevaDescripcion,
         permissions: permisosFinales,
@@ -421,7 +421,7 @@ router.delete('/:id', authorize({ requiredPermission: '/admin/listas-valores', r
         name: rol.name
       },
       registro_nuevo: {
-        evento: 'Eliminación de rol del sistema (RF-SEG-005)',
+        evento: 'Eliminación de rol del sistema',
         eliminado_por: admin_email,
         timestamp: new Date().toISOString()
       }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 
@@ -13,6 +14,7 @@ const CATEGORIAS_PARAMETROS = [
 const ELEMENTOS_POR_PAGINA = 8;
 
 export default function ParametrosSistema() {
+  const navigate = useNavigate();
   const [parametros, setParametros] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -541,6 +543,15 @@ export default function ParametrosSistema() {
                           title="Editar valor y descripción del parámetro"
                         >
                           Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn--secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                          onClick={() => navigate(`/admin/auditoria?tabla=system_parameters&registroId=${p.id}`)}
+                          title="Ver historial de cambios de este parámetro en la bitácora"
+                        >
+                          Bitácora
                         </button>
                         {!p.is_readonly && (
                           <button

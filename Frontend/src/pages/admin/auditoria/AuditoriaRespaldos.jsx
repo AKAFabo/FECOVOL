@@ -1,27 +1,54 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
+function escapeCsvField(val) {
+  if (val === null || val === undefined) return '""';
+  const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 export default function AuditoriaRespaldos() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [logs, setLogs] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [fechaMasAntigua, setFechaMasAntigua] = useState(null);
 
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1);
 
   // Filtros
-  const [filtroUsuario, setFiltroUsuario] = useState('todos');
-  const [filtroTabla, setFiltroTabla] = useState('todos');
+  const [filtroUsuario, setFiltroUsuario] = useState(searchParams.get('usuario') || 'todos');
+  const [filtroTabla, setFiltroTabla] = useState(searchParams.get('tabla') || 'todos');
   const [filtroAccion, setFiltroAccion] = useState('todas');
+  const [filtroRegistroId, setFiltroRegistroId] = useState(searchParams.get('registroId') || '');
   const [busqueda, setBusqueda] = useState('');
+
+  // Filtros de fecha (RF-AUD-004)
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [rangoPreset, setRangoPreset] = useState('todo');
 
   // Modal para inspeccionar detalle de registro (JSONB)
   const [detalleLog, setDetalleLog] = useState(null);
   const [tabModal, setTabModal] = useState('comparar'); // 'comparar' | 'nuevo' | 'viejo'
   const [copiado, setCopiado] = useState(null); // 'viejo' | 'nuevo' | null
+
+  // Sincronizar parámetros de búsqueda desde URL si cambian externamente
+  useEffect(() => {
+    const paramTabla = searchParams.get('tabla');
+    const paramRegistroId = searchParams.get('registroId');
+    const paramUsuario = searchParams.get('usuario');
+
+    if (paramTabla) setFiltroTabla(paramTabla);
+    if (paramRegistroId) setFiltroRegistroId(paramRegistroId);
+    if (paramUsuario) setFiltroUsuario(paramUsuario);
+  }, [searchParams]);
 
   function copiarTexto(data, tipo) {
     if (!data) return;
@@ -33,12 +60,13 @@ export default function AuditoriaRespaldos() {
   }
 
   function abrirDetalle(log) {
-    setTabModal(log.accion === 'INSERT' || log.accion === 'LOGOUT' ? 'nuevo' : (log.accion === 'DELETE' ? 'viejo' : 'comparar'));
+    const esSoloNuevo = ['INSERT', 'LOGOUT', 'ACCESO_DENEGADO', 'INTENTO_FALLIDO', 'PROCESO_AUTOMATICO', 'OPERACION_INVALIDA', 'DENIED'].includes(log.accion);
+    setTabModal(esSoloNuevo ? 'nuevo' : (log.accion === 'DELETE' ? 'viejo' : 'comparar'));
     setCopiado(null);
     setDetalleLog(log);
   }
 
-  // Cargar registros de audit_logs desde Supabase
+  // Cargar registros de audit_logs desde Supabase (RF-AUD-004)
   async function cargarBitacora() {
     setCargando(true);
     setError(null);
@@ -50,12 +78,29 @@ export default function AuditoriaRespaldos() {
 
       if (errLogs) throw errLogs;
 
-      const formateados = (data || []).map((l) => {
-        // Formatear texto descriptivo de lo que cambió
+      const rawData = data || [];
+
+      // Determinar la fecha más antigua conservada en la bitácora
+      if (rawData.length > 0) {
+        const fechas = rawData.map(r => new Date(r.fecha_hora).getTime()).filter(t => !isNaN(t));
+        if (fechas.length > 0) {
+          setFechaMasAntigua(new Date(Math.min(...fechas)));
+        }
+      }
+
+      const formateados = rawData.map((l) => {
         let registroDesc = `ID: ${l.registro_id || '—'}`;
         const listaCambios = [];
 
-        if (l.registro_nuevo?.evento) {
+        if (l.accion === 'INTENTO_FALLIDO') {
+          registroDesc = l.registro_nuevo?.motivo || `Intento fallido de autenticación (${l.registro_nuevo?.email || l.usuario})`;
+        } else if (l.accion === 'PROCESO_AUTOMATICO') {
+          registroDesc = l.registro_nuevo?.evento || `Proceso automático del sistema (${l.tabla})`;
+        } else if (l.accion === 'ACCESO_DENEGADO' || l.accion === 'OPERACION_INVALIDA' || l.accion === 'DENIED') {
+          registroDesc = l.registro_nuevo?.motivo || l.registro_nuevo?.evento || `Operación denegada (${l.tabla})`;
+        } else if (l.accion === 'LOGOUT') {
+          registroDesc = `Cierre de sesión: ${l.registro_nuevo?.email || l.usuario}`;
+        } else if (l.registro_nuevo?.evento) {
           registroDesc = l.registro_nuevo.destinatario_email 
             ? `${l.registro_nuevo.evento} (${l.registro_nuevo.destinatario_email})`
             : (l.registro_nuevo.email ? `${l.registro_nuevo.evento} (${l.registro_nuevo.email})` : l.registro_nuevo.evento);
@@ -79,14 +124,11 @@ export default function AuditoriaRespaldos() {
           registroDesc = l.registro_nuevo.name || l.registro_nuevo.full_name || l.registro_nuevo.value || `Nuevo registro (${l.tabla})`;
         } else if (l.accion === 'DELETE' && l.registro_viejo) {
           registroDesc = l.registro_viejo.name || l.registro_viejo.full_name || l.registro_viejo.value || `Eliminado (${l.tabla})`;
-        } else if (l.accion === 'LOGOUT') {
-          registroDesc = `Cierre de sesión: ${l.registro_nuevo?.email || l.usuario}`;
-        } else if (l.accion === 'ACCESO_DENEGADO' || l.accion === 'OPERACION_INVALIDA' || l.accion === 'DENIED') {
-          registroDesc = l.registro_nuevo?.motivo || l.registro_nuevo?.evento || `Operación denegada (${l.tabla})`;
         }
 
         return {
           id: l.id,
+          fechaIso: l.fecha_hora,
           fechaHora: new Date(l.fecha_hora).toLocaleString('es-CR', { dateStyle: 'short', timeStyle: 'short' }),
           usuario: l.usuario || 'Sistema',
           accion: l.accion,
@@ -112,6 +154,93 @@ export default function AuditoriaRespaldos() {
     cargarBitacora();
   }, []);
 
+  // Presets rápidos para rangos de fecha
+  function aplicarPresetFecha(preset) {
+    setRangoPreset(preset);
+    const ahora = new Date();
+    const format = d => d.toISOString().slice(0, 10);
+
+    if (preset === 'hoy') {
+      const hoyStr = format(ahora);
+      setFechaDesde(hoyStr);
+      setFechaHasta(hoyStr);
+    } else if (preset === '7dias') {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      setFechaDesde(format(d));
+      setFechaHasta(format(ahora));
+    } else if (preset === '30dias') {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      setFechaDesde(format(d));
+      setFechaHasta(format(ahora));
+    } else if (preset === 'esteMes') {
+      const d = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+      setFechaDesde(format(d));
+      setFechaHasta(format(ahora));
+    } else if (preset === 'todo') {
+      setFechaDesde('');
+      setFechaHasta('');
+    }
+  }
+
+  // Restablecer todos los filtros
+  function restablecerFiltros() {
+    setFiltroUsuario('todos');
+    setFiltroTabla('todos');
+    setFiltroAccion('todas');
+    setFiltroRegistroId('');
+    setBusqueda('');
+    setFechaDesde('');
+    setFechaHasta('');
+    setRangoPreset('todo');
+    setSearchParams({});
+    setPaginaActual(1);
+  }
+
+  // Exportar resultados de la consulta actual a formato CSV (RF-AUD-004 Flujo Alternativo 3)
+  function exportarCsv() {
+    if (logsFiltrados.length === 0) return;
+
+    const headers = [
+      'Fecha y Hora',
+      'Usuario',
+      'Acción',
+      'Módulo / Tabla',
+      'ID de Registro',
+      'Detalle de la Operación',
+      'Datos Anteriores (JSON)',
+      'Datos Nuevos (JSON)'
+    ];
+
+    const csvRows = [headers.map(escapeCsvField).join(',')];
+
+    logsFiltrados.forEach((l) => {
+      const fila = [
+        l.fechaHora,
+        l.usuario,
+        l.accion,
+        l.modulo,
+        l.registroId || '—',
+        l.registroAfectado,
+        l.detalleViejo ? JSON.stringify(l.detalleViejo) : '',
+        l.detalleNuevo ? JSON.stringify(l.detalleNuevo) : ''
+      ];
+      csvRows.push(fila.map(escapeCsvField).join(','));
+    });
+
+    const csvContent = '\uFEFF' + csvRows.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `bitacora_auditoria_fecovol_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   const usuariosUnicos = useMemo(() => {
     return Array.from(new Set(logs.map(l => l.usuario))).filter(Boolean);
   }, [logs]);
@@ -120,23 +249,44 @@ export default function AuditoriaRespaldos() {
     return Array.from(new Set(logs.map(l => l.modulo))).filter(Boolean);
   }, [logs]);
 
+  const accionesUnicas = useMemo(() => {
+    const accionesBase = ['INSERT', 'UPDATE', 'DELETE', 'LOGOUT', 'ACCESO_DENEGADO', 'INTENTO_FALLIDO', 'PROCESO_AUTOMATICO'];
+    const desdeLogs = logs.map(l => l.accion).filter(Boolean);
+    return Array.from(new Set([...accionesBase, ...desdeLogs]));
+  }, [logs]);
 
+  // Filtrado compuesto multidimensional (RF-AUD-004)
   const logsFiltrados = useMemo(() => {
     return logs.filter(l => {
       const matchUsuario = filtroUsuario === 'todos' || l.usuario === filtroUsuario;
       const matchTabla = filtroTabla === 'todos' || l.modulo === filtroTabla;
       const matchAccion = filtroAccion === 'todas' || l.accion === filtroAccion;
+      const matchRegistroId = !filtroRegistroId || (l.registroId && l.registroId.toLowerCase().includes(filtroRegistroId.toLowerCase()));
+
+      let matchFechaDesde = true;
+      if (fechaDesde && l.fechaIso) {
+        matchFechaDesde = new Date(l.fechaIso) >= new Date(`${fechaDesde}T00:00:00`);
+      }
+
+      let matchFechaHasta = true;
+      if (fechaHasta && l.fechaIso) {
+        matchFechaHasta = new Date(l.fechaIso) <= new Date(`${fechaHasta}T23:59:59.999`);
+      }
+
       const matchBusqueda = busqueda === '' || 
         l.registroAfectado.toLowerCase().includes(busqueda.toLowerCase()) ||
-        l.usuario.toLowerCase().includes(busqueda.toLowerCase());
-      return matchUsuario && matchTabla && matchAccion && matchBusqueda;
-    });
-  }, [logs, filtroUsuario, filtroTabla, filtroAccion, busqueda]);
+        l.usuario.toLowerCase().includes(busqueda.toLowerCase()) ||
+        l.modulo.toLowerCase().includes(busqueda.toLowerCase()) ||
+        (l.registroId && l.registroId.toLowerCase().includes(busqueda.toLowerCase()));
 
-  // Al cambiar filtros volvemos a la página 1
+      return matchUsuario && matchTabla && matchAccion && matchRegistroId && matchFechaDesde && matchFechaHasta && matchBusqueda;
+    });
+  }, [logs, filtroUsuario, filtroTabla, filtroAccion, filtroRegistroId, fechaDesde, fechaHasta, busqueda]);
+
+  // Al cambiar cualquier filtro volvemos a la página 1
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroUsuario, filtroTabla, filtroAccion, busqueda]);
+  }, [filtroUsuario, filtroTabla, filtroAccion, filtroRegistroId, fechaDesde, fechaHasta, busqueda]);
 
   // Paginación de 10 registros
   const totalPaginas = Math.ceil(logsFiltrados.length / ELEMENTOS_POR_PAGINA) || 1;
@@ -145,21 +295,47 @@ export default function AuditoriaRespaldos() {
     return logsFiltrados.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
   }, [logsFiltrados, paginaActual]);
 
+  function getBadgeClass(accion) {
+    if (accion === 'INSERT') return 'badge-status--activa';
+    if (accion === 'DELETE' || accion === 'ACCESO_DENEGADO' || accion === 'OPERACION_INVALIDA' || accion === 'DENIED' || accion === 'INTENTO_FALLIDO') {
+      return 'badge-status--suspendida';
+    }
+    if (accion === 'LOGOUT') return 'badge-status--logout';
+    return 'badge-status--inactivo';
+  }
+
+  // Verificación de si el rango seleccionado excede la fecha más antigua conservada (Excepción 3)
+  const excedeFechaDisponible = useMemo(() => {
+    if (!fechaDesde || !fechaMasAntigua) return false;
+    return new Date(`${fechaDesde}T00:00:00`) < fechaMasAntigua;
+  }, [fechaDesde, fechaMasAntigua]);
+
   return (
     <div>
       {/* Header */}
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
           <h1>Auditoría y respaldos</h1>
-          <p className="admin-page-header__subtitle">{logs.length} eventos registrados en la bitácora</p>
+          <p className="admin-page-header__subtitle">
+            {logsFiltrados.length} {logsFiltrados.length === 1 ? 'evento filtrado' : 'eventos filtrados'} de {logs.length} totales en la bitácora
+          </p>
         </div>
-        <div className="admin-page-header__actions">
+        <div className="admin-page-header__actions" style={{ display: 'flex', gap: '10px' }}>
           <button 
             type="button" 
             className="admin-btn admin-btn--secondary"
             onClick={cargarBitacora}
           >
             Refrescar bitácora
+          </button>
+          <button 
+            type="button" 
+            className="admin-btn admin-btn--primary"
+            onClick={exportarCsv}
+            disabled={logsFiltrados.length === 0}
+            title="Exportar registros filtrados a formato CSV compatible con Excel"
+          >
+            Exportar a CSV ({logsFiltrados.length})
           </button>
         </div>
       </div>
@@ -170,12 +346,57 @@ export default function AuditoriaRespaldos() {
         </div>
       )}
 
-      {/* Filters Bar */}
-      <div className="admin-filters-bar">
+      {/* Banner de contexto: Llegada desde un registro afectado específico (RF-AUD-004 Criterio 2) */}
+      {filtroRegistroId && (
+        <div className="admin-banner" style={{
+          marginBottom: '20px',
+          background: '#eff6ff',
+          borderColor: '#93c5fd',
+          color: '#1e40af',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div>
+            <strong>Filtro de registro activo:</strong> Mostrando el historial asociado al registro ID: <code>{filtroRegistroId}</code>
+            {filtroTabla !== 'todos' && <span> en la entidad <strong>{filtroTabla}</strong></span>}
+          </div>
+          <button
+            type="button"
+            className="admin-btn admin-btn--secondary"
+            style={{ padding: '4px 12px', fontSize: '0.78rem' }}
+            onClick={() => {
+              setFiltroRegistroId('');
+              setSearchParams({});
+            }}
+          >
+            Quitar filtro y ver toda la bitácora
+          </button>
+        </div>
+      )}
+
+      {/* Aviso informativo: La fecha consultada excede los registros conservados (RF-AUD-004 Excepción 3) */}
+      {excedeFechaDisponible && fechaMasAntigua && (
+        <div className="admin-banner" style={{
+          marginBottom: '20px',
+          background: '#fefce8',
+          borderColor: '#fde047',
+          color: '#854d0e'
+        }}>
+          <strong>Aviso de retención:</strong> El período seleccionado inicia antes de la fecha más antigua disponible en la bitácora. 
+          Los registros del sistema se conservan a partir del <strong>{fechaMasAntigua.toLocaleDateString('es-CR')}</strong>.
+        </div>
+      )}
+
+      {/* Barra de Filtros Primaria: Selectores y Búsqueda */}
+      <div className="admin-filters-bar" style={{ marginBottom: '12px' }}>
         <select 
           className="admin-select"
           value={filtroUsuario}
           onChange={(e) => setFiltroUsuario(e.target.value)}
+          aria-label="Filtrar por usuario"
         >
           <option value="todos">Usuario: todos</option>
           {usuariosUnicos.map(u => (
@@ -187,6 +408,7 @@ export default function AuditoriaRespaldos() {
           className="admin-select"
           value={filtroTabla}
           onChange={(e) => setFiltroTabla(e.target.value)}
+          aria-label="Filtrar por tabla o módulo"
         >
           <option value="todos">Tabla / Módulo: todos</option>
           {tablasUnicas.map(t => (
@@ -198,26 +420,99 @@ export default function AuditoriaRespaldos() {
           className="admin-select"
           value={filtroAccion}
           onChange={(e) => setFiltroAccion(e.target.value)}
+          aria-label="Filtrar por acción"
         >
           <option value="todas">Acción: todas</option>
-          <option value="INSERT">INSERT</option>
-          <option value="UPDATE">UPDATE</option>
-          <option value="DELETE">DELETE</option>
-          <option value="LOGOUT">LOGOUT</option>
-          <option value="ACCESO_DENEGADO">ACCESO DENEGADO</option>
-          <option value="OPERACION_INVALIDA">OPERACIÓN INVÁLIDA</option>
+          {accionesUnicas.map(a => (
+            <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>
+          ))}
         </select>
 
         <input 
           type="search"
           className="admin-input admin-input--search"
-          placeholder="Buscar registro..."
+          placeholder="Buscar por texto, ID o descripción..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
+          style={{ minWidth: '260px' }}
         />
       </div>
 
-      {/* Grid: Audit table + Backups Sidebar */}
+      {/* Barra de Filtros Secundaria: Rango de Fechas y Presets (RF-AUD-004) */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        background: '#f8fafc',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        border: '1px solid var(--borde, #e2e8f0)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--texto-suave, #64748b)' }}>
+            Rango de fechas:
+          </span>
+          <input 
+            type="date"
+            className="admin-input"
+            style={{ padding: '5px 8px', fontSize: '0.8rem', width: 'auto' }}
+            value={fechaDesde}
+            onChange={(e) => {
+              setFechaDesde(e.target.value);
+              setRangoPreset('personalizado');
+            }}
+            title="Fecha desde"
+          />
+          <span style={{ fontSize: '0.8rem', color: 'var(--texto-mudo, #94a3b8)' }}>hasta</span>
+          <input 
+            type="date"
+            className="admin-input"
+            style={{ padding: '5px 8px', fontSize: '0.8rem', width: 'auto' }}
+            value={fechaHasta}
+            onChange={(e) => {
+              setFechaHasta(e.target.value);
+              setRangoPreset('personalizado');
+            }}
+            title="Fecha hasta"
+          />
+        </div>
+
+        {/* Botones de presets rápidos */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {[
+            { id: 'todo', label: 'Todo el historial' },
+            { id: 'hoy', label: 'Hoy' },
+            { id: '7dias', label: 'Últimos 7 días' },
+            { id: '30dias', label: 'Últimos 30 días' },
+            { id: 'esteMes', label: 'Este mes' }
+          ].map(p => (
+            <button
+              key={p.id}
+              type="button"
+              className={`admin-btn ${rangoPreset === p.id ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
+              style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+              onClick={() => aplicarPresetFecha(p.id)}
+            >
+              {p.label}
+            </button>
+          ))}
+
+          {(filtroUsuario !== 'todos' || filtroTabla !== 'todos' || filtroAccion !== 'todas' || busqueda || fechaDesde || fechaHasta || filtroRegistroId) && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--secondary"
+              style={{ padding: '4px 10px', fontSize: '0.74rem', marginLeft: 'auto', color: '#dc2626' }}
+              onClick={restablecerFiltros}
+            >
+              Restablecer filtros
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Grid: Tabla de auditoría + Columna lateral */}
       <div className="admin-grid-layout">
         {/* Audit Log Table */}
         <div className="admin-card">
@@ -248,12 +543,8 @@ export default function AuditoriaRespaldos() {
                     <td style={{ whiteSpace: 'nowrap' }}>{log.fechaHora}</td>
                     <td style={{ color: 'var(--texto)', fontWeight: 600 }}>{log.usuario}</td>
                     <td>
-                      <span className={`badge-status ${
-                        log.accion === 'INSERT' ? 'badge-status--activa' : 
-                        (log.accion === 'DELETE' || log.accion === 'ACCESO_DENEGADO' || log.accion === 'OPERACION_INVALIDA' || log.accion === 'DENIED' ? 'badge-status--suspendida' : 
-                        (log.accion === 'LOGOUT' ? 'badge-status--logout' : 'badge-status--inactivo'))
-                      }`}>
-                        {log.accion}
+                      <span className={`badge-status ${getBadgeClass(log.accion)}`}>
+                        {log.accion.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td><code>{log.modulo}</code></td>
@@ -270,10 +561,26 @@ export default function AuditoriaRespaldos() {
                     </td>
                   </tr>
                 ))}
+                
+                {/* Estado vacío con sugerencia de ampliación de rango (RF-AUD-004 Excepción 1) */}
                 {logsPaginados.length === 0 && (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
-                      No hay eventos en la bitácora que coincidan con los filtros.
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--texto-mudo)' }}>
+                      <div style={{ maxWidth: '440px', margin: '0 auto' }}>
+                        <p style={{ fontWeight: 600, color: 'var(--texto)', marginBottom: '8px', fontSize: '0.95rem' }}>
+                          No se encontraron eventos en la bitácora con los filtros aplicados
+                        </p>
+                        <p style={{ fontSize: '0.84rem', lineHeight: '1.45', marginBottom: '16px' }}>
+                          Sugerencia: Intente ampliar el rango de fechas, cambiar la acción seleccionada o limpiar el término de búsqueda.
+                        </p>
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn--secondary"
+                          onClick={restablecerFiltros}
+                        >
+                          Restablecer todos los filtros
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -329,7 +636,7 @@ export default function AuditoriaRespaldos() {
         </div>
       </div>
 
-      {/* Modal: Ver Detalle JSON del Log (Con tabs, copia y layout responsivo que no se corta) */}
+      {/* Modal: Ver Detalle JSON del Log (Solo lectura, con tabs y copia) */}
       {detalleLog && (
         <div className="admin-modal-overlay" onClick={() => setDetalleLog(null)}>
           <div className="admin-modal admin-modal--wide" onClick={(e) => e.stopPropagation()}>
@@ -337,8 +644,8 @@ export default function AuditoriaRespaldos() {
               <div>
                 <h3 className="admin-modal__title">Detalle del registro de auditoría</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--texto-mudo)', flexWrap: 'wrap' }}>
-                  <span className={`badge-status ${detalleLog.accion === 'INSERT' ? 'badge-status--activa' : (detalleLog.accion === 'DELETE' ? 'badge-status--suspendida' : 'badge-status--inactivo')}`}>
-                    {detalleLog.accion}
+                  <span className={`badge-status ${getBadgeClass(detalleLog.accion)}`}>
+                    {detalleLog.accion.replace(/_/g, ' ')}
                   </span>
                   <span>Tabla: <strong>{detalleLog.modulo}</strong></span>
                   {detalleLog.registroId && (
@@ -359,6 +666,37 @@ export default function AuditoriaRespaldos() {
             </div>
 
             <div className="admin-modal__body">
+              {/* Notificación informativa para operaciones denegadas, intentos fallidos o procesos automáticos */}
+              {detalleLog.detalleNuevo?.evento && (
+                <div style={{
+                  marginBottom: '16px',
+                  background: (detalleLog.accion === 'ACCESO_DENEGADO' || detalleLog.accion === 'INTENTO_FALLIDO' || detalleLog.accion === 'OPERACION_INVALIDA') ? '#fef2f2' : '#f8fafc',
+                  border: `1px solid ${(detalleLog.accion === 'ACCESO_DENEGADO' || detalleLog.accion === 'INTENTO_FALLIDO' || detalleLog.accion === 'OPERACION_INVALIDA') ? '#fecaca' : '#cbd5e1'}`,
+                  borderRadius: '6px',
+                  padding: '12px 16px',
+                  color: (detalleLog.accion === 'ACCESO_DENEGADO' || detalleLog.accion === 'INTENTO_FALLIDO' || detalleLog.accion === 'OPERACION_INVALIDA') ? '#991b1b' : '#1e293b'
+                }}>
+                  <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: '4px' }}>
+                    {detalleLog.detalleNuevo.evento}
+                  </strong>
+                  {detalleLog.detalleNuevo.motivo && (
+                    <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
+                      <strong>Motivo:</strong> {detalleLog.detalleNuevo.motivo}
+                    </div>
+                  )}
+                  {detalleLog.detalleNuevo.endpoint && (
+                    <div style={{ fontSize: '0.78rem', marginTop: '2px', opacity: 0.9 }}>
+                      <strong>Endpoint:</strong> <code>{detalleLog.detalleNuevo.endpoint}</code>
+                    </div>
+                  )}
+                  {detalleLog.detalleNuevo.ip && (
+                    <div style={{ fontSize: '0.78rem', marginTop: '2px', opacity: 0.9 }}>
+                      <strong>Dirección IP:</strong> {detalleLog.detalleNuevo.ip}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Resumen de campos modificados cuando la acción es UPDATE */}
               {detalleLog.accion === 'UPDATE' && detalleLog.cambios?.length > 0 && (
                 <div style={{
@@ -466,11 +804,11 @@ export default function AuditoriaRespaldos() {
                 )}
 
                 {/* Columna Fila Nueva */}
-                {(detalleLog.accion === 'INSERT' || (detalleLog.accion === 'UPDATE' && (tabModal === 'comparar' || tabModal === 'nuevo'))) && (
+                {(detalleLog.accion !== 'DELETE' && (tabModal === 'comparar' || tabModal === 'nuevo')) && (
                   <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--texto-suave)', textTransform: 'uppercase' }}>
-                        Fila nueva (JSONB)
+                        Fila nueva / Evento (JSONB)
                       </label>
                       {detalleLog.detalleNuevo && (
                         <button

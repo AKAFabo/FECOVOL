@@ -255,7 +255,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     if (deps.total > 0) {
       return res.status(409).json({
         requires_confirmation: true,
-        message: `Esta asociación cuenta con ${deps.total} registro(s) dependientes (${deps.teams} equipos, ${deps.persons} afiliados, ${deps.profiles} cuentas de usuario). Para preservar la consistencia histórica, confirme la suspensión (RF-AUD-002).`,
+        message: `Esta asociación cuenta con ${deps.total} registro(s) dependientes (${deps.teams} equipos, ${deps.persons} afiliados, ${deps.profiles} cuentas de usuario). Para preservar la consistencia histórica, confirme la suspensión.`,
         dependency_count: deps.total,
         dependencies: deps
       });

@@ -13,7 +13,7 @@ function getClientIp(req) {
 }
 
 /**
- * Registra un intento denegado o una operación inválida en public.audit_logs (RF-SEG-010)
+ * Registra un intento denegado o una operación inválida en public.audit_logs (RF-AUD-003 / RF-SEG-010)
  * Garantiza trazabilidad de accesos denegados por rol, permisos o reglas de negocio.
  */
 async function logDeniedAttempt({
@@ -29,11 +29,11 @@ async function logDeniedAttempt({
   try {
     await supabase.from('audit_logs').insert([{
       usuario: (usuario || 'Desconocido').substring(0, 255),
-      accion: (accion || 'ACCESO_DENEGADO').substring(0, 20),
+      accion: (accion || 'ACCESO_DENEGADO').substring(0, 50),
       tabla: (tabla || 'seguridad').substring(0, 100),
       registro_id: registroId ? String(registroId).substring(0, 255) : null,
       registro_nuevo: {
-        evento: 'Operación denegada (RF-SEG-010)',
+        evento: 'Operación denegada',
         motivo: motivo || 'Operación no permitida o perfil no autorizado',
         endpoint: endpoint || null,
         ip: ip || null,
@@ -46,7 +46,65 @@ async function logDeniedAttempt({
   }
 }
 
+/**
+ * Registra un intento fallido de autenticación en public.audit_logs (RF-AUD-003 / RF-SEG-001)
+ */
+async function logFailedLogin({
+  email = 'Desconocido',
+  motivo = 'Credenciales inválidas',
+  ip = null,
+  isLocked = false
+}) {
+  try {
+    await supabase.from('audit_logs').insert([{
+      usuario: (email || 'Desconocido').substring(0, 255),
+      accion: 'INTENTO_FALLIDO',
+      tabla: 'auth',
+      registro_id: null,
+      registro_nuevo: {
+        evento: isLocked ? 'Cuenta bloqueada temporalmente tras múltiples intentos fallidos' : 'Intento fallido de inicio de sesión',
+        email: email,
+        motivo: motivo || 'Credenciales de acceso incorrectas',
+        ip: ip || null,
+        bloqueado: Boolean(isLocked),
+        timestamp: new Date().toISOString()
+      }
+    }]);
+  } catch (err) {
+    console.error('Error al registrar intento fallido en audit_logs:', err.message);
+  }
+}
+
+/**
+ * Registra la ejecución de procesos automáticos o tareas de fondo del sistema en public.audit_logs (RF-AUD-003)
+ */
+async function logSystemProcess({
+  proceso = 'Mantenimiento del sistema',
+  accion = 'PROCESO_AUTOMATICO',
+  tabla = 'sistema',
+  registroId = null,
+  detalles = null
+}) {
+  try {
+    await supabase.from('audit_logs').insert([{
+      usuario: 'Sistema (Proceso automático)',
+      accion: (accion || 'PROCESO_AUTOMATICO').substring(0, 50),
+      tabla: (tabla || 'sistema').substring(0, 100),
+      registro_id: registroId ? String(registroId).substring(0, 255) : null,
+      registro_nuevo: {
+        evento: proceso,
+        detalles: detalles || null,
+        timestamp: new Date().toISOString()
+      }
+    }]);
+  } catch (err) {
+    console.error('Error al registrar proceso de sistema en audit_logs:', err.message);
+  }
+}
+
 module.exports = {
   logDeniedAttempt,
+  logFailedLogin,
+  logSystemProcess,
   getClientIp
 };

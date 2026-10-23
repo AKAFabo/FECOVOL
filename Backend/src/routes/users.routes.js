@@ -3,7 +3,7 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const authorize = require('../middleware/authorize');
-const { logDeniedAttempt, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
+const { logDeniedAttempt, logFailedLogin, logSystemProcess, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
 
 const router = express.Router();
 
@@ -364,6 +364,20 @@ router.post('/record-failed-login', asyncHandler(async (req, res) => {
         updated_at: new Date().toISOString()
       }, { onConflict: 'email,ip_address' });
   } catch (dbErr) {
+    // Silencioso
+  }
+
+  // RF-AUD-003: Registrar en bitácora de auditoría el intento fallido
+  try {
+    await logFailedLogin({
+      email: emailLimpio,
+      motivo: isLocked
+        ? `Bloqueo temporal de 30 minutos por 5 intentos fallidos consecutivos (IP: ${ip})`
+        : `Intento fallido de autenticación (${attemptsCount} de 5)`,
+      ip,
+      isLocked
+    });
+  } catch (errAudit) {
     // Silencioso
   }
 
@@ -805,7 +819,7 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
           roles_ids: rolesPreviosIds
         },
         registro_nuevo: {
-          evento: 'Modificación de roles y alcance organizacional (RF-SEG-006)',
+          evento: 'Modificación de roles y alcance organizacional',
           organization_id: organization_id !== undefined ? organization_id : usuarioPrevio?.organization_id,
           roles_ids: nuevosRoleIds || rolesPreviosIds,
           solicitado_por: admin_email

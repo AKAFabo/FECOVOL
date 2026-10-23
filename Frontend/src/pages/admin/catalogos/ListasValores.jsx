@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 
@@ -85,6 +86,7 @@ export const PANTALLAS_SISTEMA = [
 ];
 
 export default function ListasValores() {
+  const navigate = useNavigate();
   // Vista actual: 'catalogo' | 'roles' | 'asociaciones'
   const [tipoVista, setTipoVista] = useState('catalogo');
 
@@ -1840,6 +1842,15 @@ export default function ListasValores() {
                               <button
                                 type="button"
                                 className="admin-btn admin-btn--secondary"
+                                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                onClick={() => navigate(`/admin/auditoria?tabla=associations&registroId=${asoc.id}`)}
+                                title="Ver historial de esta asociación en la bitácora"
+                              >
+                                Bitácora
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-btn admin-btn--secondary"
                                 style={{ 
                                   padding: '4px 10px', 
                                   fontSize: '0.78rem',
@@ -2044,6 +2055,15 @@ export default function ListasValores() {
                                 title="Editar código, valor y descripción"
                               >
                                 Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-btn admin-btn--secondary"
+                                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                onClick={() => navigate(`/admin/auditoria?tabla=catalog_values&registroId=${v.id}`)}
+                                title="Ver historial de este valor en la bitácora"
+                              >
+                                Bitácora
                               </button>
                               <button 
                                 type="button" 

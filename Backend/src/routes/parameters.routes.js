@@ -11,10 +11,10 @@ router.param('id', validateUuidParams);
 
 // Semillas por defecto en memoria por si la tabla aún no ha sido migrada o está vacía
 const DEFAULT_PARAMETERS = [
-  { name: 'COMPETENCIA_PUNTOS_VICTORIA_MAX', value: '3', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo ganador por marcador 3-0 o 3-1 (Reglamento FIVB / RF-COM-008).' },
-  { name: 'COMPETENCIA_PUNTOS_VICTORIA_MIN', value: '2', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo ganador por marcador 3-2 en muerte súbita (RF-COM-008).' },
-  { name: 'COMPETENCIA_PUNTOS_DERROTA_MIN', value: '1', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo perdedor que alcanzó el quinto set (marcador 2-3) (RF-COM-008).' },
-  { name: 'COMPETENCIA_PUNTOS_DERROTA_MAX', value: '0', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo perdedor por marcador 0-3 o 1-3 (RF-COM-008).' },
+  { name: 'COMPETENCIA_PUNTOS_VICTORIA_MAX', value: '3', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo ganador por marcador 3-0 o 3-1 según Reglamento Oficial FIVB.' },
+  { name: 'COMPETENCIA_PUNTOS_VICTORIA_MIN', value: '2', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo ganador por marcador 3-2 en muerte súbita (Tie-break).' },
+  { name: 'COMPETENCIA_PUNTOS_DERROTA_MIN', value: '1', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo perdedor que alcanzó el quinto set decisivo (marcador 2-3).' },
+  { name: 'COMPETENCIA_PUNTOS_DERROTA_MAX', value: '0', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Puntos otorgados al equipo perdedor por marcador 0-3 o 1-3.' },
   { name: 'COMPETENCIA_SETS_MAXIMOS', value: '5', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Cantidad máxima reglamentaria de sets a disputar por encuentro oficial.' },
   { name: 'COMPETENCIA_TOLERANCIA_MINUTOS', value: '15', category: 'COMPETENCIAS', data_type: 'NUMBER', is_active: true, description: 'Tiempo de espera reglamentario en minutos antes de decretar No Presentación (Default).' },
   { name: 'SEGURIDAD_MAX_INTENTOS_LOGIN', value: '5', category: 'SEGURIDAD', data_type: 'NUMBER', is_active: true, description: 'Número de intentos de acceso fallidos permitidos antes de suspender temporalmente la cuenta.' },
