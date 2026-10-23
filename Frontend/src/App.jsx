@@ -15,6 +15,7 @@ import AdminInicio from './pages/admin/AdminInicio.jsx';
 import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
+import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
 
 // Paneles protegidos por entorno/rol
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="panel" element={<AdminInicio />} />
           <Route path="usuarios" element={<UsuariosPermisos />} />
           <Route path="listas-valores" element={<ListasValores />} />
+          <Route path="parametros" element={<ParametrosSistema />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
           <Route path="perfil" element={<Perfil />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />

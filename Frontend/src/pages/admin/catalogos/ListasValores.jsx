@@ -4,6 +4,16 @@ import { supabase } from '../../../supabaseClient.js';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
+export const PROVINCIAS_CR = [
+  'San José',
+  'Alajuela',
+  'Cartago',
+  'Heredia',
+  'Guanacaste',
+  'Puntarenas',
+  'Limón'
+];
+
 // Matriz oficial de subrutas y entornos accesibles del sistema (RF-SEG-005)
 export const PANTALLAS_SISTEMA = [
   // ── Entornos Principales del Sistema (Vistas por Rol) ──
@@ -52,6 +62,13 @@ export const PANTALLAS_SISTEMA = [
     desc: 'Gestión de roles del sistema, permisos, asociaciones y catálogos' 
   },
   { 
+    key: '/admin/parametros', 
+    categoria: 'Módulos Administrativos', 
+    nombre: 'Parámetros del Sistema (/admin/parametros)', 
+    ruta: '/admin/parametros', 
+    desc: 'Administración de reglas de competencia, desempates, seguridad y límites (RF-AUD-001)' 
+  },
+  { 
     key: '/admin/auditoria', 
     categoria: 'Módulos Administrativos', 
     nombre: 'Auditoría y Bitácora (/admin/auditoria)', 
@@ -98,6 +115,23 @@ export default function ListasValores() {
   const [asociacionesList, setAsociacionesList] = useState([]);
   const [cargandoAsociaciones, setCargandoAsociaciones] = useState(false);
   const [paginaAsociaciones, setPaginaAsociaciones] = useState(1);
+  const [mostrarModalCrearAsoc, setMostrarModalCrearAsoc] = useState(false);
+  const [guardandoAsoc, setGuardandoAsoc] = useState(false);
+  const [nuevaAsociacion, setNuevaAsociacion] = useState({
+    name: '',
+    short_name: '',
+    tax_id: '',
+    province: 'San José',
+    canton: '',
+    email: '',
+    phone: '',
+    address: '',
+    home_venue: '',
+    status: 'AFILIADA'
+  });
+  const [asociacionEditando, setAsociacionEditando] = useState(null);
+  const [guardandoEdicionAsoc, setGuardandoEdicionAsoc] = useState(false);
+  const [busquedaAsoc, setBusquedaAsoc] = useState('');
 
   // Modal de agregar valor de catálogo
   const [mostrarModalValor, setMostrarModalValor] = useState(false);
@@ -109,6 +143,29 @@ export default function ListasValores() {
     estado: 'ACTIVO'
   });
 
+  // Modal de agregar nuevo catálogo (RF-AUD-001)
+  const [mostrarModalCatalogo, setMostrarModalCatalogo] = useState(false);
+  const [guardandoCatalogo, setGuardandoCatalogo] = useState(false);
+  const [nuevoCatalogo, setNuevoCatalogo] = useState({
+    name: '',
+    description: ''
+  });
+
+  // Modal de editar valor de catálogo (RF-AUD-001)
+  const [valorEditando, setValorEditando] = useState(null);
+  const [guardandoEdicionValor, setGuardandoEdicionValor] = useState(false);
+
+  // Modal de editar catálogo
+  const [catalogoEditando, setCatalogoEditando] = useState(null);
+  const [guardandoEdicionCatalogo, setGuardandoEdicionCatalogo] = useState(false);
+
+  // Modal de confirmación y advertencia de dependencias para desactivar (RF-AUD-002)
+  const [modalConfirmacionDesactivar, setModalConfirmacionDesactivar] = useState(null);
+  const [ejecutandoDesactivacion, setEjecutandoDesactivacion] = useState(false);
+
+  // Filtro de búsqueda dentro del catálogo seleccionado
+  const [busquedaValor, setBusquedaValor] = useState('');
+
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
   // ==========================================
@@ -119,29 +176,51 @@ export default function ListasValores() {
   async function cargarCatalogos() {
     setCargandoCatalogos(true);
     try {
-      const { data: cats, error: errCats } = await supabase
-        .from('catalogs')
-        .select(`
-          id,
-          name,
-          description,
-          catalog_values ( id, is_active )
-        `)
-        .order('name');
+      let catsFormateados = null;
 
-      if (errCats) throw errCats;
+      // 1. Intentar cargar vía API backend
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs`);
+        if (res.ok) {
+          const json = await res.json();
+          catsFormateados = (json.data || []).map((c) => ({
+            id: c.id,
+            nombre: c.name,
+            descripcion: c.description,
+            total: c.total_values || 0,
+            activos: c.active_values || 0
+          }));
+        }
+      } catch (e) {
+        console.warn('API /api/catalogs no disponible, usando cliente Supabase:', e);
+      }
 
-      const formateados = (cats || []).map((c) => ({
-        id: c.id,
-        nombre: c.name,
-        descripcion: c.description,
-        total: c.catalog_values?.length || 0,
-        activos: c.catalog_values?.filter((v) => v.is_active).length || 0
-      }));
+      // 2. Fallback directo a Supabase
+      if (!catsFormateados) {
+        const { data: cats, error: errCats } = await supabase
+          .from('catalogs')
+          .select(`
+            id,
+            name,
+            description,
+            catalog_values ( id, is_active )
+          `)
+          .order('name');
 
-      setCatalogos(formateados);
-      if (formateados.length > 0 && !catalogoSeleccionado && tipoVista === 'catalogo') {
-        setCatalogoSeleccionado(formateados[0]);
+        if (errCats) throw errCats;
+
+        catsFormateados = (cats || []).map((c) => ({
+          id: c.id,
+          nombre: c.name,
+          descripcion: c.description,
+          total: c.catalog_values?.length || 0,
+          activos: c.catalog_values?.filter((v) => v.is_active).length || 0
+        }));
+      }
+
+      setCatalogos(catsFormateados || []);
+      if (catsFormateados && catsFormateados.length > 0 && !catalogoSeleccionado && tipoVista === 'catalogo') {
+        setCatalogoSeleccionado(catsFormateados[0]);
       }
     } catch (err) {
       console.error('Error al cargar catálogos:', err);
@@ -151,29 +230,60 @@ export default function ListasValores() {
     }
   }
 
-  // Cargar valores del catálogo seleccionado
+  // Cargar valores del catálogo seleccionado (con dependencias RF-AUD-002)
   async function cargarValores(catalogId) {
     if (!catalogId) return;
     setCargandoValores(true);
     try {
-      const { data: vals, error: errVals } = await supabase
-        .from('catalog_values')
-        .select('*')
-        .eq('catalog_id', catalogId)
-        .order('value');
+      let valsFormateados = null;
 
-      if (errVals) throw errVals;
+      // 1. Intentar vía API backend (con cálculo de dependencias)
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs/${catalogId}/values`);
+        if (res.ok) {
+          const json = await res.json();
+          valsFormateados = (json.data || []).map((v) => ({
+            id: v.id,
+            codigo: v.code,
+            valor: v.value,
+            descripcion: v.description || '—',
+            is_active: v.is_active,
+            estado: v.is_active ? 'ACTIVO' : 'INACTIVO',
+            dependency_count: v.dependency_count ?? 0,
+            dependencies: v.dependencies ?? { total: 0, teams: 0, persons: 0, members: 0, documents: 0, referees: 0 },
+            is_last_active: Boolean(v.is_last_active)
+          }));
+        }
+      } catch (e) {
+        console.warn('API /api/catalogs/:id/values no disponible, usando Supabase:', e);
+      }
 
-      const formateados = (vals || []).map((v) => ({
-        id: v.id,
-        codigo: v.code,
-        valor: v.value,
-        descripcion: v.description || '—',
-        is_active: v.is_active,
-        estado: v.is_active ? 'ACTIVO' : 'INACTIVO'
-      }));
+      // 2. Fallback Supabase
+      if (!valsFormateados) {
+        const { data: vals, error: errVals } = await supabase
+          .from('catalog_values')
+          .select('*')
+          .eq('catalog_id', catalogId)
+          .order('value');
 
-      setValores(formateados);
+        if (errVals) throw errVals;
+
+        const activeCount = (vals || []).filter((v) => v.is_active).length;
+
+        valsFormateados = (vals || []).map((v) => ({
+          id: v.id,
+          codigo: v.code,
+          valor: v.value,
+          descripcion: v.description || '—',
+          is_active: v.is_active,
+          estado: v.is_active ? 'ACTIVO' : 'INACTIVO',
+          dependency_count: 0,
+          dependencies: { total: 0, teams: 0, persons: 0, members: 0, documents: 0, referees: 0 },
+          is_last_active: v.is_active && activeCount === 1
+        }));
+      }
+
+      setValores(valsFormateados || []);
     } catch (err) {
       console.error('Error al cargar valores:', err);
       setError('No se pudieron cargar los valores del catálogo.');
@@ -243,8 +353,14 @@ export default function ListasValores() {
     setCargandoAsociaciones(true);
     try {
       let asocs = [];
+      const { data: { user } } = await supabase.auth.getUser();
+
       try {
-        const res = await fetch(`${backendUrl}/api/associations`);
+        const res = await fetch(`${backendUrl}/api/associations`, {
+          headers: {
+            'x-user-email': user?.email || ''
+          }
+        });
         if (res.ok) {
           const json = await res.json();
           asocs = json.data || [];
@@ -254,14 +370,23 @@ export default function ListasValores() {
       }
 
       if (asocs.length === 0) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('associations')
-          .select('id, name, short_name, tax_id, province, canton, status, affiliation_date')
+          .select('id, name, short_name, tax_id, province, canton, address, email, phone, website, home_venue, status, affiliation_date, founded_date')
           .order('name');
+        if (error) throw error;
         asocs = data || [];
       }
 
-      setAsociacionesList(asocs);
+      setAsociacionesList((asocs || []).map(a => ({
+        ...a,
+        dependency_count: a.dependency_count ?? ((a.teams_count || 0) + (a.persons_count || 0)),
+        teams_count: a.teams_count ?? 0,
+        persons_count: a.persons_count ?? 0,
+        board_count: a.board_count ?? 0,
+        profiles_count: a.profiles_count ?? 0,
+        dependencies: a.dependencies ?? { total: 0, teams: a.teams_count || 0, persons: a.persons_count || 0 }
+      })));
     } catch (err) {
       console.error('Error al cargar asociaciones:', err);
     } finally {
@@ -284,13 +409,23 @@ export default function ListasValores() {
   }, [tipoVista, catalogoSeleccionado]);
 
   // ==========================================
-  // 2. PAGINACIÓN
+  // 2. PAGINACIÓN Y FILTRADO
   // ==========================================
-  const totalPaginasValores = Math.ceil(valores.length / ELEMENTOS_POR_PAGINA) || 1;
+  const valoresFiltrados = useMemo(() => {
+    if (!busquedaValor.trim()) return valores;
+    const q = busquedaValor.toLowerCase();
+    return valores.filter(v =>
+      v.codigo.toLowerCase().includes(q) ||
+      v.valor.toLowerCase().includes(q) ||
+      (v.descripcion && v.descripcion.toLowerCase().includes(q))
+    );
+  }, [valores, busquedaValor]);
+
+  const totalPaginasValores = Math.ceil(valoresFiltrados.length / ELEMENTOS_POR_PAGINA) || 1;
   const valoresPaginados = useMemo(() => {
     const inicio = (paginaValores - 1) * ELEMENTOS_POR_PAGINA;
-    return valores.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
-  }, [valores, paginaValores]);
+    return valoresFiltrados.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
+  }, [valoresFiltrados, paginaValores]);
 
   const totalPaginasRoles = Math.ceil(rolesList.length / ELEMENTOS_POR_PAGINA) || 1;
   const rolesPaginados = useMemo(() => {
@@ -298,32 +433,201 @@ export default function ListasValores() {
     return rolesList.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
   }, [rolesList, paginaRoles]);
 
-  const totalPaginasAsocs = Math.ceil(asociacionesList.length / ELEMENTOS_POR_PAGINA) || 1;
+  const asociacionesFiltradas = useMemo(() => {
+    if (!busquedaAsoc.trim()) return asociacionesList;
+    const q = busquedaAsoc.toLowerCase();
+    return asociacionesList.filter(a =>
+      (a.name && a.name.toLowerCase().includes(q)) ||
+      (a.short_name && a.short_name.toLowerCase().includes(q)) ||
+      (a.tax_id && a.tax_id.toLowerCase().includes(q)) ||
+      (a.province && a.province.toLowerCase().includes(q)) ||
+      (a.canton && a.canton.toLowerCase().includes(q))
+    );
+  }, [asociacionesList, busquedaAsoc]);
+
+  const totalPaginasAsocs = Math.ceil(asociacionesFiltradas.length / ELEMENTOS_POR_PAGINA) || 1;
   const asociacionesPaginadas = useMemo(() => {
     const inicio = (paginaAsociaciones - 1) * ELEMENTOS_POR_PAGINA;
-    return asociacionesList.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
-  }, [asociacionesList, paginaAsociaciones]);
+    return asociacionesFiltradas.slice(inicio, inicio + ELEMENTOS_POR_PAGINA);
+  }, [asociacionesFiltradas, paginaAsociaciones]);
 
   // ==========================================
-  // 3. OPERACIONES CRUD: VALORES DE CATÁLOGO
+  // 3. OPERACIONES CRUD: VALORES Y CATÁLOGOS (RF-AUD-001)
   // ==========================================
+
+  // Crear nuevo catálogo (RF-AUD-001 Nota 2)
+  const handleAgregarCatalogo = async (e) => {
+    e.preventDefault();
+    if (!nuevoCatalogo.name.trim()) return;
+
+    setGuardandoCatalogo(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let creado = null;
+
+      // 1. Intentar vía API backend
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            name: nuevoCatalogo.name.trim(),
+            description: nuevoCatalogo.description?.trim() || null,
+            admin_email: user?.email || 'Administrador'
+          })
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al crear catálogo');
+        creado = json.data;
+      } catch (errApi) {
+        console.warn('API backend falló al crear catálogo, usando Supabase:', errApi);
+      }
+
+      // 2. Fallback directo a Supabase
+      if (!creado) {
+        const { data, error: errInsert } = await supabase
+          .from('catalogs')
+          .insert({
+            name: nuevoCatalogo.name.trim(),
+            description: nuevoCatalogo.description?.trim() || null
+          })
+          .select('id, name, description')
+          .single();
+
+        if (errInsert) throw errInsert;
+        creado = data;
+      }
+
+      setMostrarModalCatalogo(false);
+      setNuevoCatalogo({ name: '', description: '' });
+      await cargarCatalogos();
+
+      // Seleccionar automáticamente el nuevo catálogo creado
+      setCatalogoSeleccionado({
+        id: creado.id,
+        nombre: creado.name,
+        descripcion: creado.description,
+        total: 0,
+        activos: 0
+      });
+      setTipoVista('catalogo');
+    } catch (err) {
+      console.error('Error al agregar catálogo:', err);
+      alert('Error al agregar el catálogo: ' + (err.message || 'Nombre duplicado o error de servidor'));
+    } finally {
+      setGuardandoCatalogo(false);
+    }
+  };
+
+  // Guardar edición de nombre y descripción de catálogo
+  const handleGuardarEdicionCatalogo = async (e) => {
+    e.preventDefault();
+    if (!catalogoEditando || !catalogoEditando.name.trim()) return;
+
+    setGuardandoEdicionCatalogo(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
+
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs/${catalogoEditando.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            name: catalogoEditando.name.trim(),
+            description: catalogoEditando.description?.trim() || null,
+            admin_email: user?.email || 'Administrador'
+          })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al editar catálogo');
+        ok = true;
+      } catch (errApi) {
+        console.warn('API backend falló al editar catálogo, usando Supabase:', errApi);
+      }
+
+      if (!ok) {
+        const { error } = await supabase
+          .from('catalogs')
+          .update({
+            name: catalogoEditando.name.trim(),
+            description: catalogoEditando.description?.trim() || null
+          })
+          .eq('id', catalogoEditando.id);
+
+        if (error) throw error;
+      }
+
+      setCatalogoSeleccionado(prev => ({
+        ...prev,
+        nombre: catalogoEditando.name.trim(),
+        descripcion: catalogoEditando.description?.trim() || null
+      }));
+      setCatalogoEditando(null);
+      await cargarCatalogos();
+    } catch (err) {
+      console.error('Error al editar catálogo:', err);
+      alert('Error al actualizar catálogo: ' + err.message);
+    } finally {
+      setGuardandoEdicionCatalogo(false);
+    }
+  };
+
+  // Agregar valor de catálogo
   const handleAgregarValor = async (e) => {
     e.preventDefault();
     if (!nuevoValor.codigo.trim() || !nuevoValor.valor.trim() || !catalogoSeleccionado) return;
 
     setGuardandoValor(true);
     try {
-      const { error: errInsert } = await supabase
-        .from('catalog_values')
-        .insert({
-          catalog_id: catalogoSeleccionado.id,
-          code: nuevoValor.codigo.trim().toUpperCase(),
-          value: nuevoValor.valor.trim(),
-          description: nuevoValor.descripcion.trim() || null,
-          is_active: nuevoValor.estado === 'ACTIVO'
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
+
+      // 1. Intentar vía API backend
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs/${catalogoSeleccionado.id}/values`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            code: nuevoValor.codigo.trim().toUpperCase(),
+            value: nuevoValor.valor.trim(),
+            description: nuevoValor.descripcion.trim() || null,
+            is_active: nuevoValor.estado === 'ACTIVO',
+            admin_email: user?.email || 'Administrador'
+          })
         });
 
-      if (errInsert) throw errInsert;
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al guardar el valor');
+        ok = true;
+      } catch (errApi) {
+        console.warn('API backend falló al agregar valor, usando Supabase:', errApi);
+      }
+
+      // 2. Fallback Supabase
+      if (!ok) {
+        const { error: errInsert } = await supabase
+          .from('catalog_values')
+          .insert({
+            catalog_id: catalogoSeleccionado.id,
+            code: nuevoValor.codigo.trim().toUpperCase(),
+            value: nuevoValor.valor.trim(),
+            description: nuevoValor.descripcion.trim() || null,
+            is_active: nuevoValor.estado === 'ACTIVO'
+          });
+
+        if (errInsert) throw errInsert;
+      }
 
       setMostrarModalValor(false);
       setNuevoValor({
@@ -342,22 +646,198 @@ export default function ListasValores() {
     }
   };
 
-  const toggleEstadoValor = async (valorItem) => {
-    const nuevoEstado = !valorItem.is_active;
+  // Guardar edición de valor existente (RF-AUD-001 y validaciones RF-AUD-002)
+  const handleGuardarEdicionValor = async (e) => {
+    e.preventDefault();
+    if (!valorEditando || !valorEditando.codigo.trim() || !valorEditando.valor.trim()) return;
+
+    // Validación preventiva de último activo (RF-AUD-002)
+    if (!valorEditando.is_active && valorEditando.is_last_active) {
+      alert(`Operación denegada: No es posible desactivar este valor porque es el único valor activo en el catálogo "${catalogoSeleccionado?.nombre}".`);
+      return;
+    }
+
+    // Advertencia de consistencia histórica si se inactiva teniendo dependencias (RF-AUD-002)
+    if (!valorEditando.is_active && valorEditando.estadoAnteriorActivo && (valorEditando.dependency_count || 0) > 0) {
+      const confirmar = window.confirm(
+        `Advertencia de Consistencia Histórica:\n\nEste valor está referenciado por ${valorEditando.dependency_count} registros en el sistema.\nAl marcarlo como Inactivo, los registros históricos conservarán su integridad, pero este valor ya no podrá ser seleccionado en nuevos formularios o registros.\n\n¿Desea confirmar la actualización?`
+      );
+      if (!confirmar) return;
+    }
+
+    setGuardandoEdicionValor(true);
     try {
-      const { error: errUpdate } = await supabase
-        .from('catalog_values')
-        .update({ is_active: nuevoEstado, updated_at: new Date().toISOString() })
-        .eq('id', valorItem.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
 
-      if (errUpdate) throw errUpdate;
+      // 1. Intentar vía API Backend
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs/values/${valorEditando.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            code: valorEditando.codigo.trim().toUpperCase(),
+            value: valorEditando.valor.trim(),
+            description: valorEditando.descripcion?.trim() || null,
+            is_active: valorEditando.is_active,
+            admin_email: user?.email || 'Administrador'
+          })
+        });
 
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al actualizar valor');
+        ok = true;
+      } catch (errApi) {
+        console.warn('API backend falló al actualizar valor, usando Supabase:', errApi);
+      }
+
+      // 2. Fallback Supabase
+      if (!ok) {
+        const { error: errUpdate } = await supabase
+          .from('catalog_values')
+          .update({
+            code: valorEditando.codigo.trim().toUpperCase(),
+            value: valorEditando.valor.trim(),
+            description: valorEditando.descripcion?.trim() || null,
+            is_active: valorEditando.is_active,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', valorEditando.id);
+
+        if (errUpdate) throw errUpdate;
+      }
+
+      setValorEditando(null);
+      await cargarValores(catalogoSeleccionado.id);
+      await cargarCatalogos();
+    } catch (err) {
+      console.error('Error al editar valor:', err);
+      alert('Error al actualizar el valor: ' + (err.message || 'Código duplicado o error de servidor'));
+    } finally {
+      setGuardandoEdicionValor(false);
+    }
+  };
+
+  // Ejecutar toggle de valor con o sin confirmación de dependencias (RF-AUD-002)
+  const ejecutarToggleValor = async (valorItem, confirmDeactivation = false) => {
+    setEjecutandoDesactivacion(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
+
+      // 1. Intentar vía API Backend
+      try {
+        const res = await fetch(`${backendUrl}/api/catalogs/values/${valorItem.id}/toggle`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            admin_email: user?.email || 'Administrador',
+            confirm_deactivation: confirmDeactivation
+          })
+        });
+
+        const resJson = await res.json();
+        if (!res.ok) {
+          if (resJson.requires_confirmation) {
+            // Mostrar modal de advertencia de consistencia histórica si aún no se había mostrado
+            const deps = resJson.dependencies || {};
+            const detalles = [
+              deps.teams > 0 && { conteo: deps.teams, etiqueta: 'equipos de voleibol' },
+              deps.persons > 0 && { conteo: deps.persons, etiqueta: 'personas afiliadas' },
+              deps.members > 0 && { conteo: deps.members, etiqueta: 'miembros de equipo' },
+              deps.documents > 0 && { conteo: deps.documents, etiqueta: 'documentos' },
+              deps.referees > 0 && { conteo: deps.referees, etiqueta: 'designaciones arbitrales' }
+            ].filter(Boolean);
+
+            setModalConfirmacionDesactivar({
+              tipo: 'valor',
+              nombre: `${valorItem.valor} (${valorItem.codigo})`,
+              totalDependencias: resJson.dependency_count,
+              detalles: detalles.length > 0 ? detalles : [{ conteo: resJson.dependency_count, etiqueta: 'registros dependientes' }],
+              bloqueado: false,
+              onConfirmar: () => ejecutarToggleValor(valorItem, true)
+            });
+            return;
+          }
+          throw new Error(resJson.error || resJson.message || 'Error al actualizar valor');
+        }
+        ok = true;
+      } catch (eApi) {
+        if (eApi.message && !ok) throw eApi;
+      }
+
+      // 2. Fallback Supabase directo
+      if (!ok) {
+        const nuevoEstado = !valorItem.is_active;
+        const { error: errUpdate } = await supabase
+          .from('catalog_values')
+          .update({ is_active: nuevoEstado, updated_at: new Date().toISOString() })
+          .eq('id', valorItem.id);
+
+        if (errUpdate) throw errUpdate;
+      }
+
+      setModalConfirmacionDesactivar(null);
       await cargarValores(catalogoSeleccionado.id);
       await cargarCatalogos();
     } catch (err) {
       console.error('Error al cambiar estado del valor:', err);
       alert('No se pudo actualizar el estado: ' + err.message);
+    } finally {
+      setEjecutandoDesactivacion(false);
     }
+  };
+
+  // Activar o desactivar valor con validación de dependencias (Soft-delete / Toggle RF-AUD-002)
+  const toggleEstadoValor = async (valorItem) => {
+    // Si se desea desactivar un valor activo
+    if (valorItem.is_active) {
+      // 1. Validación de último activo: no permitir dejar el catálogo sin opciones
+      if (valorItem.is_last_active) {
+        setModalConfirmacionDesactivar({
+          tipo: 'valor',
+          nombre: `${valorItem.valor} (${valorItem.codigo})`,
+          bloqueado: true,
+          mensajeBloqueo: `No es posible desactivar este valor porque es el único valor activo en el catálogo "${catalogoSeleccionado?.nombre}". El sistema requiere que al menos un valor permanezca activo para la creación y edición de registros.`
+        });
+        return;
+      }
+
+      // 2. Validación de dependencias existentes
+      if ((valorItem.dependency_count || 0) > 0) {
+        const deps = valorItem.dependencies || {};
+        const detalles = [
+          deps.teams > 0 && { conteo: deps.teams, etiqueta: 'equipos de voleibol' },
+          deps.persons > 0 && { conteo: deps.persons, etiqueta: 'personas afiliadas' },
+          deps.members > 0 && { conteo: deps.members, etiqueta: 'miembros de equipo' },
+          deps.documents > 0 && { conteo: deps.documents, etiqueta: 'documentos' },
+          deps.referees > 0 && { conteo: deps.referees, etiqueta: 'designaciones arbitrales' }
+        ].filter(Boolean);
+
+        setModalConfirmacionDesactivar({
+          tipo: 'valor',
+          nombre: `${valorItem.valor} (${valorItem.codigo})`,
+          totalDependencias: valorItem.dependency_count,
+          detalles: detalles.length > 0 ? detalles : [{ conteo: valorItem.dependency_count, etiqueta: 'registros dependientes' }],
+          bloqueado: false,
+          onConfirmar: () => ejecutarToggleValor(valorItem, true)
+        });
+        return;
+      }
+
+      // Sin dependencias: confirmación simple
+      const confirmar = window.confirm(`¿Desea desactivar el valor «${valorItem.valor}»? Ya no estará disponible para nuevos registros.`);
+      if (!confirmar) return;
+    }
+
+    // Si se activa o si confirmó sin dependencias
+    await ejecutarToggleValor(valorItem, false);
   };
 
   // ==========================================
@@ -520,43 +1000,287 @@ export default function ListasValores() {
     }
   };
 
-  // Toggle estado de asociación afiliada
+  // Ejecutar toggle o cambio de estado de asociación (RF-AUD-002)
+  const ejecutarToggleAsociacion = async (asoc, nuevoEstado, confirmDeactivation = false) => {
+    setEjecutandoDesactivacion(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
+
+      // 1. Intentar vía API Backend
+      try {
+        const res = await fetch(`${backendUrl}/api/associations/${asoc.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            status: nuevoEstado,
+            confirm_deactivation: confirmDeactivation
+          })
+        });
+
+        const resJson = await res.json();
+        if (!res.ok) {
+          if (resJson.requires_confirmation) {
+            const deps = resJson.dependencies || {};
+            const detalles = [
+              deps.teams > 0 && { conteo: deps.teams, etiqueta: 'equipos inscritos' },
+              deps.persons > 0 && { conteo: deps.persons, etiqueta: 'personas afiliadas' },
+              deps.board > 0 && { conteo: deps.board, etiqueta: 'miembros de junta directiva' },
+              deps.profiles > 0 && { conteo: deps.profiles, etiqueta: 'cuentas de usuario vinculadas' }
+            ].filter(Boolean);
+
+            setModalConfirmacionDesactivar({
+              tipo: 'asociacion',
+              nombre: asoc.name,
+              totalDependencias: resJson.dependency_count,
+              detalles: detalles.length > 0 ? detalles : [{ conteo: resJson.dependency_count, etiqueta: 'registros dependientes' }],
+              bloqueado: false,
+              onConfirmar: () => ejecutarToggleAsociacion(asoc, nuevoEstado, true)
+            });
+            return;
+          }
+          throw new Error(resJson.error || resJson.message || 'Error al actualizar asociación');
+        }
+        ok = true;
+      } catch (eApi) {
+        if (eApi.message && !ok) throw eApi;
+      }
+
+      // 2. Fallback Supabase directo
+      if (!ok) {
+        const { error: errUpdate } = await supabase
+          .from('associations')
+          .update({ status: nuevoEstado, updated_at: new Date().toISOString() })
+          .eq('id', asoc.id);
+
+        if (errUpdate) throw errUpdate;
+
+        try {
+          await supabase.from('audit_logs').insert([{
+            usuario: user?.email || 'Administrador',
+            accion: 'UPDATE',
+            tabla: 'associations',
+            registro_id: asoc.id,
+            registro_nuevo: {
+              evento: `Cambio de estado de asociación a ${nuevoEstado}`,
+              nombre: asoc.name,
+              nuevo_estado: nuevoEstado,
+              timestamp: new Date().toISOString()
+            }
+          }]);
+        } catch (e) {}
+      }
+
+      setModalConfirmacionDesactivar(null);
+      await cargarAsociaciones();
+    } catch (err) {
+      console.error('Error al actualizar estado de asociación:', err);
+      alert('Error: ' + err.message);
+    } finally {
+      setEjecutandoDesactivacion(false);
+    }
+  };
+
+  // Toggle estado de asociación afiliada con validación preventiva de dependencias (RF-AUD-002)
   const toggleEstadoAsociacion = async (asoc) => {
-    const nuevoEstado = asoc.status === 'AFILIADA' ? 'SUSPENDIDA' : 'AFILIADA';
+    const vaASuspender = asoc.status === 'AFILIADA';
+    const nuevoEstado = vaASuspender ? 'SUSPENDIDA' : 'AFILIADA';
+
+    if (vaASuspender && (asoc.dependency_count || 0) > 0) {
+      const detalles = [
+        asoc.teams_count > 0 && { conteo: asoc.teams_count, etiqueta: 'equipos inscritos' },
+        asoc.persons_count > 0 && { conteo: asoc.persons_count, etiqueta: 'personas afiliadas' },
+        asoc.board_count > 0 && { conteo: asoc.board_count, etiqueta: 'miembros de junta directiva' },
+        asoc.profiles_count > 0 && { conteo: asoc.profiles_count, etiqueta: 'cuentas de usuario vinculadas' }
+      ].filter(Boolean);
+
+      setModalConfirmacionDesactivar({
+        tipo: 'asociacion',
+        nombre: asoc.name,
+        totalDependencias: asoc.dependency_count,
+        detalles: detalles.length > 0 ? detalles : [{ conteo: asoc.dependency_count, etiqueta: 'registros dependientes' }],
+        bloqueado: false,
+        onConfirmar: () => ejecutarToggleAsociacion(asoc, nuevoEstado, true)
+      });
+      return;
+    }
+
     const confirmar = window.confirm(
       `¿Desea cambiar el estado de la asociación "${asoc.name}" a "${nuevoEstado}"?`
     );
     if (!confirmar) return;
 
+    await ejecutarToggleAsociacion(asoc, nuevoEstado, false);
+  };
+
+  // Crear nueva asociación (tabla associations)
+  const handleCrearAsociacion = async (e) => {
+    e.preventDefault();
+    if (!nuevaAsociacion.name.trim() || !nuevaAsociacion.tax_id.trim()) {
+      alert('El nombre y la cédula jurídica son obligatorios.');
+      return;
+    }
+
+    setGuardandoAsoc(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error: errUpdate } = await supabase
-        .from('associations')
-        .update({ status: nuevoEstado, updated_at: new Date().toISOString() })
-        .eq('id', asoc.id);
+      let ok = false;
 
-      if (errUpdate) throw errUpdate;
-
-      // Auditar en bitácora
+      // 1. Intentar vía API backend
       try {
-        await supabase.from('audit_logs').insert([{
-          usuario: user?.email || 'Administrador',
-          accion: 'UPDATE',
-          tabla: 'associations',
-          registro_id: asoc.id,
-          registro_nuevo: {
-            evento: `Cambio de estado de asociación a ${nuevoEstado}`,
-            nombre: asoc.name,
-            nuevo_estado: nuevoEstado,
-            timestamp: new Date().toISOString()
-          }
-        }]);
-      } catch (e) {}
+        const res = await fetch(`${backendUrl}/api/associations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            name: nuevaAsociacion.name.trim(),
+            short_name: nuevaAsociacion.short_name?.trim() || null,
+            tax_id: nuevaAsociacion.tax_id.trim(),
+            province: nuevaAsociacion.province,
+            canton: nuevaAsociacion.canton?.trim() || null,
+            address: nuevaAsociacion.address?.trim() || null,
+            email: nuevaAsociacion.email?.trim() || null,
+            phone: nuevaAsociacion.phone?.trim() || null,
+            home_venue: nuevaAsociacion.home_venue?.trim() || null,
+            status: nuevaAsociacion.status || 'AFILIADA'
+          })
+        });
 
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al registrar la asociación');
+        ok = true;
+      } catch (errApi) {
+        console.warn('API backend falló al registrar asociación, usando Supabase directo:', errApi);
+      }
+
+      // 2. Fallback Supabase directo
+      if (!ok) {
+        const { error: insErr } = await supabase
+          .from('associations')
+          .insert({
+            name: nuevaAsociacion.name.trim(),
+            short_name: nuevaAsociacion.short_name?.trim() || null,
+            tax_id: nuevaAsociacion.tax_id.trim(),
+            province: nuevaAsociacion.province,
+            canton: nuevaAsociacion.canton?.trim() || null,
+            address: nuevaAsociacion.address?.trim() || null,
+            email: nuevaAsociacion.email?.trim() || null,
+            phone: nuevaAsociacion.phone?.trim() || null,
+            home_venue: nuevaAsociacion.home_venue?.trim() || null,
+            status: nuevaAsociacion.status || 'AFILIADA'
+          });
+
+        if (insErr) throw insErr;
+      }
+
+      setMostrarModalCrearAsoc(false);
+      setNuevaAsociacion({
+        name: '',
+        short_name: '',
+        tax_id: '',
+        province: 'San José',
+        canton: '',
+        email: '',
+        phone: '',
+        address: '',
+        home_venue: '',
+        status: 'AFILIADA'
+      });
       await cargarAsociaciones();
+      alert('Asociación registrada con éxito.');
     } catch (err) {
-      console.error('Error al actualizar estado de asociación:', err);
-      alert('Error: ' + err.message);
+      console.error('Error al crear asociación:', err);
+      alert('Error al registrar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'));
+    } finally {
+      setGuardandoAsoc(false);
+    }
+  };
+
+  // Guardar edición de asociación existente (con validaciones RF-AUD-002)
+  const handleGuardarEdicionAsoc = async (e) => {
+    e.preventDefault();
+    if (!asociacionEditando || !asociacionEditando.name.trim() || !asociacionEditando.tax_id.trim()) {
+      alert('El nombre y la cédula jurídica son obligatorios.');
+      return;
+    }
+
+    // Advertencia de consistencia histórica si se suspende teniendo dependencias activas (RF-AUD-002)
+    if (asociacionEditando.status === 'SUSPENDIDA' && asociacionEditando.estadoAnteriorActivo && (asociacionEditando.dependency_count || 0) > 0) {
+      const confirmar = window.confirm(
+        `Advertencia de Consistencia Histórica:\n\nEsta asociación cuenta con ${asociacionEditando.dependency_count} registros dependientes (${asociacionEditando.teams_count || 0} equipos, ${asociacionEditando.persons_count || 0} personas afiliadas).\nAl suspenderla, los registros históricos se conservarán pero no podrá inscribir nuevos equipos ni realizar trámites oficiales.\n\n¿Desea confirmar la actualización?`
+      );
+      if (!confirmar) return;
+    }
+
+    setGuardandoEdicionAsoc(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let ok = false;
+
+      // 1. Intentar vía API backend
+      try {
+        const res = await fetch(`${backendUrl}/api/associations/${asociacionEditando.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-email': user?.email || ''
+          },
+          body: JSON.stringify({
+            name: asociacionEditando.name.trim(),
+            short_name: asociacionEditando.short_name?.trim() || null,
+            tax_id: asociacionEditando.tax_id.trim(),
+            province: asociacionEditando.province,
+            canton: asociacionEditando.canton?.trim() || null,
+            address: asociacionEditando.address?.trim() || null,
+            email: asociacionEditando.email?.trim() || null,
+            phone: asociacionEditando.phone?.trim() || null,
+            home_venue: asociacionEditando.home_venue?.trim() || null,
+            status: asociacionEditando.status
+          })
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Error al actualizar asociación');
+        ok = true;
+      } catch (errApi) {
+        console.warn('API backend falló al actualizar asociación, usando Supabase directo:', errApi);
+      }
+
+      // 2. Fallback Supabase directo
+      if (!ok) {
+        const { error: updErr } = await supabase
+          .from('associations')
+          .update({
+            name: asociacionEditando.name.trim(),
+            short_name: asociacionEditando.short_name?.trim() || null,
+            tax_id: asociacionEditando.tax_id.trim(),
+            province: asociacionEditando.province,
+            canton: asociacionEditando.canton?.trim() || null,
+            address: asociacionEditando.address?.trim() || null,
+            email: asociacionEditando.email?.trim() || null,
+            phone: asociacionEditando.phone?.trim() || null,
+            home_venue: asociacionEditando.home_venue?.trim() || null,
+            status: asociacionEditando.status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', asociacionEditando.id);
+
+        if (updErr) throw updErr;
+      }
+
+      setAsociacionEditando(null);
+      await cargarAsociaciones();
+      alert('Asociación actualizada con éxito.');
+    } catch (err) {
+      console.error('Error al editar asociación:', err);
+      alert('Error al actualizar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'));
+    } finally {
+      setGuardandoEdicionAsoc(false);
     }
   };
 
@@ -569,7 +1293,7 @@ export default function ListasValores() {
         <div className="admin-page-header__title-group">
           <h1>Listas de valores y entidades</h1>
           <p className="admin-page-header__subtitle">
-            {tipoVista === 'roles' && `${rolesList.length} roles configurados · Permisos por pantallas (RF-SEG-005)`}
+            {tipoVista === 'roles' && `${rolesList.length} roles configurados · Permisos por pantallas`}
             {tipoVista === 'asociaciones' && `${asociacionesList.length} asociaciones afiliadas registradas en el sistema`}
             {tipoVista === 'catalogo' && `${catalogos.length} listas · ${totalValoresEnSistema} valores registrados`}
           </p>
@@ -587,14 +1311,41 @@ export default function ListasValores() {
               + Crear rol
             </button>
           )}
+          {tipoVista === 'asociaciones' && (
+            <button 
+              type="button" 
+              className="admin-btn admin-btn--primary"
+              onClick={() => {
+                setNuevaAsociacion({
+                  name: '',
+                  short_name: '',
+                  tax_id: '',
+                  province: 'San José',
+                  canton: '',
+                  email: '',
+                  phone: '',
+                  address: '',
+                  home_venue: '',
+                  status: 'AFILIADA'
+                });
+                setMostrarModalCrearAsoc(true);
+              }}
+              title="Registrar una nueva asociación afiliada en FECOVOL"
+            >
+              + Agregar asociación
+            </button>
+          )}
           {tipoVista === 'catalogo' && (
             <button 
               type="button" 
               className="admin-btn admin-btn--primary"
-              onClick={() => setMostrarModalValor(true)}
-              disabled={!catalogoSeleccionado}
+              onClick={() => {
+                setNuevoCatalogo({ name: '', description: '' });
+                setMostrarModalCatalogo(true);
+              }}
+              title="Crear un nuevo catálogo o lista en el sistema"
             >
-              + Agregar valor
+              + Agregar catálogo
             </button>
           )}
         </div>
@@ -932,10 +1683,63 @@ export default function ListasValores() {
                 <div>
                   <h2 className="admin-card__title">Asociaciones afiliadas</h2>
                   <span style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)' }}>
-                    Órganos y clubes vinculados a FECOVOL
+                    Órganos y clubes vinculados a FECOVOL ({asociacionesList.length} registradas)
                   </span>
                 </div>
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                  onClick={() => {
+                    setNuevaAsociacion({
+                      name: '',
+                      short_name: '',
+                      tax_id: '',
+                      province: 'San José',
+                      canton: '',
+                      email: '',
+                      phone: '',
+                      address: '',
+                      home_venue: '',
+                      status: 'AFILIADA'
+                    });
+                    setMostrarModalCrearAsoc(true);
+                  }}
+                  title="Registrar una nueva asociación afiliada en FECOVOL"
+                >
+                  + Agregar asociación
+                </button>
               </div>
+
+              {/* Barra de búsqueda de asociaciones */}
+              {asociacionesList.length > 0 && (
+                <div style={{ padding: '12px 18px 6px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="campo__input"
+                    placeholder="Buscar asociación por nombre, sigla, cédula o cantón..."
+                    value={busquedaAsoc}
+                    onChange={(e) => {
+                      setBusquedaAsoc(e.target.value);
+                      setPaginaAsociaciones(1);
+                    }}
+                    style={{ maxWidth: '360px', fontSize: '0.82rem', padding: '6px 10px' }}
+                  />
+                  {busquedaAsoc && (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        setBusquedaAsoc('');
+                        setPaginaAsociaciones(1);
+                      }}
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
 
               {cargandoAsociaciones ? (
                 <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)' }}>
@@ -950,7 +1754,7 @@ export default function ListasValores() {
                         <th>Siglas / Cédula</th>
                         <th>Ubicación</th>
                         <th>Estado</th>
-                        <th style={{ textAlign: 'right' }}>Acción</th>
+                        <th style={{ textAlign: 'right' }}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -960,7 +1764,7 @@ export default function ListasValores() {
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <strong style={{ color: 'var(--texto)' }}>{asoc.name}</strong>
                               <span style={{ fontSize: '0.74rem', color: 'var(--texto-mudo)' }}>
-                                {asoc.affiliation_date ? `Afiliada el: ${new Date(asoc.affiliation_date).toLocaleDateString('es-CR')}` : 'Sin fecha registrada'}
+                                {asoc.affiliation_date ? `Afiliada el: ${new Date(asoc.affiliation_date).toLocaleDateString('es-CR')}` : (asoc.email || 'Sin contacto')}
                               </span>
                             </div>
                           </td>
@@ -976,26 +1780,84 @@ export default function ListasValores() {
                             </span>
                           </td>
                           <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span 
+                                className={`badge-status ${(asoc.dependency_count || 0) > 0 ? 'badge-status--activa' : 'badge-status--inactivo'}`}
+                                style={{
+                                  alignSelf: 'flex-start',
+                                  backgroundColor: (asoc.dependency_count || 0) > 0 ? '#eff6ff' : '#f3f4f6',
+                                  color: (asoc.dependency_count || 0) > 0 ? '#1d4ed8' : '#6b7280',
+                                  borderColor: (asoc.dependency_count || 0) > 0 ? '#bfdbfe' : '#e5e7eb',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {asoc.dependency_count === 1 ? '1 dependiente' : `${asoc.dependency_count || 0} dependientes`}
+                              </span>
+                              <span style={{ fontSize: '0.73rem', color: 'var(--texto-mudo)' }}>
+                                {[
+                                  asoc.teams_count > 0 && `${asoc.teams_count} equipos`,
+                                  asoc.persons_count > 0 && `${asoc.persons_count} afiliados`,
+                                  asoc.board_count > 0 && `${asoc.board_count} directivos`,
+                                  asoc.profiles_count > 0 && `${asoc.profiles_count} usuarios`
+                                ].filter(Boolean).join(' · ') || 'Sin registros vinculados'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
                             <span className={`badge-status ${asoc.status === 'AFILIADA' ? 'badge-status--activa' : 'badge-status--suspendida'}`}>
                               {asoc.status}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              className="admin-btn admin-btn--secondary"
-                              style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                              onClick={() => toggleEstadoAsociacion(asoc)}
-                            >
-                              {asoc.status === 'AFILIADA' ? 'Suspender' : 'Afiliar'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                className="admin-btn admin-btn--secondary"
+                                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                                onClick={() => setAsociacionEditando({
+                                  id: asoc.id,
+                                  name: asoc.name,
+                                  short_name: asoc.short_name || '',
+                                  tax_id: asoc.tax_id || '',
+                                  province: asoc.province || 'San José',
+                                  canton: asoc.canton || '',
+                                  address: asoc.address || '',
+                                  email: asoc.email || '',
+                                  phone: asoc.phone || '',
+                                  home_venue: asoc.home_venue || '',
+                                  status: asoc.status || 'AFILIADA',
+                                  dependency_count: asoc.dependency_count || 0,
+                                  teams_count: asoc.teams_count || 0,
+                                  persons_count: asoc.persons_count || 0,
+                                  board_count: asoc.board_count || 0,
+                                  profiles_count: asoc.profiles_count || 0,
+                                  estadoAnteriorActivo: asoc.status === 'AFILIADA'
+                                })}
+                                title="Editar datos de esta asociación"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-btn admin-btn--secondary"
+                                style={{ 
+                                  padding: '4px 10px', 
+                                  fontSize: '0.78rem',
+                                  color: asoc.status === 'AFILIADA' ? '#dc2626' : '#166534',
+                                  borderColor: asoc.status === 'AFILIADA' ? '#fca5a5' : '#86efac'
+                                }}
+                                onClick={() => toggleEstadoAsociacion(asoc)}
+                              >
+                                {asoc.status === 'AFILIADA' ? 'Suspender' : 'Afiliar'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {asociacionesPaginadas.length === 0 && (
                         <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
-                            No hay asociaciones registradas en la base de datos.
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
+                            {busquedaAsoc ? `No se encontraron asociaciones para "${busquedaAsoc}".` : 'No hay asociaciones registradas en la base de datos.'}
                           </td>
                         </tr>
                       )}
@@ -1005,7 +1867,8 @@ export default function ListasValores() {
                   {/* Paginación Asociaciones */}
                   <div className="admin-table-footer">
                     <span>
-                      Mostrando {asociacionesPaginadas.length} de {asociacionesList.length} asociaciones
+                      Mostrando {asociacionesPaginadas.length} de {asociacionesFiltradas.length} asociaciones
+                      {busquedaAsoc && ` (filtradas de ${asociacionesList.length})`}
                     </span>
                     {totalPaginasAsocs > 1 && (
                       <div className="admin-pagination-links">
@@ -1038,21 +1901,73 @@ export default function ListasValores() {
             <div>
               <div className="admin-card__header">
                 <div>
-                  <h2 className="admin-card__title">{catalogoSeleccionado?.nombre || 'Seleccione un catálogo'}</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 className="admin-card__title">{catalogoSeleccionado?.nombre || 'Seleccione un catálogo'}</h2>
+                    {catalogoSeleccionado && (
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.72rem', color: '#0e3b6b', borderColor: '#93c5fd' }}
+                        onClick={() => setCatalogoEditando({
+                          id: catalogoSeleccionado.id,
+                          name: catalogoSeleccionado.nombre,
+                          description: catalogoSeleccionado.descripcion || ''
+                        })}
+                        title="Editar nombre o descripción de esta lista"
+                      >
+                        Editar lista
+                      </button>
+                    )}
+                  </div>
                   <span style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)' }}>
-                    {valores.length} valores · {valores.filter(v => v.is_active).length} activos · Tabla <code>catalog_values</code>
+                    {valores.length} valores · {valores.filter(v => v.is_active).length} activos
+                    {catalogoSeleccionado?.descripcion && ` · ${catalogoSeleccionado.descripcion}`}
                   </span>
                 </div>
                 <button 
                   type="button" 
                   className="admin-btn admin-btn--secondary"
                   style={{ padding: '6px 14px', fontSize: '0.82rem' }}
-                  onClick={() => setMostrarModalValor(true)}
+                  onClick={() => {
+                    setNuevoValor({ codigo: '', valor: '', descripcion: '', estado: 'ACTIVO' });
+                    setMostrarModalValor(true);
+                  }}
                   disabled={!catalogoSeleccionado}
+                  title={`Agregar nuevo valor a ${catalogoSeleccionado?.nombre || 'este catálogo'}`}
                 >
                   + Agregar valor
                 </button>
               </div>
+
+              {/* Barra de búsqueda y filtrado de valores (RF-AUD-001) */}
+              {catalogoSeleccionado && valores.length > 0 && (
+                <div style={{ padding: '12px 18px 6px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="campo__input"
+                    placeholder={`Buscar en ${catalogoSeleccionado.nombre} por código o valor...`}
+                    value={busquedaValor}
+                    onChange={(e) => {
+                      setBusquedaValor(e.target.value);
+                      setPaginaValores(1);
+                    }}
+                    style={{ maxWidth: '320px', fontSize: '0.82rem', padding: '6px 10px' }}
+                  />
+                  {busquedaValor && (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        setBusquedaValor('');
+                        setPaginaValores(1);
+                      }}
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
 
               {cargandoValores ? (
                 <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)', fontSize: '0.88rem' }}>
@@ -1067,7 +1982,7 @@ export default function ListasValores() {
                         <th>Valor</th>
                         <th>Descripción</th>
                         <th>Estado</th>
-                        <th style={{ textAlign: 'right' }}>Acción</th>
+                        <th style={{ textAlign: 'right' }}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1077,26 +1992,83 @@ export default function ListasValores() {
                           <td style={{ color: 'var(--texto)', fontWeight: 600 }}>{v.valor}</td>
                           <td>{v.descripcion}</td>
                           <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span 
+                                className={`badge-status ${(v.dependency_count || 0) > 0 ? 'badge-status--activa' : 'badge-status--inactivo'}`}
+                                style={{
+                                  alignSelf: 'flex-start',
+                                  backgroundColor: (v.dependency_count || 0) > 0 ? '#eff6ff' : '#f3f4f6',
+                                  color: (v.dependency_count || 0) > 0 ? '#1d4ed8' : '#6b7280',
+                                  borderColor: (v.dependency_count || 0) > 0 ? '#bfdbfe' : '#e5e7eb',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {v.dependency_count === 1 ? '1 registro' : `${v.dependency_count || 0} registros`}
+                              </span>
+                              {(v.dependency_count || 0) > 0 && (
+                                <span style={{ fontSize: '0.73rem', color: 'var(--texto-mudo)' }}>
+                                  {[
+                                    v.dependencies?.teams > 0 && `${v.dependencies.teams} equipos`,
+                                    v.dependencies?.persons > 0 && `${v.dependencies.persons} personas`,
+                                    v.dependencies?.members > 0 && `${v.dependencies.members} miembros`,
+                                    v.dependencies?.documents > 0 && `${v.dependencies.documents} docs`,
+                                    v.dependencies?.referees > 0 && `${v.dependencies.referees} arbitrajes`
+                                  ].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
                             <span className={`badge-status ${v.is_active ? 'badge-status--activa' : 'badge-status--inactivo'}`}>
                               {v.estado}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <button 
-                              type="button" 
-                              className="admin-btn admin-btn--secondary"
-                              style={{ padding: '4px 10px', fontSize: '0.78rem' }}
-                              onClick={() => toggleEstadoValor(v)}
-                            >
-                              {v.is_active ? 'Desactivar' : 'Activar'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                              <button 
+                                type="button" 
+                                className="admin-btn admin-btn--secondary"
+                                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                                onClick={() => setValorEditando({ 
+                                  id: v.id,
+                                  codigo: v.codigo,
+                                  valor: v.valor,
+                                  descripcion: v.descripcion === '—' ? '' : v.descripcion,
+                                  is_active: v.is_active,
+                                  estado: v.is_active ? 'ACTIVO' : 'INACTIVO',
+                                  dependency_count: v.dependency_count || 0,
+                                  dependencies: v.dependencies || {},
+                                  is_last_active: Boolean(v.is_last_active),
+                                  estadoAnteriorActivo: v.is_active
+                                })}
+                                title="Editar código, valor y descripción"
+                              >
+                                Editar
+                              </button>
+                              <button 
+                                type="button" 
+                                className="admin-btn admin-btn--secondary"
+                                style={{ 
+                                  padding: '4px 10px', 
+                                  fontSize: '0.78rem',
+                                  color: v.is_active ? '#dc2626' : '#166534',
+                                  borderColor: v.is_active ? '#fca5a5' : '#86efac'
+                                }}
+                                onClick={() => toggleEstadoValor(v)}
+                                title={v.is_active ? 'Desactivar este valor' : 'Activar este valor'}
+                              >
+                                {v.is_active ? 'Desactivar' : 'Activar'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {valoresPaginados.length === 0 && (
                         <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
-                            No hay valores registrados en este catálogo.
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--texto-mudo)' }}>
+                            {busquedaValor 
+                              ? `No se encontraron valores que coincidan con "${busquedaValor}".` 
+                              : 'No hay valores registrados en este catálogo.'}
                           </td>
                         </tr>
                       )}
@@ -1106,8 +2078,9 @@ export default function ListasValores() {
                   {/* Paginación Catálogo General */}
                   <div className="admin-table-footer">
                     <span>
-                      Mostrando {valoresPaginados.length} de {valores.length} valores
-                      {totalPaginasValores > 1 && ` (Página ${paginaValores} de ${totalPaginasValores})`}
+                      Mostrando {valoresPaginados.length} de {valoresFiltrados.length} valores
+                      {busquedaValor && ` (filtrados de ${valores.length})`}
+                      {totalPaginasValores > 1 && ` · Página ${paginaValores} de ${totalPaginasValores}`}
                     </span>
                     <div className="admin-pagination-links">
                       <button 
@@ -1563,6 +2536,698 @@ export default function ListasValores() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: CREAR NUEVO CATÁLOGO / LISTA (RF-AUD-001 Nota 2)
+          ══════════════════════════════════════════════════════════════ */}
+      {mostrarModalCatalogo && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '520px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title">Crear nuevo catálogo</h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setMostrarModalCatalogo(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleAgregarCatalogo}>
+              <div className="admin-modal__body">
+                <p style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)', marginTop: 0, marginBottom: '16px' }}>
+                  Crea una nueva lista clasificatoria en el sistema. Podrás agregarle valores de inmediato.
+                </p>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Nombre del catálogo *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="campo__input" 
+                    placeholder="Ej. Tipos de Cancha, Sedes, Categorías Especiales"
+                    value={nuevoCatalogo.name}
+                    onChange={(e) => setNuevoCatalogo({ ...nuevoCatalogo, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo">
+                  <label className="campo__etiqueta">Descripción</label>
+                  <textarea 
+                    className="campo__input" 
+                    rows="3"
+                    placeholder="Propósito de este catálogo en la plataforma"
+                    value={nuevoCatalogo.description}
+                    onChange={(e) => setNuevoCatalogo({ ...nuevoCatalogo, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-modal__footer">
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  onClick={() => setMostrarModalCatalogo(false)}
+                  disabled={guardandoCatalogo}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardandoCatalogo}>
+                  {guardandoCatalogo ? 'Creando catálogo…' : 'Crear catálogo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: EDITAR CATÁLOGO / LISTA (RF-AUD-001)
+          ══════════════════════════════════════════════════════════════ */}
+      {catalogoEditando && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '520px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title">Editar catálogo: {catalogoEditando.name}</h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setCatalogoEditando(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleGuardarEdicionCatalogo}>
+              <div className="admin-modal__body">
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Nombre del catálogo *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="campo__input" 
+                    value={catalogoEditando.name}
+                    onChange={(e) => setCatalogoEditando({ ...catalogoEditando, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo">
+                  <label className="campo__etiqueta">Descripción</label>
+                  <textarea 
+                    className="campo__input" 
+                    rows="3"
+                    value={catalogoEditando.description}
+                    onChange={(e) => setCatalogoEditando({ ...catalogoEditando, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-modal__footer">
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  onClick={() => setCatalogoEditando(null)}
+                  disabled={guardandoEdicionCatalogo}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardandoEdicionCatalogo}>
+                  {guardandoEdicionCatalogo ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: EDITAR VALOR DE CATÁLOGO (RF-AUD-001 Nota 1)
+          ══════════════════════════════════════════════════════════════ */}
+      {valorEditando && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '520px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title">Editar valor: {valorEditando.codigo}</h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setValorEditando(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleGuardarEdicionValor}>
+              <div className="admin-modal__body">
+                <p style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)', marginTop: 0, marginBottom: '18px' }}>
+                  Modifique la información o vigencia de este valor en la lista <strong>{catalogoSeleccionado?.nombre}</strong>.
+                </p>
+
+                {/* Resumen de Dependencias y Consistencia Histórica (RF-AUD-002) */}
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  marginBottom: '16px',
+                  fontSize: '0.82rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <strong style={{ color: 'var(--texto)' }}>Registros dependientes:</strong>
+                    <span 
+                      className={`badge-status ${(valorEditando.dependency_count || 0) > 0 ? 'badge-status--activa' : 'badge-status--inactivo'}`}
+                      style={{
+                        backgroundColor: (valorEditando.dependency_count || 0) > 0 ? '#eff6ff' : '#f3f4f6',
+                        color: (valorEditando.dependency_count || 0) > 0 ? '#1d4ed8' : '#6b7280',
+                        fontSize: '0.74rem'
+                      }}
+                    >
+                      {valorEditando.dependency_count || 0} registros
+                    </span>
+                  </div>
+                  {(valorEditando.dependency_count || 0) > 0 ? (
+                    <div style={{ color: '#1e40af', fontSize: '0.76rem', lineHeight: '1.4' }}>
+                      En uso por: {[
+                        valorEditando.dependencies?.teams > 0 && `${valorEditando.dependencies.teams} equipos`,
+                        valorEditando.dependencies?.persons > 0 && `${valorEditando.dependencies.persons} personas`,
+                        valorEditando.dependencies?.members > 0 && `${valorEditando.dependencies.members} miembros`,
+                        valorEditando.dependencies?.documents > 0 && `${valorEditando.dependencies.documents} documentos`,
+                        valorEditando.dependencies?.referees > 0 && `${valorEditando.dependencies.referees} arbitrajes`
+                      ].filter(Boolean).join(', ')}.
+                      <br />
+                      <span style={{ color: 'var(--texto-mudo)' }}>
+                        La consistencia histórica de estos registros se preservará de forma íntegra.
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{ color: 'var(--texto-mudo)', fontSize: '0.76rem' }}>
+                      No hay registros vinculados a este valor en el sistema.
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Código *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="campo__input" 
+                      value={valorEditando.codigo}
+                      onChange={(e) => setValorEditando({ ...valorEditando, codigo: e.target.value })}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Valor / Etiqueta *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="campo__input" 
+                      value={valorEditando.valor}
+                      onChange={(e) => setValorEditando({ ...valorEditando, valor: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Descripción</label>
+                  <input 
+                    type="text" 
+                    className="campo__input" 
+                    placeholder="Descripción o restricción"
+                    value={valorEditando.descripcion || ''}
+                    onChange={(e) => setValorEditando({ ...valorEditando, descripcion: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo">
+                  <label className="campo__etiqueta">Estado</label>
+                  <select 
+                    className="admin-select"
+                    style={{ width: '100%' }}
+                    value={valorEditando.is_active ? 'ACTIVO' : 'INACTIVO'}
+                    onChange={(e) => setValorEditando({ ...valorEditando, is_active: e.target.value === 'ACTIVO' })}
+                  >
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-modal__footer">
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  onClick={() => setValorEditando(null)}
+                  disabled={guardandoEdicionValor}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardandoEdicionValor}>
+                  {guardandoEdicionValor ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: REGISTRAR NUEVA ASOCIACIÓN (public.associations)
+          ══════════════════════════════════════════════════════════════ */}
+      {mostrarModalCrearAsoc && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '620px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title">Registrar nueva asociación</h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setMostrarModalCrearAsoc(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleCrearAsociacion}>
+              <div className="admin-modal__body" style={{ maxHeight: '68vh', overflowY: 'auto' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)', marginTop: 0, marginBottom: '16px' }}>
+                  Ingrese los datos institucionales del club o comité afiliado a FECOVOL.
+                </p>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Nombre oficial de la asociación *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="campo__input" 
+                    placeholder="Ej. Asociación de Voleibol de Cartago"
+                    value={nuevaAsociacion.name}
+                    onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, name: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Siglas / Nombre corto</label>
+                    <input 
+                      type="text" 
+                      className="campo__input" 
+                      placeholder="Ej. ASVO-CAR"
+                      value={nuevaAsociacion.short_name}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, short_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Cédula Jurídica *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="campo__input" 
+                      placeholder="Ej. 3-002-123456"
+                      value={nuevaAsociacion.tax_id}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, tax_id: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Provincia</label>
+                    <select 
+                      className="admin-select"
+                      style={{ width: '100%' }}
+                      value={nuevaAsociacion.province}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, province: e.target.value })}
+                    >
+                      {PROVINCIAS_CR.map(prov => (
+                        <option key={prov} value={prov}>{prov}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Cantón</label>
+                    <input 
+                      type="text" 
+                      className="campo__input" 
+                      placeholder="Ej. Central, Paraíso, Turrialba"
+                      value={nuevaAsociacion.canton}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, canton: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Correo electrónico</label>
+                    <input 
+                      type="email" 
+                      className="campo__input" 
+                      placeholder="correo@asociacion.cr"
+                      value={nuevaAsociacion.email}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Teléfono</label>
+                    <input 
+                      type="tel" 
+                      className="campo__input" 
+                      placeholder="2551-0000"
+                      value={nuevaAsociacion.phone}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Gimnasio o Sede deportiva principal</label>
+                  <input 
+                    type="text" 
+                    className="campo__input" 
+                    placeholder="Ej. Gimnasio Polideportivo de Cartago"
+                    value={nuevaAsociacion.home_venue}
+                    onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, home_venue: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Dirección exacta</label>
+                  <textarea 
+                    className="campo__input" 
+                    rows="2"
+                    placeholder="Ubicación física de la sede"
+                    value={nuevaAsociacion.address}
+                    onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, address: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo">
+                  <label className="campo__etiqueta">Estado de afiliación inicial</label>
+                  <select 
+                    className="admin-select"
+                    style={{ width: '100%' }}
+                    value={nuevaAsociacion.status}
+                    onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, status: e.target.value })}
+                  >
+                    <option value="AFILIADA">AFILIADA</option>
+                    <option value="PROVISIONAL">PROVISIONAL</option>
+                    <option value="SUSPENDIDA">SUSPENDIDA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-modal__footer">
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  onClick={() => setMostrarModalCrearAsoc(false)}
+                  disabled={guardandoAsoc}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardandoAsoc}>
+                  {guardandoAsoc ? 'Registrando…' : 'Registrar asociación'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: EDITAR ASOCIACIÓN (public.associations)
+          ══════════════════════════════════════════════════════════════ */}
+      {asociacionEditando && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '620px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title">Editar asociación: {asociacionEditando.name}</h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setAsociacionEditando(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleGuardarEdicionAsoc}>
+              <div className="admin-modal__body" style={{ maxHeight: '68vh', overflowY: 'auto' }}>
+                
+                {/* Resumen de Dependencias y Consistencia Histórica (RF-AUD-002) */}
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  marginBottom: '16px',
+                  fontSize: '0.82rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <strong style={{ color: 'var(--texto)' }}>Registros dependientes vinculados:</strong>
+                    <span 
+                      className={`badge-status ${(asociacionEditando.dependency_count || 0) > 0 ? 'badge-status--activa' : 'badge-status--inactivo'}`}
+                      style={{
+                        backgroundColor: (asociacionEditando.dependency_count || 0) > 0 ? '#eff6ff' : '#f3f4f6',
+                        color: (asociacionEditando.dependency_count || 0) > 0 ? '#1d4ed8' : '#6b7280',
+                        fontSize: '0.74rem'
+                      }}
+                    >
+                      {asociacionEditando.dependency_count || 0} dependientes
+                    </span>
+                  </div>
+                  <div style={{ color: '#1e40af', fontSize: '0.76rem', lineHeight: '1.4' }}>
+                    {[
+                      asociacionEditando.teams_count > 0 && `${asociacionEditando.teams_count} equipos registrados`,
+                      asociacionEditando.persons_count > 0 && `${asociacionEditando.persons_count} personas afiliadas`,
+                      asociacionEditando.board_count > 0 && `${asociacionEditando.board_count} miembros directivos`,
+                      asociacionEditando.profiles_count > 0 && `${asociacionEditando.profiles_count} cuentas de usuario`
+                    ].filter(Boolean).join(' · ') || 'Sin registros dependientes vinculados'}.
+                    <br />
+                    <span style={{ color: 'var(--texto-mudo)' }}>
+                      Preservación histórica: Las relaciones con estos registros se conservan de forma íntegra.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Nombre oficial de la asociación *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="campo__input" 
+                    value={asociacionEditando.name}
+                    onChange={(e) => setAsociacionEditando({ ...asociacionEditando, name: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Siglas / Nombre corto</label>
+                    <input 
+                      type="text" 
+                      className="campo__input" 
+                      value={asociacionEditando.short_name}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, short_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Cédula Jurídica *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="campo__input" 
+                      value={asociacionEditando.tax_id}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, tax_id: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Provincia</label>
+                    <select 
+                      className="admin-select"
+                      style={{ width: '100%' }}
+                      value={asociacionEditando.province || 'San José'}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, province: e.target.value })}
+                    >
+                      {PROVINCIAS_CR.map(prov => (
+                        <option key={prov} value={prov}>{prov}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Cantón</label>
+                    <input 
+                      type="text" 
+                      className="campo__input" 
+                      value={asociacionEditando.canton || ''}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, canton: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Correo electrónico</label>
+                    <input 
+                      type="email" 
+                      className="campo__input" 
+                      value={asociacionEditando.email || ''}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label className="campo__etiqueta">Teléfono</label>
+                    <input 
+                      type="tel" 
+                      className="campo__input" 
+                      value={asociacionEditando.phone || ''}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Gimnasio o Sede deportiva principal</label>
+                  <input 
+                    type="text" 
+                    className="campo__input" 
+                    value={asociacionEditando.home_venue || ''}
+                    onChange={(e) => setAsociacionEditando({ ...asociacionEditando, home_venue: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo" style={{ marginBottom: '14px' }}>
+                  <label className="campo__etiqueta">Dirección exacta</label>
+                  <textarea 
+                    className="campo__input" 
+                    rows="2"
+                    value={asociacionEditando.address || ''}
+                    onChange={(e) => setAsociacionEditando({ ...asociacionEditando, address: e.target.value })}
+                  />
+                </div>
+
+                <div className="campo">
+                  <label className="campo__etiqueta">Estado de afiliación</label>
+                  <select 
+                    className="admin-select"
+                    style={{ width: '100%' }}
+                    value={asociacionEditando.status}
+                    onChange={(e) => setAsociacionEditando({ ...asociacionEditando, status: e.target.value })}
+                  >
+                    <option value="AFILIADA">AFILIADA</option>
+                    <option value="PROVISIONAL">PROVISIONAL</option>
+                    <option value="SUSPENDIDA">SUSPENDIDA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-modal__footer">
+                <button 
+                  type="button" 
+                  className="admin-btn admin-btn--secondary"
+                  onClick={() => setAsociacionEditando(null)}
+                  disabled={guardandoEdicionAsoc}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="admin-btn admin-btn--primary" disabled={guardandoEdicionAsoc}>
+                  {guardandoEdicionAsoc ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: CONFIRMACIÓN Y ADVERTENCIA DE DEPENDENCIAS (RF-AUD-002)
+          ══════════════════════════════════════════════════════════════ */}
+      {modalConfirmacionDesactivar && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" style={{ maxWidth: '520px' }}>
+            <div className="admin-modal__header">
+              <h3 className="admin-modal__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {modalConfirmacionDesactivar.bloqueado ? '🚫 Operación bloqueada' : '⚠️ Advertencia de Consistencia Histórica'}
+              </h3>
+              <button 
+                type="button" 
+                className="admin-modal__close" 
+                onClick={() => setModalConfirmacionDesactivar(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="admin-modal__body">
+              {modalConfirmacionDesactivar.bloqueado ? (
+                <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px', color: '#991b1b' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '0.92rem', fontWeight: 700 }}>
+                    No se puede desactivar este valor
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.84rem', lineHeight: '1.45' }}>
+                    {modalConfirmacionDesactivar.mensajeBloqueo}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--texto)', marginTop: 0, lineHeight: 1.5 }}>
+                    Está a punto de desactivar o suspender <strong>«{modalConfirmacionDesactivar.nombre}»</strong>.
+                  </p>
+
+                  <div style={{
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    padding: '14px 16px',
+                    marginBottom: '16px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: '#92400e', fontWeight: 700, fontSize: '0.88rem' }}>
+                      <span>Registros en el sistema que dependen de este elemento ({modalConfirmacionDesactivar.totalDependencias}):</span>
+                    </div>
+                    <ul style={{ margin: '0 0 0 16px', padding: 0, fontSize: '0.84rem', color: '#78350f', lineHeight: 1.6 }}>
+                      {modalConfirmacionDesactivar.detalles.map((d, idx) => (
+                        <li key={idx}><strong>{d.conteo}</strong> {d.etiqueta}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    fontSize: '0.8rem',
+                    color: 'var(--texto-mudo)',
+                    lineHeight: 1.45
+                  }}>
+                    <strong style={{ color: 'var(--texto)' }}>Preservación de Consistencia Histórica:</strong>
+                    <br />
+                    Las referencias y relaciones de los registros existentes permanecerán intactas para garantizar la integridad histórica y trazabilidad en bitácoras. Sin embargo, este registro ya no podrá seleccionarse para nuevas transacciones ni formularios.
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="admin-modal__footer">
+              <button 
+                type="button" 
+                className="admin-btn admin-btn--secondary"
+                onClick={() => setModalConfirmacionDesactivar(null)}
+              >
+                {modalConfirmacionDesactivar.bloqueado ? 'Entendido' : 'Cancelar'}
+              </button>
+              {!modalConfirmacionDesactivar.bloqueado && (
+                <button 
+                  type="button" 
+                  className="admin-btn"
+                  style={{ backgroundColor: '#dc2626', color: '#fff', borderColor: '#b91c1c' }}
+                  onClick={modalConfirmacionDesactivar.onConfirmar}
+                  disabled={ejecutandoDesactivacion}
+                >
+                  {ejecutandoDesactivacion ? 'Procesando…' : 'Confirmar desactivación'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

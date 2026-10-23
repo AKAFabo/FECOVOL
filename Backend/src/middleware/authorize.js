@@ -40,7 +40,7 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
       // 1. Consultar perfil del usuario en user_profiles
       const { data: profile, error: errProfile } = await supabase
         .from('user_profiles')
-        .select('id, email, status, role_id, roles:roles!user_profiles_role_id_fkey(name)')
+        .select('id, email, status, role_id, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
         .eq('email', emailLimpio)
         .maybeSingle();
 
@@ -108,7 +108,8 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
           email: emailLimpio,
           isAdmin: true,
           roles: roleNames,
-          roleIds
+          roleIds,
+          organizationId: profile.organization_id || null
         };
         return next();
       }
@@ -149,7 +150,8 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
             isAdmin: false,
             roles: roleNames,
             roleIds,
-            permissions: screenKeys
+            permissions: screenKeys,
+            organizationId: profile.organization_id || null
           };
           return next();
         }
@@ -175,7 +177,8 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
         email: emailLimpio,
         isAdmin: false,
         roles: roleNames,
-        roleIds
+        roleIds,
+        organizationId: profile.organization_id || null
       };
       return next();
 

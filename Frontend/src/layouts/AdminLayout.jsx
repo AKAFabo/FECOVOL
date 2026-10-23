@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/admin/noticias', texto: 'Noticias y comunicados', subruta: '/admin' },
   { to: '/admin/usuarios', texto: 'Usuarios y permisos', subruta: '/admin/usuarios' },
   { to: '/admin/listas-valores', texto: 'Listas de valores', subruta: '/admin/listas-valores' },
+  { to: '/admin/parametros', texto: 'Parámetros del sistema', subruta: '/admin/parametros' },
   { to: '/admin/auditoria', texto: 'Auditoría y respaldos', subruta: '/admin/auditoria' },
 ];
 
