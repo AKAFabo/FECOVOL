@@ -21,3 +21,16 @@ export function sigla(corto, nombre) {
   if (palabras.length === 1) return palabras[0].slice(0, 3).toUpperCase();
   return palabras.slice(0, 3).map((p) => p[0]).join('').toUpperCase();
 }
+
+const CONECTORES = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'dos', 'van', 'von']);
+
+/** Iniciales de una persona para su avatar: "Ana Isabel Mora" → "AI", "Persona de Ejemplo" → "PE". */
+export function iniciales(nombre) {
+  return (nombre || '')
+    .split(/\s+/)
+    .filter((p) => p && !CONECTORES.has(p.toLowerCase()))
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+}

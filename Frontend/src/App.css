@@ -80,6 +80,7 @@
 .pastilla--ok { background: var(--ok-fondo); color: var(--ok); }
 .pastilla--aviso { background: var(--aviso-fondo); color: var(--aviso); }
 .pastilla--info { background: #e3ecf6; color: var(--azul); }
+.pastilla--playa { background: #dcefef; color: #0d5560; }
 .pastilla--error { background: #fbe9eb; color: #a3122a; }
 
 /* Pastillas sobre la franja azul de las cabeceras */

@@ -10,6 +10,7 @@ import PestanaEquipos from './competencia/PestanaEquipos.jsx';
 import PestanaEstadisticas from './competencia/PestanaEstadisticas.jsx';
 import PestanaPosiciones from './competencia/PestanaPosiciones.jsx';
 import PestanaResultados from './competencia/PestanaResultados.jsx';
+import '../../styles/paneles.css';
 import './CompetenciaDetallePublica.css';
 
 // Pestañas de la página. La activa viaja en la URL (?vista=calendario) para poder compartirla.

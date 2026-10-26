@@ -109,3 +109,8 @@ export function fechasJornada(isos) {
   const consecutivos = fechas.length === 2 && b - a === 86_400_000;
   return `${soloDia.format(a)} ${consecutivos ? 'y' : 'al'} ${soloDia.format(b)} de ${soloMes.format(b)}`;
 }
+
+/** "3 al 11 de noviembre" para un rango de fechas (inicio y fin opcionales); null si no hay ninguna. */
+export function rangoDias(inicio, fin) {
+  return fechasJornada([inicio, fin].filter(Boolean));
+}

@@ -5,6 +5,7 @@ import useCarga from '../../hooks/useCarga.js';
 import { esIdValido, obtenerEquipo } from '../../services/competencias.js';
 import { diaYHora, fechaDiaMesCorto, isoValida } from '../../utils/formato.js';
 import { pendiente, terminado } from './competencia/partidos.js';
+import '../../styles/paneles.css';
 import './CompetenciaDetallePublica.css';
 import './EquipoCompetenciaPublica.css';
 

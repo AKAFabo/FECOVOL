@@ -33,6 +33,9 @@ import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.js
 import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
 import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
 
+// Selecciones nacionales (portal público)
+import SeleccionesPublicas from './pages/public/SeleccionesPublicas.jsx';
+
 // La Federación (portal público)
 import LaFederacion from './pages/public/LaFederacion.jsx';
 
@@ -45,7 +48,7 @@ export default function App() {
         <Route path="competencias" element={<CompetenciasPublicas />} />
         <Route path="competencias/:id" element={<CompetenciaDetallePublica />} />
         <Route path="competencias/:id/equipos/:equipoId" element={<EquipoCompetenciaPublica />} />
-        <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
+        <Route path="selecciones" element={<SeleccionesPublicas />} />
         <Route path="asociaciones" element={<AsociacionesPublicas />} />
         <Route path="asociaciones/:id" element={<AsociacionDetallePublica />} />
         <Route path="noticias" element={<NoticiasPublicas />} />

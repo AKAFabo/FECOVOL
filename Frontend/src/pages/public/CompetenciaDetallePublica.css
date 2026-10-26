@@ -1,4 +1,5 @@
-/* Página de una competencia y sus pestañas (también la usa la página de equipo). */
+/* Página de una competencia y sus pestañas (también la usa la página de equipo).
+   Paneles, tablas y listas de datos compartidos: src/styles/paneles.css. */
 
 .detalle-competencia {
   flex: 1;
@@ -144,188 +145,6 @@
   left: 0;
 }
 
-/* ----- Botón con aspecto de enlace (cambia de pestaña sin recargar) ----- */
-.boton-enlace {
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-
-.boton-enlace:hover {
-  text-decoration: underline;
-}
-
-/* ----- Rejilla con columna lateral ----- */
-.rejilla-lateral {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 336px;
-  align-items: start;
-  gap: 24px;
-}
-
-.rejilla-lateral__principal,
-.rejilla-lateral__aparte {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-/* ----- Tarjeta de panel (tabla, datos, próximos partidos) ----- */
-.tarjeta-panel {
-  overflow: hidden;
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  background: var(--superficie);
-}
-
-.tarjeta-panel__cabecera {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 16px;
-  padding: 18px 20px 16px;
-  border-bottom: 1px solid var(--linea);
-}
-
-.tarjeta-panel__cabecera--apilada {
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.tarjeta-panel__titulo {
-  font-weight: 800;
-  font-size: 20px;
-  line-height: 1.2;
-}
-
-.tarjeta-panel__titulo--chico {
-  font-size: 17px;
-}
-
-.tarjeta-panel__nota {
-  color: var(--texto-mudo);
-  font-size: 13px;
-}
-
-.tarjeta-panel__pie {
-  padding: 14px 20px;
-  border-top: 1px solid var(--linea);
-  background: #fafbfc;
-  color: var(--texto-mudo);
-  font-size: 13.5px;
-}
-
-.tarjeta-panel__accion {
-  padding: 14px 20px;
-  border-top: 1px solid var(--linea);
-  background: #fafbfc;
-}
-
-.tarjeta-panel__vacio {
-  padding: 20px;
-  color: var(--texto-mudo);
-}
-
-/* ----- Tablas de datos ----- */
-.tabla-desplazable {
-  overflow-x: auto;
-}
-
-.tabla-datos {
-  width: 100%;
-  min-width: 560px;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-.tabla-datos--ancha {
-  min-width: 1040px;
-}
-
-.tabla-datos th,
-.tabla-datos td {
-  padding: 11px 12px;
-  font-size: 14.5px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.tabla-datos thead th {
-  background: var(--fondo);
-  color: var(--texto-mudo);
-  font-family: var(--fuente-titulo);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tabla-datos abbr {
-  text-decoration: none;
-  cursor: help;
-}
-
-.tabla-datos tbody tr {
-  border-top: 1px solid var(--linea);
-}
-
-.tabla-datos tbody tr:hover {
-  background: #f8fafc;
-}
-
-.tabla-datos tbody th {
-  font-weight: 600;
-}
-
-.tabla-datos .tabla-datos__equipo,
-.tabla-datos--izquierda th,
-.tabla-datos--izquierda td {
-  text-align: left;
-}
-
-.tabla-datos__pos {
-  width: 52px;
-  color: var(--texto-mudo);
-}
-
-/* Primera y última columna alineadas con el margen del panel. */
-.tabla-datos tr > :first-child {
-  padding-left: 20px;
-}
-
-.tabla-datos tr > :last-child {
-  padding-right: 20px;
-}
-
-.tabla-datos__fuerte {
-  color: var(--azul);
-  font-weight: 800;
-}
-
-.tabla-datos__nombre {
-  white-space: normal;
-}
-
-.tabla-datos__sets {
-  color: var(--texto-mudo);
-  word-spacing: 6px;
-}
-
-.enlace-equipo {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--texto);
-}
-
-.enlace-equipo:hover {
-  color: var(--azul);
-  text-decoration: underline;
-}
-
 /* ----- Próxima jornada ----- */
 .lista-proximos {
   margin: 0;
@@ -361,35 +180,6 @@
   font-family: var(--fuente-titulo);
   font-weight: 700;
   font-size: 14px;
-}
-
-/* ----- Lista de datos (dt / dd) ----- */
-.lista-datos {
-  margin: 0;
-}
-
-.lista-datos__fila {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 20px;
-}
-
-.lista-datos__fila + .lista-datos__fila {
-  border-top: 1px solid var(--linea);
-}
-
-.lista-datos dt {
-  color: var(--texto-mudo);
-  font-size: 14px;
-}
-
-.lista-datos dd {
-  margin: 0;
-  font-weight: 700;
-  font-size: 14.5px;
-  text-align: right;
 }
 
 /* ----- Resultados en tarjetas ----- */
@@ -747,7 +537,6 @@
 
 /* ----- Responsivo ----- */
 @media (max-width: 1100px) {
-  .rejilla-lateral { grid-template-columns: minmax(0, 1fr); }
   .rejilla-resultados { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rejilla-equipos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .estadisticas-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -778,7 +567,5 @@
   .tabla-datos--posiciones .tabla-datos__equipo { white-space: normal; }
   .tabla-datos--posiciones tr > :first-child { padding-left: 16px; }
   .tabla-datos--posiciones tr > :last-child { padding-right: 16px; }
-  .tarjeta-panel__cabecera,
-  .lista-datos__fila,
   .lista-proximos__item { padding-left: 16px; padding-right: 16px; }
 }

@@ -3,6 +3,7 @@ import Migas from '../../components/Migas.jsx';
 import { contenidoFederacion } from '../../data/federacion.js';
 import { REDES } from '../../data/redes.js';
 import useCarga from '../../hooks/useCarga.js';
+import { iniciales } from '../../utils/sigla.js';
 import { obtenerCifras } from '../../services/federacion.js';
 import './LaFederacion.css';
 
@@ -78,15 +79,6 @@ function MisionVision() {
   );
 }
 
-function iniciales(nombre) {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase();
-}
 
 function JuntaDirectiva() {
   const { miembros, periodo } = CONTENIDO.junta;

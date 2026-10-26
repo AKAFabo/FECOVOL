@@ -17,6 +17,8 @@
 // - contacto: dirección, teléfono, correo y horario de la oficina. Las redes sociales vienen de
 //   data/redes.js.
 
+import { urlHttps } from '../utils/urls.js';
+
 export const FEDERACION = Object.freeze({
   quienesSomos: [
     'La Federación Costarricense de Voleibol (FECOVOL) organiza las competencias nacionales de voleibol y lleva el registro de las asociaciones, los equipos, las personas federadas y el cuerpo arbitral que participan en ellas.'
@@ -45,15 +47,6 @@ const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 const CORREO = /^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/;
 const TELEFONO = /^[+\d][\d\s()-]{6,}$/;
 
-function urlSegura(valor) {
-  try {
-    const url = new URL(texto(valor));
-    return url.protocol === 'https:' ? url.href : null;
-  } catch {
-    return null;
-  }
-}
-
 export function contenidoFederacion(fuente = FEDERACION) {
   const contacto = fuente.contacto || {};
   const correo = texto(contacto.correo);
@@ -75,7 +68,7 @@ export function contenidoFederacion(fuente = FEDERACION) {
         detalle: texto(d?.detalle),
         formato: texto(d?.formato),
         tamano: texto(d?.tamano),
-        url: urlSegura(d?.url)
+        url: urlHttps(d?.url)
       }))
       .filter((d) => d.titulo && d.url),
     contacto: {
