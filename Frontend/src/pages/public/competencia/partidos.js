@@ -29,7 +29,7 @@ export function proximaJornada(partidos) {
 /** Última jornada con partidos finalizados (solo esos partidos), o null. */
 export function ultimaJornadaJugada(partidos) {
   const jornadas = porJornada(partidos.filter(terminado));
-  return jornadas[jornadas.length - 1] || null;
+  return jornadas.at(-1) ?? null;
 }
 
 /** Equipos que aparecen en una lista de partidos, ordenados por nombre: [{ id, name }]. */

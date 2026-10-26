@@ -72,7 +72,7 @@ function aCompetencia(fila, resumen = null) {
 // - La jornada actual es la última que tiene algún partido finalizado.
 // - El primer lugar solo se informa cuando ya se jugó algún partido.
 function resumirAvance({ partidos = [], equipos = 0, posiciones = [] } = {}) {
-  const validos = partidos.filter((p) => p && p.status !== 'CANCELADO');
+  const validos = partidos.filter((p) => p?.status && p.status !== 'CANCELADO');
   const jugados = validos.filter((p) => p.status === 'FINALIZADO');
   const ultima = (lista) => lista.reduce((max, p) => Math.max(max, entero(p.matchday)), 0);
   const primero = posiciones.find((f) => f.position === 1 && f.played > 0);
@@ -136,45 +136,53 @@ function aEquipoDetalle(fila) {
 // lista de integrantes del equipo (source = 'equipo').
 //
 // person_id se usa solo para unir las dos listas; no sale en la respuesta.
-function armarNomina(filasNomina = [], filasMiembros = []) {
-  const activa = (f) => f && f.persona && f.persona.status === 'ACTIVA' && nombrePersona(f.persona);
-  const miembros = filasMiembros.filter(activa);
+const CUERPO_TECNICO = 'Cuerpo técnico';
+
+const personaActiva = (f) => f?.persona?.status === 'ACTIVA' && Boolean(nombrePersona(f.persona));
+const numeroCamiseta = (n) => (Number.isInteger(n) && n > 0 ? n : null);
+const porNumero = (a, b) => (a.number ?? 1000) - (b.number ?? 1000) || a.name.localeCompare(b.name, 'es');
+const porNombre = (a, b) => a.name.localeCompare(b.name, 'es');
+
+// Nómina de la competencia: jugadores y cuerpo técnico (técnicos y delegados).
+function desdeNominaCompetencia(nomina, miembros) {
   const posicionDe = new Map(miembros.map((m) => [m.person_id, catalogo(m.posicion)]));
   const funcionDe = new Map(miembros.map((m) => [m.person_id, texto(m.technical_role)]));
+  const funcion = (f) => (f.roster_role === 'DELEGADO' ? 'Delegado(a)' : funcionDe.get(f.person_id) || CUERPO_TECNICO);
 
-  const nomina = filasNomina.filter(activa);
+  return {
+    jugadores: nomina
+      .filter((f) => f.roster_role === 'JUGADOR')
+      .map((f) => ({ number: numeroCamiseta(f.jersey_number), name: nombrePersona(f.persona), position: posicionDe.get(f.person_id) || null })),
+    cuerpoTecnico: nomina
+      .filter((f) => f.roster_role === 'TECNICO' || f.roster_role === 'DELEGADO')
+      .map((f) => ({ name: nombrePersona(f.persona), role: funcion(f) }))
+  };
+}
+
+// Sin nómina de la competencia: integrantes activos del equipo.
+function desdeMiembrosEquipo(miembros) {
+  return {
+    jugadores: miembros
+      .filter((m) => m.member_type === 'JUGADOR')
+      .map((m) => ({ number: numeroCamiseta(m.jersey_number), name: nombrePersona(m.persona), position: catalogo(m.posicion) })),
+    cuerpoTecnico: miembros
+      .filter((m) => m.member_type === 'TECNICO')
+      .map((m) => ({ name: nombrePersona(m.persona), role: texto(m.technical_role) || CUERPO_TECNICO }))
+  };
+}
+
+function armarNomina(filasNomina = [], filasMiembros = []) {
+  const miembros = filasMiembros.filter(personaActiva);
+  const nomina = filasNomina.filter(personaActiva);
   const desdeCompetencia = nomina.length > 0;
-
-  const jugadores = [];
-  const cuerpoTecnico = [];
-
-  if (desdeCompetencia) {
-    for (const f of nomina) {
-      if (f.roster_role === 'JUGADOR') {
-        jugadores.push({ number: f.jersey_number ?? null, name: nombrePersona(f.persona), position: posicionDe.get(f.person_id) || null });
-      } else if (f.roster_role === 'TECNICO' || f.roster_role === 'DELEGADO') {
-        const funcion = f.roster_role === 'DELEGADO' ? 'Delegado(a)' : funcionDe.get(f.person_id) || 'Cuerpo técnico';
-        cuerpoTecnico.push({ name: nombrePersona(f.persona), role: funcion });
-      }
-    }
-  } else {
-    for (const m of miembros) {
-      if (m.member_type === 'JUGADOR') {
-        jugadores.push({ number: m.jersey_number ?? null, name: nombrePersona(m.persona), position: catalogo(m.posicion) });
-      } else if (m.member_type === 'TECNICO') {
-        cuerpoTecnico.push({ name: nombrePersona(m.persona), role: texto(m.technical_role) || 'Cuerpo técnico' });
-      }
-    }
-  }
-
-  const porNumero = (a, b) =>
-    (a.number ?? 1000) - (b.number ?? 1000) || a.name.localeCompare(b.name, 'es');
-  for (const j of jugadores) j.number = Number.isInteger(j.number) && j.number > 0 ? j.number : null;
+  const { jugadores, cuerpoTecnico } = desdeCompetencia
+    ? desdeNominaCompetencia(nomina, miembros)
+    : desdeMiembrosEquipo(miembros);
 
   return {
     source: desdeCompetencia ? 'competencia' : 'equipo',
-    players: jugadores.sort(porNumero),
-    staff: cuerpoTecnico.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    players: jugadores.toSorted(porNumero),
+    staff: cuerpoTecnico.toSorted(porNombre)
   };
 }
 
@@ -201,7 +209,7 @@ function aPartido(fila, sets = []) {
     sets: terminado
       ? sets
           .map((s) => ({ number: entero(s.set_number), home: entero(s.home_points), away: entero(s.away_points) }))
-          .sort((a, b) => a.number - b.number)
+          .toSorted((a, b) => a.number - b.number)
       : []
   };
 }
@@ -247,7 +255,7 @@ function armarPosiciones(inscritos, filasVista) {
   }
 
   return [...porEquipo.values()]
-    .sort(
+    .toSorted(
       (a, b) =>
         b.points - a.points ||
         b.sets_won - a.sets_won ||
@@ -268,79 +276,75 @@ const cronologico = (a, b) =>
 // Estadísticas por equipo y totales de la competencia, calculadas solo con partidos finalizados.
 // posiciones: salida de armarPosiciones() (da el orden y la lista de equipos inscritos).
 // partidos: salida de aPartido() de todos los partidos de la competencia.
+const filaEstadistica = (f) => ({
+  position: f.position,
+  team: f.team,
+  played: 0,
+  won: 0,
+  lost: 0,
+  sets_won: 0,
+  sets_lost: 0,
+  points_for: 0,
+  points_against: 0,
+  five_set_matches: 0,
+  resultados: []
+});
+
+const sumar = (sets, lado) => sets.reduce((total, s) => total + s[lado], 0);
+
+// Suma un partido finalizado a la fila de un equipo. `lado` es 'home' o 'away'.
+function sumarPartido(fila, partido, lado) {
+  const rival = lado === 'home' ? 'away' : 'home';
+  const propios = partido[`${lado}_sets`];
+  const ajenos = partido[`${rival}_sets`];
+  const gano = propios > ajenos;
+  fila.played += 1;
+  fila.won += gano ? 1 : 0;
+  fila.lost += gano ? 0 : 1;
+  fila.sets_won += propios;
+  fila.sets_lost += ajenos;
+  fila.points_for += sumar(partido.sets, lado);
+  fila.points_against += sumar(partido.sets, rival);
+  fila.five_set_matches += propios + ajenos === 5 ? 1 : 0;
+  fila.resultados.push(gano);
+}
+
+// Racha: cuántos resultados iguales seguidos tiene el equipo contando desde el último partido.
+function racha(resultados) {
+  if (!resultados.length) return null;
+  const ultimo = resultados.at(-1);
+  const distinto = resultados.findLastIndex((r) => r !== ultimo);
+  return { type: ultimo ? 'VICTORIAS' : 'DERROTAS', count: resultados.length - 1 - distinto };
+}
+
+const promedio = (total, cantidad) => (cantidad ? Math.round((total / cantidad) * 10) / 10 : null);
+
+// Estadísticas por equipo y totales de la competencia, calculadas solo con partidos finalizados.
+// posiciones: salida de armarPosiciones() (da el orden y la lista de equipos inscritos).
+// partidos: salida de aPartido() de todos los partidos de la competencia.
 function armarEstadisticas(posiciones, partidos) {
-  const jugados = partidos.filter((p) => p.status === 'FINALIZADO' && p.home && p.away).sort(cronologico);
+  const jugados = partidos.filter((p) => p.status === 'FINALIZADO' && p.home && p.away).toSorted(cronologico);
   const validos = partidos.filter((p) => p.status !== 'CANCELADO');
-
-  const porEquipo = new Map(
-    posiciones.map((f) => [
-      f.team.id,
-      {
-        position: f.position,
-        team: f.team,
-        played: 0,
-        won: 0,
-        lost: 0,
-        sets_won: 0,
-        sets_lost: 0,
-        points_for: 0,
-        points_against: 0,
-        five_set_matches: 0,
-        resultados: []
-      }
-    ])
-  );
-
-  let setsJugados = 0;
-  let setsConPuntos = 0;
-  let puntosTotales = 0;
-  let partidosACinco = 0;
+  const porEquipo = new Map(posiciones.map((f) => [f.team.id, filaEstadistica(f)]));
 
   for (const p of jugados) {
-    const sets = p.home_sets + p.away_sets;
-    setsJugados += sets;
-    if (sets === 5) partidosACinco += 1;
-    for (const s of p.sets) {
-      setsConPuntos += 1;
-      puntosTotales += s.home + s.away;
-    }
-
-    const lados = [
-      [p.home.id, p.home_sets, p.away_sets, (s) => s.home, (s) => s.away],
-      [p.away.id, p.away_sets, p.home_sets, (s) => s.away, (s) => s.home]
-    ];
-    for (const [id, propios, ajenos, aFavor, enContra] of lados) {
-      const fila = porEquipo.get(id);
-      if (!fila) continue; // equipo retirado o descalificado
-      const gano = propios > ajenos;
-      fila.played += 1;
-      fila.won += gano ? 1 : 0;
-      fila.lost += gano ? 0 : 1;
-      fila.sets_won += propios;
-      fila.sets_lost += ajenos;
-      fila.points_for += p.sets.reduce((t, s) => t + aFavor(s), 0);
-      fila.points_against += p.sets.reduce((t, s) => t + enContra(s), 0);
-      fila.five_set_matches += sets === 5 ? 1 : 0;
-      fila.resultados.push(gano);
-    }
+    // Un equipo retirado o descalificado no tiene fila: su partido cuenta solo en los totales.
+    const local = porEquipo.get(p.home.id);
+    const visita = porEquipo.get(p.away.id);
+    if (local) sumarPartido(local, p, 'home');
+    if (visita) sumarPartido(visita, p, 'away');
   }
 
-  const equipos = [...porEquipo.values()].map(({ resultados, ...fila }) => {
-    // Racha: cuántos resultados iguales seguidos tiene el equipo contando desde el último partido.
-    let racha = null;
-    if (resultados.length) {
-      const ultimo = resultados[resultados.length - 1];
-      let n = 0;
-      for (let i = resultados.length - 1; i >= 0 && resultados[i] === ultimo; i -= 1) n += 1;
-      racha = { type: ultimo ? 'VICTORIAS' : 'DERROTAS', count: n };
-    }
-    return {
-      ...fila,
-      sets_ratio: cociente(fila.sets_won, fila.sets_lost),
-      points_ratio: cociente(fila.points_for, fila.points_against),
-      streak: racha
-    };
-  });
+  const setsJugados = jugados.reduce((t, p) => t + p.home_sets + p.away_sets, 0);
+  const setsConPuntos = jugados.flatMap((p) => p.sets);
+  const puntosTotales = setsConPuntos.reduce((t, s) => t + s.home + s.away, 0);
+
+  const equipos = [...porEquipo.values()].map(({ resultados, ...fila }) => ({
+    ...fila,
+    sets_ratio: cociente(fila.sets_won, fila.sets_lost),
+    points_ratio: cociente(fila.points_for, fila.points_against),
+    streak: racha(resultados)
+  }));
 
   return {
     totals: {
@@ -348,11 +352,11 @@ function armarEstadisticas(posiciones, partidos) {
       matches_total: validos.length,
       matchday_current: jugados.reduce((m, p) => Math.max(m, p.matchday), 0),
       sets_played: setsJugados,
-      sets_per_match: jugados.length ? Math.round((setsJugados / jugados.length) * 10) / 10 : null,
-      five_set_matches: partidosACinco,
-      points_per_set: setsConPuntos ? Math.round((puntosTotales / setsConPuntos) * 10) / 10 : null
+      sets_per_match: promedio(setsJugados, jugados.length),
+      five_set_matches: jugados.filter((p) => p.home_sets + p.away_sets === 5).length,
+      points_per_set: promedio(puntosTotales, setsConPuntos.length)
     },
-    teams: equipos.sort((a, b) => a.position - b.position)
+    teams: equipos.toSorted((a, b) => a.position - b.position)
   };
 }
 

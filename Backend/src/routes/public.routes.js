@@ -35,7 +35,9 @@ router.use((req, res) => {
 // eslint-disable-next-line no-unused-vars
 router.use((err, req, res, next) => {
   const status = err.status && err.status < 500 ? err.status : 503;
-  if (status >= 500) console.error('[api pública]', req.method, req.originalUrl, err.causa || err);
+  // Solo se registra el error interno: la URL y los encabezados vienen del cliente y no se
+  // escriben en la consola (evita inyectar líneas falsas en el registro).
+  if (status >= 500) console.error('[api pública] error al consultar la base de datos:', err.causa || err);
   // Las respuestas de error no se guardan en caché.
   res.set('Cache-Control', 'no-store');
   res.status(status).json({ error: status >= 500 ? 'No fue posible obtener la información en este momento.' : err.message });

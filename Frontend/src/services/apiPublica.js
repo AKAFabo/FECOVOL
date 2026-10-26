@@ -7,12 +7,19 @@
 
 const TIEMPO_MAXIMO_MS = 10_000;
 
+// Quita las barras del final ("/api/" -> "/api") sin expresiones regulares.
+function sinBarraFinal(ruta) {
+  let fin = ruta.length;
+  while (fin > 0 && ruta[fin - 1] === '/') fin -= 1;
+  return ruta.slice(0, fin);
+}
+
 function urlBase() {
   const valor = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
   try {
     const url = new URL(valor);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('protocolo');
-    return url.origin + url.pathname.replace(/\/+$/, '');
+    return url.origin + sinBarraFinal(url.pathname);
   } catch {
     console.error('VITE_BACKEND_URL no es una URL http(s) válida:', valor);
     return 'http://localhost:4000';

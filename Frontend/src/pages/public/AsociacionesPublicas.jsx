@@ -5,6 +5,7 @@ import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoCont
 import useCarga from '../../hooks/useCarga.js';
 import { sigla } from '../../utils/sigla.js';
 import { listarAsociaciones } from '../../services/asociaciones.js';
+import { plural } from '../../utils/formato.js';
 import './AsociacionesPublicas.css';
 
 const LARGO_MAXIMO_BUSQUEDA = 80;
@@ -34,7 +35,7 @@ function TarjetaAsociacion({ asociacion }) {
         </h2>
         {ubicacion(asociacion) && <p className="tarjeta-asociacion__lugar">{ubicacion(asociacion)}</p>}
         <p className="tarjeta-asociacion__equipos">
-          {equipos === 0 ? 'Sin equipos activos' : `${equipos} ${equipos === 1 ? 'equipo' : 'equipos'}`}
+          {equipos === 0 ? 'Sin equipos activos' : plural(equipos, 'equipo', 'equipos')}
         </p>
       </div>
     </li>
@@ -126,7 +127,7 @@ export default function AsociacionesPublicas() {
             <>
               <p className="asociaciones-publicas__conteo" aria-live="polite">
                 {visibles.length === asociaciones.length
-                  ? `${asociaciones.length} ${asociaciones.length === 1 ? 'asociación afiliada' : 'asociaciones afiliadas'}`
+                  ? plural(asociaciones.length, 'asociación afiliada', 'asociaciones afiliadas')
                   : `${visibles.length} de ${asociaciones.length} asociaciones`}
               </p>
               {visibles.length === 0 ? (

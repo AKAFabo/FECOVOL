@@ -14,7 +14,7 @@ const diaMes = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short'
 const diaMesAnio = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const diaSemana = new Intl.DateTimeFormat('es-CR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-const limpiar = (texto) => texto.replace(/\./g, '');
+const limpiar = (texto) => texto.replaceAll('.', '');
 
 /** "12 sept 2026" */
 export function fechaCorta(iso) {
@@ -102,7 +102,7 @@ export function fechasJornada(isos) {
   const fechas = [...new Set(isos)].map(aFechaUTC).filter(Boolean).sort((a, b) => a - b);
   if (!fechas.length) return null;
   const a = fechas[0];
-  const b = fechas[fechas.length - 1];
+  const b = fechas.at(-1);
   if (a.getTime() === b.getTime()) return soloDiaMes.format(a);
   const mismoMes = a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear();
   if (!mismoMes) return `${soloDiaMes.format(a)} al ${soloDiaMes.format(b)}`;
@@ -113,4 +113,9 @@ export function fechasJornada(isos) {
 /** "3 al 11 de noviembre" para un rango de fechas (inicio y fin opcionales); null si no hay ninguna. */
 export function rangoDias(inicio, fin) {
   return fechasJornada([inicio, fin].filter(Boolean));
+}
+
+/** "1 equipo", "3 equipos". */
+export function plural(cantidad, uno, varios) {
+  return `${cantidad} ${cantidad === 1 ? uno : varios}`;
 }

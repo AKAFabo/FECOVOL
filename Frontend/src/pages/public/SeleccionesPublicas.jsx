@@ -32,8 +32,15 @@ function opcionesDe(selecciones, { campo, primeros }) {
 /* ----------------------------------------------------------------------------------------------
    Tarjetas de selecciones
    ---------------------------------------------------------------------------------------------- */
+// Color de la franja: verde azulado en playa, azul medio en juveniles y azul en mayor.
+function tonoSeleccion(s) {
+  if (s.modality === 'Playa') return 'playa';
+  if (s.category && s.category !== 'Mayor') return 'juvenil';
+  return 'mayor';
+}
+
 function TarjetaSeleccion({ seleccion: s, activa, onVerConvocatoria }) {
-  const tono = s.modality === 'Playa' ? 'playa' : s.category && s.category !== 'Mayor' ? 'juvenil' : 'mayor';
+  const tono = tonoSeleccion(s);
   const fechas = s.next_event ? rangoDias(s.next_event.start_date, s.next_event.end_date) : null;
 
   return (

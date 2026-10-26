@@ -5,7 +5,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 // Texto oscuro o claro según la luminosidad del color del equipo, para que la sigla siempre se lea.
 function textoSobre(color) {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(color.slice(i, i + 2), 16) / 255);
   const lineal = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const luminancia = 0.2126 * lineal(r) + 0.7152 * lineal(g) + 0.0722 * lineal(b);
   return luminancia > 0.4 ? '#17212b' : '#ffffff';

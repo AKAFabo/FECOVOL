@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import EnlaceAsociacion from '../../../components/EnlaceAsociacion.jsx';
 import EscudoEquipo from '../../../components/EscudoEquipo.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import Selector from '../../../components/Selector.jsx';
@@ -11,11 +12,7 @@ const TODAS = 'todas';
 
 function TarjetaEquipo({ competencia, equipo: e }) {
   const filas = [
-    ['Asociación', e.association
-      ? e.association.id
-        ? <Link to={`/asociaciones/${e.association.id}`}>{e.association.name}</Link>
-        : e.association.name
-      : null],
+    ['Asociación', e.association?.name ? <EnlaceAsociacion asociacion={e.association} /> : null],
     ['Sede local', e.home_venue],
     [etiquetaInscritos(competencia.branch), e.players || null]
   ].filter(([, valor]) => valor);

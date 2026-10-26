@@ -44,8 +44,18 @@ export const FEDERACION = Object.freeze({
 
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
-const CORREO = /^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/;
 const TELEFONO = /^[+\d][\d\s()-]{6,}$/;
+
+// Correo con forma usuario@dominio.tld, sin espacios ni caracteres que rompan un enlace mailto.
+// Se valida por partes, sin una expresión regular con retroceso.
+const PROHIBIDOS = /[\s<>()"']/;
+function esCorreo(valor) {
+  const partes = valor.split('@');
+  if (partes.length !== 2 || PROHIBIDOS.test(valor)) return false;
+  const [usuario, dominio] = partes;
+  const etiquetas = dominio.split('.');
+  return usuario.length > 0 && etiquetas.length >= 2 && etiquetas.every((e) => e.length > 0);
+}
 
 export function contenidoFederacion(fuente = FEDERACION) {
   const contacto = fuente.contacto || {};
@@ -74,7 +84,7 @@ export function contenidoFederacion(fuente = FEDERACION) {
     contacto: {
       direccion: texto(contacto.direccion),
       horario: texto(contacto.horario),
-      correo: CORREO.test(correo) ? correo : '',
+      correo: esCorreo(correo) ? correo : '',
       telefono: TELEFONO.test(telefono) ? telefono : ''
     }
   };

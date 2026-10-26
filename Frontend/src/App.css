@@ -84,7 +84,7 @@
 .pastilla--error { background: #fbe9eb; color: #a3122a; }
 
 /* Pastillas sobre la franja azul de las cabeceras */
-.pastilla--oscura { background: rgba(255, 255, 255, 0.14); color: #dce6f2; }
+.pastilla--oscura { background: #2f5582; color: #e8eef6; }
 .pastilla--oscura-ok { background: #1f6b35; color: #e4f4e8; }
 
 /* Antetítulo en mayúsculas (categoría de una noticia, etc.) */

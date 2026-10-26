@@ -1,13 +1,14 @@
 import './Segmentado.css';
 
 // Grupo de opciones excluyentes ("Todas | Sala | Playa") para filtros sobre fondo oscuro.
-// Botones con aria-pressed dentro de un grupo con nombre: se recorren con Tab y se activan con
-// Enter o Espacio.
+// Es un <fieldset> con su <legend> (nombre del grupo para lectores de pantalla) y botones con
+// aria-pressed: se recorren con Tab y se activan con Enter o Espacio.
 export default function Segmentado({ etiqueta, valor, opciones, onCambiar }) {
   return (
-    <div className="segmentado">
+    <fieldset className="segmentado">
+      <legend className="visualmente-oculto">{etiqueta}</legend>
       <span className="segmentado__etiqueta" aria-hidden="true">{etiqueta}</span>
-      <div className="segmentado__opciones" role="group" aria-label={etiqueta}>
+      <div className="segmentado__opciones">
         {opciones.map((o) => (
           <button
             key={o.valor}
@@ -20,6 +21,6 @@ export default function Segmentado({ etiqueta, valor, opciones, onCambiar }) {
           </button>
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }

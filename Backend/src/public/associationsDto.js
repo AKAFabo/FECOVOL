@@ -72,7 +72,7 @@ function aEquipo(fila, competencias = []) {
     modality: catalogo(fila.modalidad),
     home_venue: texto(fila.home_venue),
     competitions: competencias
-      .filter((c) => c && c.id)
+      .filter((c) => c?.id)
       .map((c) => ({ id: c.id, name: texto(c.name), status: c.status }))
   };
 }

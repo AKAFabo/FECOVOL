@@ -48,8 +48,8 @@ function QuienesSomos() {
         <div className="federacion-intro__texto">
           <span className="antetitulo">Quiénes somos</span>
           <h2 id="quienes-somos" className="seccion-titulo">Competencias y registro federativo</h2>
-          {CONTENIDO.quienesSomos.map((parrafo, i) => (
-            <p key={i} className="federacion-parrafo">{parrafo}</p>
+          {CONTENIDO.quienesSomos.map((parrafo) => (
+            <p key={parrafo} className="federacion-parrafo">{parrafo}</p>
           ))}
         </div>
         <Cifras />

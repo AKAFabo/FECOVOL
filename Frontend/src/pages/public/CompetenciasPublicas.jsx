@@ -7,7 +7,7 @@ import Migas from '../../components/Migas.jsx';
 import Segmentado from '../../components/Segmentado.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import { estadoCompetencia, listarCompetencias } from '../../services/competencias.js';
-import { fechaDiaMes, isoValida } from '../../utils/formato.js';
+import { fechaDiaMes, isoValida, plural } from '../../utils/formato.js';
 import './CompetenciasPublicas.css';
 
 // Secciones de la página, en este orden: lo que está pasando, lo que viene y el historial.
@@ -38,39 +38,45 @@ function opcionesDe(competencias, campo) {
   return [{ valor: TODAS, texto: 'Todas' }, ...valores.map((v) => ({ valor: v, texto: v }))];
 }
 
-function plural(n, uno, varios) {
-  return `${n} ${n === 1 ? uno : varios}`;
+// Líneas de avance de la tarjeta según el estado de la competencia.
+function jornadaActual(c) {
+  if (!c.matchday_current) return 'Por iniciar';
+  const total = c.matchdays_total ? ' de ' + c.matchdays_total : '';
+  return `Jornada ${c.matchday_current}${total}`;
 }
 
-// Líneas de avance de la tarjeta según el estado de la competencia.
-function avance(c, grupo) {
-  const equipos = c.team_count ? plural(c.team_count, 'equipo', 'equipos') : null;
-  if (grupo === 'en-curso') {
-    const jornada = c.matchday_current
-      ? `Jornada ${c.matchday_current}${c.matchdays_total ? ` de ${c.matchdays_total}` : ''}`
-      : 'Por iniciar';
-    return {
-      principal: [jornada, equipos].filter(Boolean).join(' · '),
-      secundaria: c.leader ? `Líder: ${c.leader.name}` : null
-    };
-  }
-  if (grupo === 'inscripciones') {
-    return {
-      principal: isoValida(c.start_date) ? `Inicia el ${fechaDiaMes(c.start_date)}` : 'Fecha de inicio por definir',
-      secundaria: equipos ? `${equipos} inscritos hasta ahora` : null
-    };
-  }
-  return {
+const AVANCE = {
+  'en-curso': (c, equipos) => ({
+    principal: [jornadaActual(c), equipos].filter(Boolean).join(' · '),
+    secundaria: c.leader ? `Líder: ${c.leader.name}` : null
+  }),
+  inscripciones: (c, equipos) => ({
+    principal: isoValida(c.start_date) ? `Inicia el ${fechaDiaMes(c.start_date)}` : 'Fecha de inicio por definir',
+    secundaria: equipos ? `${equipos} inscritos hasta ahora` : null
+  }),
+  finalizadas: (c, equipos) => ({
     principal: c.matchdays_total ? plural(c.matchdays_total, 'jornada', 'jornadas') : equipos,
     secundaria: c.leader ? `Primer lugar: ${c.leader.name}` : null
-  };
+  })
+};
+
+function avance(c, grupo) {
+  const equipos = c.team_count ? plural(c.team_count, 'equipo', 'equipos') : null;
+  return (AVANCE[grupo] || AVANCE.finalizadas)(c, equipos);
+}
+
+// Color de la franja de la tarjeta.
+function tonoTarjeta(c, grupo) {
+  if (grupo === 'finalizadas') return 'finalizada';
+  if (c.modality === 'Playa') return 'playa';
+  return grupo;
 }
 
 function TarjetaCompetencia({ competencia: c }) {
   const estado = estadoCompetencia(c.status);
   const detalle = [c.category, c.branch].filter(Boolean).join(' · ');
   const { principal, secundaria } = avance(c, estado.grupo);
-  const tono = estado.grupo === 'finalizadas' ? 'finalizada' : c.modality === 'Playa' ? 'playa' : estado.grupo;
+  const tono = tonoTarjeta(c, estado.grupo);
 
   return (
     <li className={`tarjeta-competencia tarjeta-competencia--${tono}`}>
@@ -128,7 +134,7 @@ export default function CompetenciasPublicas() {
       )
   })).filter((g) => g.lista.length > 0);
 
-  const temporadas = [...new Set(competencias.map((c) => c.season).filter(Boolean))].sort();
+  const temporadas = [...new Set(competencias.map((c) => c.season).filter(Boolean))].toSorted((a, b) => a.localeCompare(b));
   const resumen =
     estado === 'listo'
       ? [

@@ -3,6 +3,7 @@ import EscudoEquipo from '../../../components/EscudoEquipo.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import useCarga from '../../../hooks/useCarga.js';
 import { obtenerEstadisticas } from '../../../services/competencias.js';
+import { plural } from '../../../utils/formato.js';
 import { cociente, numero, unDecimal } from './partidos.js';
 
 function Cifra({ titulo, valor, detalle }) {
@@ -18,7 +19,7 @@ function Cifra({ titulo, valor, detalle }) {
 function Racha({ racha }) {
   if (!racha) return '—';
   const victorias = racha.type === 'VICTORIAS';
-  const texto = `${racha.count} ${victorias ? (racha.count === 1 ? 'victoria' : 'victorias') : racha.count === 1 ? 'derrota' : 'derrotas'}`;
+  const texto = victorias ? plural(racha.count, 'victoria', 'victorias') : plural(racha.count, 'derrota', 'derrotas');
   return <span className={`pastilla ${victorias ? 'pastilla--ok' : 'pastilla--error'}`}>{texto}</span>;
 }
 

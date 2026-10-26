@@ -175,7 +175,10 @@ async function resumenesDe(ids) {
     const lista = partidosPor.get(id);
     resumenes.set(id, {
       resumen: resumirAvance({ partidos: lista, equipos: posiciones.length, posiciones }),
-      ultimaActualizacion: lista.reduce((max, p) => (p.updated_at && p.updated_at > max ? p.updated_at : max), '')
+      ultimaActualizacion: lista.reduce(
+        (max, p) => (p.updated_at && (!max || Date.parse(p.updated_at) > Date.parse(max)) ? p.updated_at : max),
+        null
+      )
     });
   }
   return resumenes;
@@ -192,7 +195,7 @@ async function equipoInscrito(competenciaId, equipoId) {
     .maybeSingle();
 
   if (error) throw fallaBaseDatos(error);
-  if (!data || !data.equipo) throw new HttpError(404, 'Equipo no encontrado en esta competencia');
+  if (!data?.equipo) throw new HttpError(404, 'Equipo no encontrado en esta competencia');
   return data.equipo;
 }
 
@@ -233,7 +236,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const competencia = await competenciaPublica(req.params.id);
   const { resumen, ultimaActualizacion } = (await resumenesDe([competencia.id])).get(competencia.id);
 
-  const actualizada = [competencia.updated_at, ultimaActualizacion].filter(Boolean).sort().pop() || null;
+  // La más reciente entre la competencia y sus partidos, comparando como fechas (no como texto).
+  const actualizada =
+    [competencia.updated_at, ultimaActualizacion]
+      .filter((f) => f && !Number.isNaN(Date.parse(f)))
+      .reduce((max, f) => (max === null || Date.parse(f) > Date.parse(max) ? f : max), null);
   res.json({ data: { ...aCompetencia(competencia, resumen), updated_at: actualizada } });
 }));
 
@@ -285,7 +292,7 @@ router.get('/:id/teams', asyncHandler(async (req, res) => {
 
   const equipos = (inscritos.data || [])
     .map((f) => f.equipo)
-    .filter((e) => e && e.id)
+    .filter((e) => e?.id)
     .map((e) => aEquipoInscrito(e, jugadores.get(e.id) || 0))
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
 

@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import EnlaceAsociacion from '../../components/EnlaceAsociacion.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
 import Migas from '../../components/Migas.jsx';
 import useCarga from '../../hooks/useCarga.js';
@@ -200,10 +201,8 @@ export default function EquipoCompetenciaPublica() {
 
   const { competition, team, standing, roster, matches } = carga.datos;
   const categoria = [team.category, team.branch].filter(Boolean).join(' · ');
-  const asociacion = team.association
-    ? team.association.id
-      ? <Link to={`/asociaciones/${team.association.id}`} className="enlace-flecha">{team.association.name}</Link>
-      : team.association.name
+  const asociacion = team.association?.name
+    ? <EnlaceAsociacion asociacion={team.association} className="enlace-flecha" />
     : null;
 
   return (
@@ -227,7 +226,7 @@ export default function EquipoCompetenciaPublica() {
           <p className="cabecera-competencia__pastillas">
             {team.modality && <span className="pastilla pastilla--oscura">{team.modality}</span>}
             {categoria && <span className="pastilla pastilla--oscura">{categoria}</span>}
-            {standing && standing.played > 0 && (
+            {standing?.played > 0 && (
               <span className="pastilla pastilla--oscura-ok">{standing.position}.º en la tabla</span>
             )}
           </p>
