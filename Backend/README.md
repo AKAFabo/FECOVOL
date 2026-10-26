@@ -72,8 +72,14 @@ solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/p
 - Cada respuesta se arma campo por campo en `src/public/*Dto.js` (lista blanca). Una columna
   nueva en la base de datos no se publica sola.
 - De las asociaciones no se publican cédula jurídica, dirección, correo, teléfono ni junta
-  directiva, y de los equipos no se publican sus integrantes. Solo aparecen asociaciones
-  `AFILIADA` y equipos `ACTIVO`.
+  directiva. Solo aparecen asociaciones `AFILIADA` y equipos `ACTIVO`.
+- De los integrantes de un equipo inscrito en una competencia se publican **solo nombre, número
+  y posición** (y la función del cuerpo técnico). Nunca cédula, fecha o año de nacimiento,
+  contactos ni el estado de habilitación: hay categorías juveniles con menores de edad. Solo
+  aparecen personas `ACTIVA`.
+- Las cifras de `/federation` son conteos; no devuelven ningún registro.
+- Las consultas que pueden pasar de 1000 filas (límite de Supabase por consulta) se piden por
+  bloques con `src/public/paginar.js`.
 - Una noticia es pública si está `PUBLICADA`, no fue borrada y su fecha de publicación ya pasó.
   Su cuerpo (HTML del editor) se limpia con `sanitize-html` y una lista blanca de etiquetas
   (`src/public/htmlSeguro.js`): no pasan scripts, eventos (`onclick`...), estilos, iframes, SVG ni
@@ -87,10 +93,14 @@ solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/p
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/api/public/competitions?status=&season=` | Competencias publicadas (`status`: INSCRIPCIONES, EN_CURSO, FINALIZADA o CERRADA; `season`: año) |
-| GET | `/api/public/competitions/:id` | Datos de una competencia |
+| GET | `/api/public/competitions?status=&season=` | Competencias publicadas con su avance (`status`: INSCRIPCIONES, EN_CURSO, FINALIZADA o CERRADA; `season`: año) |
+| GET | `/api/public/competitions/:id` | Datos de una competencia con su avance (equipos, jornada actual, primer lugar) y la fecha de la última actualización |
 | GET | `/api/public/competitions/:id/standings` | Tabla de posiciones, con todos los equipos inscritos |
 | GET | `/api/public/competitions/:id/matches` | Calendario y resultados, con los puntos por set de los partidos terminados |
+| GET | `/api/public/competitions/:id/statistics` | Totales de la competencia y rendimiento por equipo (sets, puntos, partidos a 5 sets, racha) |
+| GET | `/api/public/competitions/:id/teams` | Equipos inscritos con asociación, provincia, sede y cantidad de jugadores en la nómina |
+| GET | `/api/public/competitions/:id/teams/:teamId` | Equipo en la competencia: posición, nómina (nombre, número, posición), cuerpo técnico y partidos |
+| GET | `/api/public/federation` | Cantidad de asociaciones afiliadas, equipos activos, personas registradas y árbitros activos |
 | GET | `/api/public/associations` | Asociaciones afiliadas con su cantidad de equipos activos |
 | GET | `/api/public/associations/:id` | Datos públicos de la asociación, sus equipos y las competencias en que participan |
 | GET | `/api/public/news?page=` | Noticias publicadas, de la más reciente a la más antigua, 12 por página |

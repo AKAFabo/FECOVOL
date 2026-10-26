@@ -68,7 +68,13 @@ test('el listado solo pide estados públicos y devuelve únicamente los campos d
     end_date: '2026-11-30',
     category: 'Mayor',
     branch: 'Femenina',
-    modality: 'Sala'
+    modality: 'Sala',
+    team_count: 0,
+    matchdays_total: 0,
+    matchday_current: 0,
+    matches_total: 0,
+    matches_played: 0,
+    leader: null
   });
   assert.match(r.headers.get('cache-control'), /max-age=60/);
 });
@@ -438,4 +444,245 @@ test('limpiarHtml conserva el formato permitido y elimina lo peligroso', () => {
   );
   assert.doesNotMatch(limpiarHtml('<a href="jav&#x09;ascript:alert(1)">t</a>'), /href/);
   assert.equal(limpiarHtml(null), '');
+});
+
+/* ------------------------------------------------------------------------------------------------
+   Competencias: avance, equipos, página de equipo y estadísticas
+   ------------------------------------------------------------------------------------------------ */
+const { armarEstadisticas, armarNomina, resumirAvance } = require('../src/public/competitionsDto');
+const { todasLasFilas } = require('../src/public/paginar');
+
+const partidoFinal = (id, jornada, local, visita, sets, fecha = '2026-09-12') => ({
+  id,
+  number: Number(id.slice(-1)) || 1,
+  matchday: jornada,
+  date: fecha,
+  time: '19:00',
+  venue: null,
+  status: 'FINALIZADO',
+  home: { id: local },
+  away: { id: visita },
+  home_sets: sets.filter(([a, b]) => a > b).length,
+  away_sets: sets.filter(([a, b]) => b > a).length,
+  sets: sets.map(([home, away], i) => ({ number: i + 1, home, away }))
+});
+
+test('el listado agrega equipos, jornada actual y primer lugar de cada competencia', async () => {
+  fake.alResponderTabla('competitions', { data: [filaCompetencia], error: null });
+  fake.alResponderTabla('competition_teams', {
+    data: [
+      { competition_id: COMP, equipo: { id: EQ_A, name: 'AD Turrialba' } },
+      { competition_id: COMP, equipo: { id: EQ_B, name: 'CD Sarchí' } }
+    ],
+    error: null
+  });
+  fake.alResponderTabla('matches', {
+    data: [
+      { competition_id: COMP, matchday: 1, status: 'FINALIZADO' },
+      { competition_id: COMP, matchday: 2, status: 'FINALIZADO' },
+      { competition_id: COMP, matchday: 3, status: 'PROGRAMADO' },
+      { competition_id: COMP, matchday: 9, status: 'CANCELADO' }
+    ],
+    error: null
+  });
+  fake.alResponderTabla('v_standings', {
+    data: [{ competition_id: COMP, team_id: EQ_B, matches_played: 2, total_points: 6, sets_won: 6 }],
+    error: null
+  });
+
+  const r = await get('/api/public/competitions');
+  const c = r.json.data[0];
+  assert.equal(c.team_count, 2);
+  assert.equal(c.matchday_current, 2);
+  assert.equal(c.matchdays_total, 3);
+  assert.equal(c.matches_total, 3);
+  assert.equal(c.matches_played, 2);
+  assert.equal(c.leader.name, 'CD Sarchí');
+  // Las tres consultas de apoyo piden todas las competencias juntas, no una por una.
+  assert.deepEqual(paso('matches', 'in'), ['in', 'competition_id', [COMP]]);
+});
+
+test('resumirAvance no nombra primer lugar si nadie ha jugado', () => {
+  const r = resumirAvance({ partidos: [], equipos: 4, posiciones: [{ position: 1, played: 0, team: { id: EQ_A } }] });
+  assert.equal(r.leader, null);
+  assert.equal(r.team_count, 4);
+});
+
+test('todasLasFilas pide por bloques hasta recibir uno incompleto', async () => {
+  const rangos = [];
+  const respuestas = [Array(1000).fill({}), Array(3).fill({})];
+  const filas = await todasLasFilas(() => ({
+    range(desde, hasta) {
+      rangos.push([desde, hasta]);
+      return Promise.resolve({ data: respuestas.shift(), error: null });
+    }
+  }));
+  assert.equal(filas.length, 1003);
+  assert.deepEqual(rangos, [[0, 999], [1000, 1999]]);
+});
+
+test('los equipos inscritos no publican contactos y solo enlazan asociaciones afiliadas', async () => {
+  fake.alResponderTabla('competitions', { data: filaCompetencia, error: null });
+  fake.alResponderTabla('competition_teams', {
+    data: [
+      {
+        equipo: {
+          id: EQ_A, name: 'AD Turrialba', short_name: 'TUR', primary_color: 'red;background:url(//x)', home_venue: null,
+          asociacion: { id: ASO, name: 'AD Turrialba', province: 'Cartago', home_venue: 'Gimnasio de Turrialba', status: 'PROVISIONAL', email: 'x@y.cr', phone: '1' }
+        }
+      },
+      {
+        equipo: {
+          id: EQ_B, name: 'CD Sarchí', short_name: 'SAR', primary_color: '#0E3B6B', home_venue: 'Gimnasio de Sarchí',
+          asociacion: { id: ASO, name: 'CD Sarchí', province: 'Alajuela', home_venue: null, status: 'AFILIADA', tax_id: '3-1' }
+        }
+      }
+    ],
+    error: null
+  });
+  fake.alResponderTabla('competition_rosters', { data: [{ team_id: EQ_B }, { team_id: EQ_B }], error: null });
+
+  const r = await get(`/api/public/competitions/${COMP}/teams`);
+  assert.equal(r.status, 200);
+  const [turrialba, sarchi] = r.json.data;
+  assert.deepEqual(turrialba, {
+    id: EQ_A, name: 'AD Turrialba', short_name: 'TUR', color: null,
+    association: { id: null, name: 'AD Turrialba' },
+    province: 'Cartago', home_venue: 'Gimnasio de Turrialba', players: 0
+  });
+  assert.equal(sarchi.color, '#0e3b6b');
+  assert.equal(sarchi.association.id, ASO);
+  assert.equal(sarchi.players, 2);
+  assert.doesNotMatch(JSON.stringify(r.json), /x@y\.cr|3-1/);
+});
+
+test('un equipo con id inválido da 400 y uno no inscrito da 404', async () => {
+  let r = await get(`/api/public/competitions/${COMP}/teams/abc`);
+  assert.equal(r.status, 400);
+  assert.equal(fake.llamadas.length, 0);
+
+  fake.alResponderTabla('competitions', { data: filaCompetencia, error: null });
+  fake.alResponderTabla('competition_teams', { data: null, error: null });
+  r = await get(`/api/public/competitions/${COMP}/teams/${EQ_C}`);
+  assert.equal(r.status, 404);
+  assert.deepEqual(paso('competition_teams', 'eq'), ['eq', 'competition_id', COMP]);
+});
+
+test('la página de equipo publica solo nombre, número y posición de los integrantes', async () => {
+  const persona = (nombre, extra = {}) => ({
+    first_name: nombre, last_name: 'Mora', status: 'ACTIVA',
+    birth_date: '2009-05-01', document_number: '1-1111-1111', email: 'p@x.cr', phone: '8888', ...extra
+  });
+  fake.alResponderTabla('competitions', { data: filaCompetencia, error: null });
+  fake.alResponderTabla(
+    'competition_teams',
+    { data: { equipo: { id: EQ_B, name: 'CD Sarchí', short_name: 'SAR', asociacion: null, categoria: { value: 'Mayor' } } }, error: null },
+    { data: [{ equipo: { id: EQ_B, name: 'CD Sarchí' } }, { equipo: { id: EQ_A, name: 'AD Turrialba' } }], error: null }
+  );
+  fake.alResponderTabla('competition_rosters', {
+    data: [
+      { person_id: 'p1', jersey_number: 7, roster_role: 'JUGADOR', persona: persona('Ana') },
+      { person_id: 'p2', jersey_number: 1, roster_role: 'JUGADOR', persona: persona('Eva') },
+      { person_id: 'p3', jersey_number: 3, roster_role: 'JUGADOR', persona: persona('Inés', { status: 'INACTIVA' }) },
+      { person_id: 'p4', jersey_number: null, roster_role: 'TECNICO', persona: persona('Luis') }
+    ],
+    error: null
+  });
+  fake.alResponderTabla('team_members', {
+    data: [
+      { person_id: 'p1', member_type: 'JUGADOR', persona: persona('Ana'), posicion: { value: 'Central' } },
+      { person_id: 'p4', member_type: 'TECNICO', technical_role: 'Entrenador principal', persona: persona('Luis') }
+    ],
+    error: null
+  });
+
+  const r = await get(`/api/public/competitions/${COMP}/teams/${EQ_B}`);
+  assert.equal(r.status, 200);
+  const { roster, team, competition } = r.json.data;
+  assert.equal(competition.name, 'Liga Superior Femenina 2026');
+  assert.equal(team.category, 'Mayor');
+  assert.equal(roster.source, 'competencia');
+  assert.deepEqual(roster.players, [
+    { number: 1, name: 'Eva Mora', position: null },
+    { number: 7, name: 'Ana Mora', position: 'Central' }
+  ]);
+  assert.deepEqual(roster.staff, [{ name: 'Luis Mora', role: 'Entrenador principal' }]);
+  const texto = JSON.stringify(r.json);
+  for (const prohibido of ['2009', '1-1111-1111', 'p@x.cr', '8888', 'p1', 'Inés', 'habilit']) {
+    assert.ok(!texto.includes(prohibido), prohibido);
+  }
+});
+
+test('sin nómina de la competencia se muestran los integrantes activos del equipo', () => {
+  const nomina = armarNomina([], [
+    { person_id: 'a', member_type: 'JUGADOR', jersey_number: 0, persona: { first_name: 'Sol', last_name: 'Vega', status: 'ACTIVA' } },
+    { person_id: 'b', member_type: 'TECNICO', persona: { first_name: 'Raúl', last_name: 'Solís', status: 'ACTIVA' } }
+  ]);
+  assert.equal(nomina.source, 'equipo');
+  assert.deepEqual(nomina.players, [{ number: null, name: 'Sol Vega', position: null }]);
+  assert.deepEqual(nomina.staff, [{ name: 'Raúl Solís', role: 'Cuerpo técnico' }]);
+});
+
+test('armarEstadisticas calcula sets, puntos, partidos a cinco sets y rachas', () => {
+  const posiciones = [
+    { position: 1, team: { id: EQ_A, name: 'A' } },
+    { position: 2, team: { id: EQ_B, name: 'B' } }
+  ];
+  const partidos = [
+    partidoFinal('m1', 1, EQ_A, EQ_B, [[25, 20], [25, 20], [25, 20]], '2026-09-01'),
+    partidoFinal('m2', 2, EQ_B, EQ_A, [[25, 20], [20, 25], [25, 20], [20, 25], [15, 10]], '2026-09-08'),
+    { id: 'm3', matchday: 3, status: 'PROGRAMADO', home: { id: EQ_A }, away: { id: EQ_B }, sets: [] },
+    { id: 'm4', matchday: 3, status: 'CANCELADO', home: { id: EQ_A }, away: { id: EQ_B }, sets: [] }
+  ];
+
+  const { totals, teams } = armarEstadisticas(posiciones, partidos);
+  assert.deepEqual(totals, {
+    matches_played: 2, matches_total: 3, matchday_current: 2, sets_played: 8,
+    sets_per_match: 4, five_set_matches: 1, points_per_set: 42.5
+  });
+  const [a, b] = teams;
+  assert.equal(a.sets_won, 5);
+  assert.equal(a.sets_lost, 3);
+  assert.equal(a.sets_ratio, 1.67);
+  assert.equal(a.points_for, 75 + 100);
+  assert.equal(a.points_against, 60 + 105);
+  assert.equal(a.five_set_matches, 1);
+  assert.deepEqual(a.streak, { type: 'DERROTAS', count: 1 });
+  assert.deepEqual(b.streak, { type: 'VICTORIAS', count: 1 });
+});
+
+test('un equipo sin sets perdidos tiene cociente nulo, no infinito', () => {
+  const { teams } = armarEstadisticas(
+    [{ position: 1, team: { id: EQ_A } }, { position: 2, team: { id: EQ_B } }],
+    [partidoFinal('m1', 1, EQ_A, EQ_B, [[25, 1], [25, 1], [25, 1]])]
+  );
+  assert.equal(teams[0].sets_ratio, null);
+  assert.equal(teams[1].sets_ratio, 0);
+});
+
+/* ------------------------------------------------------------------------------------------------
+   La Federación
+   ------------------------------------------------------------------------------------------------ */
+test('las cifras de la Federación son solo conteos de registros vigentes', async () => {
+  fake.alResponderTabla('associations', { data: null, error: null, count: 12 });
+  fake.alResponderTabla('teams', { data: null, error: null, count: 96 });
+  fake.alResponderTabla('persons', { data: null, error: null, count: 2340 });
+  fake.alResponderTabla('person_roles', { data: null, error: null, count: null });
+
+  const r = await get('/api/public/federation');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.data, { associations: 12, teams: 96, people: 2340, referees: 0 });
+  assert.deepEqual(paso('associations', 'eq'), ['eq', 'status', 'AFILIADA']);
+  assert.deepEqual(pasos('teams').filter((p) => p[0] === 'eq'), [
+    ['eq', 'status', 'ACTIVO'],
+    ['eq', 'asociacion.status', 'AFILIADA']
+  ]);
+  assert.deepEqual(paso('persons', 'select'), ['select', 'id', { count: 'exact', head: true }]);
+});
+
+test('un error al contar devuelve 503 genérico', async () => {
+  fake.alResponderTabla('persons', { data: null, error: { message: 'permission denied for table persons' } });
+  const r = await get('/api/public/federation');
+  assert.equal(r.status, 503);
+  assert.doesNotMatch(JSON.stringify(r.json), /permission|persons/);
 });

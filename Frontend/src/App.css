@@ -79,6 +79,12 @@
 .pastilla--neutra { background: var(--neutro-fondo); color: var(--neutro); }
 .pastilla--ok { background: var(--ok-fondo); color: var(--ok); }
 .pastilla--aviso { background: var(--aviso-fondo); color: var(--aviso); }
+.pastilla--info { background: #e3ecf6; color: var(--azul); }
+.pastilla--error { background: #fbe9eb; color: #a3122a; }
+
+/* Pastillas sobre la franja azul de las cabeceras */
+.pastilla--oscura { background: rgba(255, 255, 255, 0.14); color: #dce6f2; }
+.pastilla--oscura-ok { background: #1f6b35; color: #e4f4e8; }
 
 /* Antetítulo en mayúsculas (categoría de una noticia, etc.) */
 .antetitulo {

@@ -17,14 +17,18 @@ src/
 ├── App.css                Componentes compartidos: .contenedor, .boton, .pastilla, .antetitulo, .seccion-titulo, .enlace-flecha
 ├── App.jsx                Rutas
 ├── layouts/PublicLayout   Barra superior, encabezado con navegación, pie de página
-├── components/            Logo, ilustraciones, CabeceraSeccion (franja azul de cada sección) y
-│                          EstadoContenido (cargando / error / sin resultados) y HtmlSeguro
+├── components/            Logo, ilustraciones, CabeceraSeccion (franja azul de cada sección),
+│                          Migas, EstadoContenido (cargando / error / sin resultados), HtmlSeguro,
+│                          EscudoEquipo, Selector (lista desplegable de filtro) y Segmentado
 ├── services/              Acceso a la API: apiPublica.js (cliente HTTP) y un archivo por módulo
 ├── hooks/useCarga.js      Estado de una carga asíncrona, con cancelación y reintento
 ├── utils/                 Formato de fechas, validación de ids y siglas para distintivos
-├── pages/public/          Inicio, Competencias, Asociaciones, Noticias (listado y detalle de cada una)
-│                          y "Sección en desarrollo"
-└── data/portada.js        Contenido de ejemplo de la portada (ver abajo)
+├── pages/public/          Inicio, Competencias (listado, detalle con 5 pestañas en competencia/ y
+│                          página de equipo), Asociaciones, Noticias, La Federación y
+│                          "Sección en desarrollo"
+├── data/portada.js        Contenido de ejemplo de la portada (ver abajo)
+├── data/federacion.js     Contenido institucional de "La Federación" y del pie (solo datos oficiales)
+└── data/redes.js          Redes sociales oficiales
 ```
 
 ## Convenciones
@@ -60,5 +64,12 @@ Los partidos, noticias, competencias y selecciones de la portada salen de
 `src/data/portada.js` mientras los módulos de Competencias, Noticias y Selecciones no tengan
 sus endpoints. Cuando existan, cada bloque se reemplaza por su llamada a la API.
 
-Las secciones del menú (Competencias, Selecciones, Asociaciones, Noticias, La Federación) muestran
-por ahora la página "Sección en desarrollo"; quien construya cada una cambia su ruta en `App.jsx`.
+Selecciones todavía muestra la página "Sección en desarrollo".
+
+## La Federación
+
+Las cifras (asociaciones, equipos, personas y árbitros) salen de la base por
+`/api/public/federation`. Misión, visión, junta directiva, reglamentos y datos de contacto se
+escriben en `src/data/federacion.js` **solo cuando FECOVOL los confirme**: mientras estén vacíos,
+esa sección no aparece. El pie de página toma de ahí la dirección, el correo y el teléfono.
+No se mencionan organismos, afiliaciones ni aliados externos.

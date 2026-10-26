@@ -9,6 +9,11 @@ function ruta(id, sufijo = '') {
   return `/competitions/${encodeURIComponent(id)}${sufijo}`;
 }
 
+function rutaEquipo(id, equipoId) {
+  if (!esIdValido(equipoId)) throw new Error('Identificador de equipo inválido');
+  return ruta(id, `/teams/${encodeURIComponent(equipoId)}`);
+}
+
 // Cómo se muestra cada estado de competencia. `tono` corresponde a las clases .pastilla--*.
 export const ESTADO_COMPETENCIA = Object.freeze({
   INSCRIPCIONES: { texto: 'Inscripciones abiertas', tono: 'aviso', grupo: 'inscripciones' },
@@ -47,4 +52,16 @@ export function obtenerPosiciones(id, opciones) {
 
 export function obtenerPartidos(id, opciones) {
   return obtener(ruta(id, '/matches'), opciones);
+}
+
+export function obtenerEstadisticas(id, opciones) {
+  return obtener(ruta(id, '/statistics'), opciones);
+}
+
+export function listarEquipos(id, opciones) {
+  return obtener(ruta(id, '/teams'), opciones);
+}
+
+export function obtenerEquipo(id, equipoId, opciones) {
+  return obtener(rutaEquipo(id, equipoId), opciones);
 }

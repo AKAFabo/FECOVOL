@@ -1,58 +1,26 @@
 .competencias-publicas {
   flex: 1;
-  background: var(--fondo);
+  background: var(--superficie);
 }
 
-/* ----- Filtros ----- */
-.filtros {
+/* ----- Filtros (dentro de la franja azul) ----- */
+.competencias-filtros {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 28px;
+  gap: 14px 28px;
+  margin-top: 16px;
 }
 
-.filtro {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 14px;
-  border: 1px solid var(--borde);
-  border-radius: var(--radio-pastilla);
-  background: var(--superficie);
-  color: var(--texto-suave);
-  font-family: var(--fuente-titulo);
-  font-weight: 600;
-  font-size: 13.5px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+/* ----- Grupos ----- */
+.grupo-competencias + .grupo-competencias {
+  margin-top: 44px;
 }
 
-.filtro:hover {
-  border-color: #b9c4d0;
-}
-
-.filtro--activo,
-.filtro--activo:hover {
-  border-color: var(--azul);
-  background: var(--azul);
-  color: #fff;
-}
-
-.filtro__conteo {
-  min-width: 20px;
-  padding: 3px 6px;
-  border-radius: var(--radio-pastilla);
-  background: var(--neutro-fondo);
-  color: var(--texto-mudo);
-  font-size: 11.5px;
-  text-align: center;
-}
-
-.filtro--activo .filtro__conteo {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+.grupo-competencias__titulo {
+  margin-bottom: 18px;
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.2;
 }
 
 /* ----- Tarjetas ----- */
@@ -85,19 +53,22 @@
   box-shadow: var(--sombra-foco);
 }
 
+/* Franja de color por estado: azul en curso, terracota en inscripciones, verde azulado en playa
+   y gris en finalizadas. La ilustración queda tenue encima. */
 .tarjeta-competencia__imagen {
-  height: 120px;
+  height: 110px;
   background: var(--azul);
 }
 
-.tarjeta-competencia--finalizada .tarjeta-competencia__imagen {
-  background: var(--azul-medio);
-  opacity: 0.85;
-}
+.tarjeta-competencia--inscripciones .tarjeta-competencia__imagen { background: #7a3a14; }
+.tarjeta-competencia--playa .tarjeta-competencia__imagen { background: #0d5560; }
+.tarjeta-competencia--finalizada .tarjeta-competencia__imagen { background: #4b5968; }
 
 .tarjeta-competencia__imagen svg {
   width: 100%;
   height: 100%;
+  opacity: 0.35;
+  mix-blend-mode: luminosity;
 }
 
 .tarjeta-competencia__cuerpo {
@@ -106,12 +77,18 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  padding: 20px;
+  padding: 18px 20px 20px;
+}
+
+.tarjeta-competencia__pastillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .tarjeta-competencia__nombre {
   font-weight: 800;
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -132,13 +109,22 @@
 }
 
 .tarjeta-competencia__detalle {
-  color: var(--texto-cuerpo);
-  font-size: 14.5px;
+  color: var(--texto-mudo);
+  font-size: 14px;
 }
 
-.tarjeta-competencia__fechas {
+.tarjeta-competencia__avance {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
   color: var(--texto-mudo);
   font-size: 13.5px;
+}
+
+.tarjeta-competencia__avance-principal {
+  color: var(--texto);
+  font-weight: 600;
 }
 
 .tarjeta-competencia__accion {
@@ -156,8 +142,9 @@
 
 @media (max-width: 720px) {
   .lista-competencias { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .tarjeta-competencia__imagen { height: 84px; }
+  .grupo-competencias + .grupo-competencias { margin-top: 32px; }
+  .tarjeta-competencia__imagen { height: 72px; }
   .tarjeta-competencia__cuerpo { padding: 16px; }
   .tarjeta-competencia__nombre { font-size: 18px; }
-  .filtros { margin-bottom: 20px; }
+  .competencias-filtros { gap: 12px; }
 }

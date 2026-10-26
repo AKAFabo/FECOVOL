@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import Logo from '../components/Logo.jsx';
+import { REDES } from '../data/redes.js';
+import { contenidoFederacion } from '../data/federacion.js';
+
+const CONTACTO = contenidoFederacion().contacto;
 import './PublicLayout.css';
 
 const NAVEGACION = [
@@ -12,11 +16,6 @@ const NAVEGACION = [
   { to: '/federacion', texto: 'La Federación' }
 ];
 
-// Redes oficiales de FECOVOL (se abren en otra pestaña).
-const REDES = [
-  { nombre: 'Instagram', usuario: '@fecovol_cr', url: 'https://www.instagram.com/fecovol_cr/' },
-  { nombre: 'Facebook', usuario: 'FECOVOLCR', url: 'https://www.facebook.com/FECOVOLCR/' }
-];
 
 function ListaRedes({ className = '' }) {
   return (
@@ -161,14 +160,19 @@ export default function PublicLayout() {
           <div className="pie__principal">
             <div className="pie__marca">
               <Logo claro conSubtitulo={false} />
+              {/* Solo datos de contacto confirmados (data/federacion.js); nada de ejemplos. */}
               <address className="pie__direccion">
-                Federación Costarricense de Voleibol<br />
-                Gimnasio Nacional, La Sabana, San José<br />
-                Costa Rica
+                Federación Costarricense de Voleibol
+                {CONTACTO.direccion && <><br />{CONTACTO.direccion}</>}
+                <br />Costa Rica
               </address>
-              <p className="pie__contacto">
-                <a href="mailto:info@fecovol.cr">info@fecovol.cr</a>&nbsp;&nbsp;·&nbsp;&nbsp;(506) 2222-0000
-              </p>
+              {(CONTACTO.correo || CONTACTO.telefono) && (
+                <p className="pie__contacto">
+                  {CONTACTO.correo && <a href={`mailto:${CONTACTO.correo}`}>{CONTACTO.correo}</a>}
+                  {CONTACTO.correo && CONTACTO.telefono && <>&nbsp;&nbsp;·&nbsp;&nbsp;</>}
+                  {CONTACTO.telefono}
+                </p>
+              )}
               <ListaRedes className="redes--pie" />
             </div>
 
@@ -193,7 +197,7 @@ export default function PublicLayout() {
             <ul>
               <li><Link to="/federacion">Política de privacidad</Link></li>
               <li><Link to="/federacion">Términos de uso</Link></li>
-              <li><a href="mailto:info@fecovol.cr">Contacto</a></li>
+              <li><Link to="/federacion#contacto">Contacto</Link></li>
             </ul>
           </div>
         </div>

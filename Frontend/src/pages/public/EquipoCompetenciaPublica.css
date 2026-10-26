@@ -1,0 +1,44 @@
+/* Página de un equipo dentro de una competencia. La base (cabecera, paneles, tablas) está en
+   CompetenciaDetallePublica.css. */
+
+.proximos-equipo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proximos-equipo li {
+  padding: 14px 20px;
+}
+
+.proximos-equipo li + li {
+  border-top: 1px solid var(--linea);
+}
+
+.proximos-equipo__cuando {
+  color: var(--texto-mudo);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.proximos-equipo__duelo {
+  margin-top: 2px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.proximos-equipo__lugar {
+  color: var(--texto-mudo);
+  font-size: 13px;
+}
+
+.marcador-equipo {
+  font-weight: 700;
+}
+
+.marcador-equipo--gano {
+  color: var(--ok);
+}

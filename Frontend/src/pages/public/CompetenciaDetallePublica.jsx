@@ -1,24 +1,24 @@
 import { useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import CabeceraSeccion from '../../components/CabeceraSeccion.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
+import Migas from '../../components/Migas.jsx';
 import useCarga from '../../hooks/useCarga.js';
-import {
-  esIdValido,
-  estadoCompetencia,
-  estadoPartido,
-  obtenerCompetencia,
-  obtenerPartidos,
-  obtenerPosiciones
-} from '../../services/competencias.js';
-import { fechaConDia, isoValida, rangoFechas } from '../../utils/formato.js';
+import { esIdValido, estadoCompetencia, obtenerCompetencia } from '../../services/competencias.js';
+import { fechaHora } from '../../utils/formato.js';
+import PestanaCalendario from './competencia/PestanaCalendario.jsx';
+import PestanaEquipos from './competencia/PestanaEquipos.jsx';
+import PestanaEstadisticas from './competencia/PestanaEstadisticas.jsx';
+import PestanaPosiciones from './competencia/PestanaPosiciones.jsx';
+import PestanaResultados from './competencia/PestanaResultados.jsx';
 import './CompetenciaDetallePublica.css';
 
 // Pestañas de la página. La activa viaja en la URL (?vista=calendario) para poder compartirla.
 const VISTAS = [
   { valor: 'posiciones', texto: 'Posiciones' },
   { valor: 'calendario', texto: 'Calendario' },
-  { valor: 'resultados', texto: 'Resultados' }
+  { valor: 'resultados', texto: 'Resultados' },
+  { valor: 'equipos', texto: 'Equipos' },
+  { valor: 'estadisticas', texto: 'Estadísticas' }
 ];
 
 /* ----------------------------------------------------------------------------------------------
@@ -68,164 +68,49 @@ function Pestanas({ activa, onCambiar }) {
 }
 
 /* ----------------------------------------------------------------------------------------------
-   Tabla de posiciones
+   Cabecera
    ---------------------------------------------------------------------------------------------- */
-const COLUMNAS = [
-  { clave: 'played', corto: 'PJ', largo: 'Partidos jugados' },
-  { clave: 'won', corto: 'PG', largo: 'Partidos ganados' },
-  { clave: 'lost', corto: 'PP', largo: 'Partidos perdidos' },
-  { clave: 'sets_won', corto: 'SG', largo: 'Sets ganados', extra: true },
-  { clave: 'sets_lost', corto: 'SP', largo: 'Sets perdidos', extra: true }
-];
-
-function TablaPosiciones({ filas }) {
-  if (filas.length === 0) {
-    return <SinResultados titulo="Aún no hay equipos inscritos" texto="La tabla aparecerá cuando se confirmen los equipos." />;
+function PastillaEstado({ competencia: c }) {
+  const estado = estadoCompetencia(c.status);
+  if (c.status === 'EN_CURSO' && c.matchday_current) {
+    const total = c.matchdays_total ? ` de ${c.matchdays_total}` : '';
+    return <span className="pastilla pastilla--oscura-ok">Jornada {c.matchday_current}{total}</span>;
   }
-
-  const sinPartidos = filas.every((f) => f.played === 0);
-
-  return (
-    <>
-      <div className="tabla-posiciones__marco">
-        <table className="tabla-posiciones">
-          <caption className="visualmente-oculto">Tabla de posiciones</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="tabla-posiciones__pos">
-                <abbr title="Posición">#</abbr>
-              </th>
-              <th scope="col" className="tabla-posiciones__equipo">Equipo</th>
-              {COLUMNAS.map((c) => (
-                <th key={c.clave} scope="col" className={c.extra ? 'tabla-posiciones__extra' : undefined}>
-                  <abbr title={c.largo}>{c.corto}</abbr>
-                </th>
-              ))}
-              <th scope="col" className="tabla-posiciones__puntos">
-                <abbr title="Puntos">Pts</abbr>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((f) => (
-              <tr key={f.team.id}>
-                <td className="tabla-posiciones__pos">{f.position}</td>
-                <th scope="row" className="tabla-posiciones__equipo">{f.team.name}</th>
-                {COLUMNAS.map((c) => (
-                  <td key={c.clave} className={c.extra ? 'tabla-posiciones__extra' : undefined}>{f[c.clave]}</td>
-                ))}
-                <td className="tabla-posiciones__puntos">{f.points}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="nota-tabla">
-        {sinPartidos
-          ? 'Todavía no se ha jugado ningún partido de esta competencia.'
-          : 'PJ: partidos jugados · PG: ganados · PP: perdidos · SG: sets ganados · SP: sets perdidos. Solo cuentan los partidos finalizados.'}
-      </p>
-    </>
-  );
+  if (c.status === 'EN_CURSO') return <span className="pastilla pastilla--oscura-ok">{estado.texto}</span>;
+  if (c.status === 'INSCRIPCIONES') return <span className="pastilla pastilla--aviso">{estado.texto}</span>;
+  return <span className="pastilla pastilla--oscura">{estado.texto}</span>;
 }
 
-/* ----------------------------------------------------------------------------------------------
-   Partidos
-   ---------------------------------------------------------------------------------------------- */
-function Partido({ partido, conSets = false }) {
-  const estado = estadoPartido(partido.status);
-  const terminado = partido.status === 'FINALIZADO';
-  const ganaLocal = terminado && partido.home_sets > partido.away_sets;
-  const ganaVisita = terminado && partido.away_sets > partido.home_sets;
-  const local = partido.home?.name || 'Por definir';
-  const visita = partido.away?.name || 'Por definir';
+function CabeceraCompetencia({ competencia: c, vista, onCambiarVista }) {
+  const detalle = [c.category, c.branch].filter(Boolean).join(' · ');
+  const actualizada = fechaHora(c.updated_at);
 
   return (
-    <li className="partido-fila">
-      <div className="partido-fila__cuando">
-        <time dateTime={isoValida(partido.date)}>{fechaConDia(partido.date)}</time>
-        {partido.time && !terminado && <span>{partido.time}</span>}
-      </div>
-
-      <div className="partido-fila__duelo">
-        <span className={`partido-fila__equipo partido-fila__equipo--local${ganaLocal ? ' partido-fila__equipo--ganador' : ''}`}>
-          {local}
-        </span>
-        <span className="partido-fila__marcador">
-          {terminado ? (
-            <>
-              <span className="visualmente-oculto">Resultado: {local} {partido.home_sets}, {visita} {partido.away_sets}</span>
-              <span aria-hidden="true">{partido.home_sets} – {partido.away_sets}</span>
-            </>
-          ) : (
-            <span className="partido-fila__vs">vs</span>
+    <header className="cabecera-competencia">
+      <div className="contenedor">
+        <div className="cabecera-competencia__superior">
+          <div className="cabecera-competencia__texto">
+            <Migas items={[{ texto: 'Inicio', to: '/' }, { texto: 'Competencias', to: '/competencias' }, { texto: c.name }]} />
+            <h1 className="cabecera-competencia__titulo">{c.name}</h1>
+            <p className="cabecera-competencia__pastillas">
+              {c.modality && <span className="pastilla pastilla--oscura">{c.modality}</span>}
+              {detalle && <span className="pastilla pastilla--oscura">{detalle}</span>}
+              {c.team_count > 0 && (
+                <span className="pastilla pastilla--oscura">{c.team_count} {c.team_count === 1 ? 'equipo' : 'equipos'}</span>
+              )}
+              <PastillaEstado competencia={c} />
+            </p>
+          </div>
+          {actualizada && (
+            <p className="cabecera-competencia__actualizacion">
+              <span>Última actualización</span>
+              <time dateTime={c.updated_at}>{actualizada}</time>
+            </p>
           )}
-        </span>
-        <span className={`partido-fila__equipo${ganaVisita ? ' partido-fila__equipo--ganador' : ''}`}>{visita}</span>
+        </div>
+        <Pestanas activa={vista} onCambiar={onCambiarVista} />
       </div>
-
-      <div className="partido-fila__extra">
-        <span className={`pastilla pastilla--${estado.tono}`}>{estado.texto}</span>
-        {partido.venue && <span className="partido-fila__sede">{partido.venue}</span>}
-      </div>
-
-      {conSets && partido.sets.length > 0 && (
-        <ol className="partido-fila__sets" aria-label="Puntos por set">
-          {partido.sets.map((s) => (
-            <li key={s.number}>
-              <span className="partido-fila__set-numero">Set {s.number}</span> {s.home}–{s.away}
-            </li>
-          ))}
-        </ol>
-      )}
-    </li>
-  );
-}
-
-function Calendario({ partidos }) {
-  if (partidos.length === 0) {
-    return <SinResultados titulo="El calendario aún no está publicado" texto="Los partidos aparecerán aquí cuando se programen." />;
-  }
-
-  const jornadas = new Map();
-  for (const p of partidos) {
-    if (!jornadas.has(p.matchday)) jornadas.set(p.matchday, []);
-    jornadas.get(p.matchday).push(p);
-  }
-
-  return (
-    <div className="jornadas">
-      {[...jornadas.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([numero, lista]) => (
-          <section key={numero} className="jornada" aria-labelledby={`jornada-${numero}`}>
-            <h3 id={`jornada-${numero}`} className="jornada__titulo">Jornada {numero}</h3>
-            <ul className="jornada__partidos">
-              {lista.map((p) => (
-                <Partido key={p.id} partido={p} />
-              ))}
-            </ul>
-          </section>
-        ))}
-    </div>
-  );
-}
-
-function Resultados({ partidos }) {
-  const terminados = partidos
-    .filter((p) => p.status === 'FINALIZADO')
-    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.number - a.number);
-
-  if (terminados.length === 0) {
-    return <SinResultados titulo="Aún no hay resultados" texto="Los marcadores se publican cuando el partido termina." />;
-  }
-
-  return (
-    <ul className="jornada__partidos jornada__partidos--suelta">
-      {terminados.map((p) => (
-        <Partido key={p.id} partido={p} conSets />
-      ))}
-    </ul>
+    </header>
   );
 }
 
@@ -236,10 +121,7 @@ function NoEncontrada() {
   return (
     <section className="bloque detalle-competencia">
       <div className="contenedor">
-        <SinResultados
-          titulo="Competencia no encontrada"
-          texto="La competencia que busca no existe o todavía no está publicada."
-        >
+        <SinResultados titulo="Competencia no encontrada" texto="La competencia que busca no existe o todavía no está publicada.">
           <Link to="/competencias" className="boton boton--primario boton--chico">Ver competencias</Link>
         </SinResultados>
       </div>
@@ -247,19 +129,28 @@ function NoEncontrada() {
   );
 }
 
-function Contenido({ id, vista }) {
-  const datos = useCarga(
-    (signal) => Promise.all([obtenerPosiciones(id, { signal }), obtenerPartidos(id, { signal })]),
-    [id]
+// Las pestañas que no traen su propia franja se muestran dentro de un bloque con contenedor.
+function EnBloque({ children }) {
+  return (
+    <section className="bloque detalle-competencia">
+      <div className="contenedor">{children}</div>
+    </section>
   );
+}
 
-  if (datos.estado === 'cargando') return <Cargando texto="Cargando información de la competencia…" />;
-  if (datos.estado === 'error') return <ErrorCarga mensaje={datos.error.message} onReintentar={datos.reintentar} />;
-
-  const [posiciones, partidos] = datos.datos;
-  if (vista === 'calendario') return <Calendario partidos={partidos} />;
-  if (vista === 'resultados') return <Resultados partidos={partidos} />;
-  return <TablaPosiciones filas={posiciones} />;
+function Contenido({ competencia, vista, onCambiarVista }) {
+  switch (vista) {
+    case 'calendario':
+      return <EnBloque><PestanaCalendario competenciaId={competencia.id} /></EnBloque>;
+    case 'resultados':
+      return <EnBloque><PestanaResultados competenciaId={competencia.id} /></EnBloque>;
+    case 'equipos':
+      return <EnBloque><PestanaEquipos competencia={competencia} /></EnBloque>;
+    case 'estadisticas':
+      return <EnBloque><PestanaEstadisticas competencia={competencia} /></EnBloque>;
+    default:
+      return <PestanaPosiciones competencia={competencia} onCambiarVista={onCambiarVista} />;
+  }
 }
 
 export default function CompetenciaDetallePublica() {
@@ -279,6 +170,8 @@ export default function CompetenciaDetallePublica() {
     if (valor === 'posiciones') siguiente.delete('vista');
     else siguiente.set('vista', valor);
     setParams(siguiente, { replace: true });
+    // Los enlaces "Ver todas las jornadas" están abajo en la página: se vuelve a las pestañas.
+    document.getElementById(`pestana-${valor}`)?.focus();
   }
 
   if (!idValido) return <NoEncontrada />;
@@ -286,55 +179,24 @@ export default function CompetenciaDetallePublica() {
 
   if (competencia.estado !== 'listo') {
     return (
-      <section className="bloque detalle-competencia">
-        <div className="contenedor">
-          {competencia.estado === 'cargando' ? (
-            <Cargando texto="Cargando competencia…" />
-          ) : (
-            <ErrorCarga mensaje={competencia.error.message} onReintentar={competencia.reintentar} />
-          )}
-        </div>
-      </section>
+      <EnBloque>
+        {competencia.estado === 'cargando' ? (
+          <Cargando texto="Cargando competencia…" />
+        ) : (
+          <ErrorCarga mensaje={competencia.error.message} onReintentar={competencia.reintentar} />
+        )}
+      </EnBloque>
     );
   }
 
   const c = competencia.datos;
-  const estado = estadoCompetencia(c.status);
-  const detalle = [c.category, c.branch, c.modality].filter(Boolean).join(' · ');
 
   return (
     <>
-      <CabeceraSeccion
-        titulo={c.name}
-        antes={
-          <nav aria-label="Ruta de navegación" className="migas">
-            <Link to="/competencias">Competencias</Link>
-            <span aria-hidden="true"> / </span>
-            <span aria-current="page">{c.name}</span>
-          </nav>
-        }
-      >
-        <div className="detalle-competencia__meta">
-          <span className={`pastilla pastilla--${estado.tono}`}>{estado.texto}</span>
-          {detalle && <span>{detalle}</span>}
-          <time dateTime={isoValida(c.start_date)}>{rangoFechas(c.start_date, c.end_date)}</time>
-        </div>
-      </CabeceraSeccion>
-
-      <section className="bloque detalle-competencia" aria-label="Posiciones, calendario y resultados">
-        <div className="contenedor">
-          <Pestanas activa={vista} onCambiar={cambiarVista} />
-          <div
-            className="panel"
-            role="tabpanel"
-            id={`panel-${vista}`}
-            aria-labelledby={`pestana-${vista}`}
-            tabIndex={0}
-          >
-            <Contenido id={id} vista={vista} />
-          </div>
-        </div>
-      </section>
+      <CabeceraCompetencia competencia={c} vista={vista} onCambiarVista={cambiarVista} />
+      <div role="tabpanel" id={`panel-${vista}`} aria-labelledby={`pestana-${vista}`} className="panel-competencia">
+        <Contenido competencia={c} vista={vista} onCambiarVista={cambiarVista} />
+      </div>
     </>
   );
 }
