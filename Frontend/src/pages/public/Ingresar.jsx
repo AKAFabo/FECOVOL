@@ -175,6 +175,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
       // 2. Consultar perfil, rol y asociación desde la base de datos
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
+        .select('status, roles!user_profiles_role_id_fkey(name)')
         .select(`
           id,
           status,
@@ -186,6 +187,8 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
         .single();
 
       if (profileError || !profile) {
+        console.error('Error al cargar perfil:', profileError);
+        setError('No se encontró el perfil de usuario. Contacte a FECOVOL.');
         setError('Credenciales incorrectas o cuenta inhabilitada. Verifique sus datos o contacte a FECOVOL.');
         await supabase.auth.signOut();
         return;

@@ -55,6 +55,7 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           // Intentar obtener el perfil de la base de datos
           const { data: profile } = await supabase
             .from('user_profiles')
+            .select('full_name, roles!user_profiles_role_id_fkey(name)')
             .select('role_id, status, full_name, roles:roles!user_profiles_role_id_fkey(name)')
             .eq('id', user.id)
             .single();

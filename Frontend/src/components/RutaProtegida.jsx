@@ -62,6 +62,7 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
         // 2. Obtener perfil, rol y asociación vinculada
         const { data: profile, error } = await supabase
           .from('user_profiles')
+          .select('status, roles!user_profiles_role_id_fkey(name)')
           .select(`
             status,
             full_name,

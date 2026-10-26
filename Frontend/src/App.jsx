@@ -15,6 +15,8 @@ import AdminInicio from './pages/admin/AdminInicio.jsx';
 import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
+import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx';
+import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
 
@@ -49,6 +51,10 @@ export default function App() {
           <Route path="listas-valores" element={<ListasValores />} />
           <Route path="parametros" element={<ParametrosSistema />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
+          <Route path="noticias" element={<NoticiasComunicados />} />
+          {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
+          <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
+          <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="perfil" element={<Perfil />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>

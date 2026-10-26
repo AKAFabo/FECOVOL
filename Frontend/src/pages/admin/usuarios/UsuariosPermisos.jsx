@@ -49,6 +49,27 @@ export default function UsuariosPermisos() {
       if (errRoles) console.warn('Aviso al cargar roles:', errRoles);
       setRoles(rolesData || []);
 
+      const { data: asocData } = await supabase
+        .from('associations')
+        .select('id, name')
+        .order('name');
+      setAsociaciones(asocData || []);
+
+      const { data: profiles, error: errProfiles } = await supabase
+        .from('user_profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          status,
+          last_login,
+          role_id,
+          organization_id,
+          roles!user_profiles_role_id_fkey ( id, name )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (errProfiles) throw errProfiles;
       // Cargar asociaciones vía Backend API (service_role para evitar bloqueo RLS)
       let asocs = [];
       try {

@@ -1,0 +1,55 @@
+/* Tarjetas de resumen */
+.noticias-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.noticias-resumen__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.noticias-resumen__valor {
+  font-family: var(--fuente-titulo);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--azul);
+}
+
+.noticias-resumen__valor--neutro {
+  color: var(--neutro);
+}
+
+.noticias-resumen__valor--aviso {
+  color: var(--aviso);
+}
+
+.noticias-resumen__etiqueta {
+  font-size: 0.88rem;
+  color: var(--texto-mudo);
+}
+
+/* Búsqueda con ancho acotado, como en el diseño */
+.noticias-busqueda {
+  flex: 0 1 380px;
+}
+
+/* Estados propios de las publicaciones */
+.badge-status--programada {
+  background-color: var(--aviso-fondo);
+  color: var(--aviso);
+}
+
+.badge-status--borrador {
+  background-color: var(--neutro-fondo);
+  color: var(--neutro);
+}
