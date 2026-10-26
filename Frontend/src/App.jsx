@@ -6,11 +6,8 @@ import Inicio from './pages/public/Inicio.jsx';
 import EnConstruccion from './pages/public/EnConstruccion.jsx';
 import Ingresar from './pages/public/Ingresar.jsx';
 
-// Dashboards por rol (temporales – reemplazar con layouts reales)
-import AdminPanel      from './pages/admin/AdminPanel.jsx';
-import PersonalPanel   from './pages/personal/PersonalPanel.jsx';
-import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
-import ArbitroPanel    from './pages/arbitro/ArbitroPanel.jsx';
+// Guard de rutas protegidas
+import RutaProtegida from './components/RutaProtegida.jsx';
 
 // Layout administrativo
 import AdminLayout from './layouts/AdminLayout.jsx';
@@ -18,12 +15,21 @@ import AdminInicio from './pages/admin/AdminInicio.jsx';
 import UsuariosPermisos from './pages/admin/usuarios/UsuariosPermisos.jsx';
 import ListasValores from './pages/admin/catalogos/ListasValores.jsx';
 import AuditoriaRespaldos from './pages/admin/auditoria/AuditoriaRespaldos.jsx';
+import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx';
+import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
+import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
+import Perfil from './pages/admin/perfil/Perfil.jsx';
 
-// --- NUEVOS IMPORTS PARA EL MÓDULO DE COMPETENCIAS ---
+// Paneles protegidos por entorno/rol
+import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
+import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
+import PersonalPanel from './pages/personal/PersonalPanel.jsx';
+import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
+
+// Competencias (portal público)
 import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
 import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
 import EquipoCompetenciaPublica from './pages/public/EquipoCompetenciaPublica.jsx';
-import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
 
 // Asociaciones afiliadas (portal público)
 import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
@@ -56,24 +62,44 @@ export default function App() {
         <Route path="federacion" element={<LaFederacion />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />
         <Route path="ingresar"       element={<Ingresar />} />
+        <Route path="restablecer-contrasena" element={<Ingresar />} />
         <Route path="*"              element={<EnConstruccion titulo="Página no encontrada" noEncontrada />} />
       </Route>
 
-      {/* ── Entorno de Administración FECOVOL ─────────────────────── */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Navigate to="/admin/panel" replace />} />
-        <Route path="panel" element={<AdminInicio />} />
-        <Route path="usuarios" element={<UsuariosPermisos />} />
-        <Route path="listas-valores" element={<ListasValores />} />
-        <Route path="auditoria" element={<AuditoriaRespaldos />} />
-        <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
+      {/* ── Entorno de Administración FECOVOL (/admin) ── */}
+      <Route element={<RutaProtegida subruta="/admin" rolesPermitidos={['Administrador']} requireAdminAccess={true} />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/panel" replace />} />
+          <Route path="panel" element={<AdminInicio />} />
+          <Route path="usuarios" element={<UsuariosPermisos />} />
+          <Route path="listas-valores" element={<ListasValores />} />
+          <Route path="parametros" element={<ParametrosSistema />} />
+          <Route path="auditoria" element={<AuditoriaRespaldos />} />
+          <Route path="noticias" element={<NoticiasComunicados />} />
+          {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
+          <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
+          <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
+          <Route path="perfil" element={<Perfil />} />
+          <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
+        </Route>
       </Route>
 
-      {/* ── Dashboards temporales para los demás roles ────────────── */}
-      <Route path="/personal/*" element={<PersonalPanel />} />
-      <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
-      <Route path="/asociacion/*" element={<EnConstruccion titulo="Representante de asociación" />} />
-      <Route path="/arbitro/*" element={<EnConstruccion titulo="Cuerpo arbitral" />} />
+      {/* ── Entorno de Personal Técnico de Competencias (/personal) ── */}
+      <Route element={<RutaProtegida subruta="/personal" rolesPermitidos={['Personal', 'Administrador']} />}>
+        <Route path="/personal/*" element={<PersonalPanel />} />
+        <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
+      </Route>
+
+      {/* ── Entorno de Representante de Asociación (/asociacion) ── */}
+      <Route element={<RutaProtegida subruta="/asociacion" rolesPermitidos={['Representante', 'Administrador']} />}>
+        <Route path="/asociacion/*" element={<AsociacionPanel />} />
+      </Route>
+
+      {/* ── Entorno de Cuerpo Arbitral (/arbitro y alias /arbitros) ── */}
+      <Route element={<RutaProtegida subruta="/arbitro" rolesPermitidos={['Arbitro', 'Administrador']} />}>
+        <Route path="/arbitro/*" element={<ArbitroPanel />} />
+      </Route>
+      <Route path="/arbitros/*" element={<Navigate to="/arbitro" replace />} />
     </Routes>
   );
 }

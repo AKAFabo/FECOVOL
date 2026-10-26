@@ -46,6 +46,17 @@ export default function AdminInicio() {
             Ver bitácora &rarr;
           </Link>
         </div>
+
+        {/* Card Noticias */}
+        <div className="admin-card" style={{ padding: '24px' }}>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '8px', color: 'var(--texto)' }}>Noticias y comunicados</h2>
+          <p style={{ fontSize: '0.88rem', color: 'var(--texto-mudo)', marginBottom: '20px' }}>
+            Gestión de contenidos informativos, publicación de comunicados y difusión de eventos.
+          </p>
+          <Link to="/admin/noticias" className="admin-btn admin-btn--primary">
+            Gestionar noticias &rarr;
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo.jsx';
 import './Ingresar.css';
 import { supabase } from '../../supabaseClient.js';
+import { evaluarPoliticaPassword } from '../../utils/passwordPolicy.js';
+import IndicadorPoliticaPassword from '../../components/IndicadorPoliticaPassword.jsx';
 
 /* ── Ícono ojo (mostrar/ocultar contraseña) ─────────────────────── */
 function IconoOjo({ visible }) {
@@ -53,72 +55,206 @@ const RUTA_POR_ROL = {
 /* ═══════════════════════════════════════════════════════════════════
    Vista de LOGIN
    ═══════════════════════════════════════════════════════════════════ */
-function FormularioLogin({ onRecuperar }) {
+function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '', avisoInicial = '' }) {
   const navigate = useNavigate();
-  const [correo, setCorreo]         = useState('');
+  const location = useLocation();
+  const [correo, setCorreo]         = useState(correoInicial);
   const [contrasena, setContrasena] = useState('');
   const [verPass, setVerPass]       = useState(false);
   const [recordar, setRecordar]     = useState(false);
   const [cargando, setCargando]     = useState(false);
   const [error, setError]           = useState('');
   const [errores, setErrores]       = useState({});
+  const [aviso, setAviso]           = useState(avisoInicial);
 
-  function validar() {
-    const e = {};
-    if (!correo.trim()) e.correo     = 'Ingrese su correo electrónico.';
-    if (!contrasena)    e.contrasena = 'Ingrese su contraseña.';
-    return e;
-  }
+  useEffect(() => {
+    if (correoInicial) setCorreo(correoInicial);
+  }, [correoInicial]);
+
+  useEffect(() => {
+    if (avisoInicial) setAviso(avisoInicial);
+  }, [avisoInicial]);
 
   async function handleSubmit(ev) {
     ev.preventDefault();
     setError('');
-    const e = validar();
-    setErrores(e);
-    if (Object.keys(e).length) return;
+    const emailLimpio = correo.trim();
 
+    if (!emailLimpio) {
+      setErrores({ correo: 'Ingrese su correo electrónico.' });
+      return;
+    }
+
+    if (!contrasena) {
+      setErrores({ contrasena: 'Ingrese su contraseña.' });
+      return;
+    }
+
+    setErrores({});
     setCargando(true);
+
     try {
-      // 1. Autenticar con Supabase Auth
+      // 0. Comprobar bloqueo temporal tras 5 intentos fallidos consecutivos (RF-SEG-001)
+      try {
+        const resLock = await fetch('http://localhost:4000/api/users/check-lockout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailLimpio })
+        });
+        const lockData = await resLock.json();
+        if (lockData?.isLocked) {
+          setError(lockData.message || 'Acceso restringido temporalmente por seguridad tras 5 intentos fallidos.');
+          return;
+        }
+      } catch (e) {
+        console.warn('Aviso al verificar bloqueo:', e);
+      }
+
+      // 1. Intentar autenticar con Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: correo,
+        email: emailLimpio,
         password: contrasena,
       });
 
       if (authError) {
-        setError('Credenciales incorrectas. Verifique e intente de nuevo.');
+        // Registrar intento fallido en Backend (RF-SEG-001)
+        let msgBloqueo = null;
+        try {
+          const resFail = await fetch('http://localhost:4000/api/users/record-failed-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLimpio })
+          });
+          const failData = await resFail.json();
+          if (failData?.isLocked) {
+            msgBloqueo = 'Acceso bloqueado temporalmente por 30 minutos tras 5 intentos fallidos consecutivos.';
+          } else if (failData?.remainingAttempts === 1) {
+            msgBloqueo = 'Credenciales incorrectas. Advertencia: Su acceso se bloqueará por 30 minutos al próximo intento fallido.';
+          }
+        } catch (chkFail) {
+          console.warn('Aviso al registrar intento fallido:', chkFail);
+        }
+
+        if (msgBloqueo) {
+          setError(msgBloqueo);
+          return;
+        }
+
+        // Si la cuenta tiene contraseña pendiente de activación, informar al usuario
+        try {
+          const res = await fetch('http://localhost:4000/api/users/check-pending', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailLimpio })
+          });
+          const json = await res.json();
+          if (json?.isPending) {
+            setError('Su cuenta tiene una activación o cambio de contraseña pendiente. Utilice el enlace seguro enviado a su correo electrónico para definir su contraseña.');
+            return;
+          }
+        } catch (chkErr) {
+          console.error('Error al verificar estado pendiente tras fallo de login:', chkErr);
+        }
+
+        // Mensaje genérico conforme al requerimiento RF-SEG-001
+        setError('Credenciales incorrectas o cuenta inhabilitada. Verifique sus datos o contacte a FECOVOL.');
         return;
       }
 
-      // 2. Consultar perfil y rol desde la base de datos
+      // Reiniciar contador de intentos fallidos al tener éxito
+      try {
+        await fetch('http://localhost:4000/api/users/record-successful-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailLimpio })
+        });
+      } catch (e) {
+        // Silencioso
+      }
+
+      // 2. Consultar perfil, rol y asociación desde la base de datos
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('status, roles(name)')
+        .select('status, roles!user_profiles_role_id_fkey(name)')
+        .select(`
+          id,
+          status,
+          organization_id,
+          roles:roles!user_profiles_role_id_fkey ( name ),
+          associations:organization_id ( id, name, status )
+        `)
         .eq('id', data.user.id)
         .single();
 
       if (profileError || !profile) {
+        console.error('Error al cargar perfil:', profileError);
         setError('No se encontró el perfil de usuario. Contacte a FECOVOL.');
+        setError('Credenciales incorrectas o cuenta inhabilitada. Verifique sus datos o contacte a FECOVOL.');
         await supabase.auth.signOut();
         return;
       }
 
-      // 3. Verificar que la cuenta esté activa
+      // 3. Verificar que la cuenta no esté suspendida (mensaje genérico)
       if (profile.status === 'SUSPENDIDA') {
-        setError('Su cuenta está suspendida. Contacte a FECOVOL para más información.');
+        setError('Credenciales incorrectas o cuenta inhabilitada. Verifique sus datos o contacte a FECOVOL.');
         await supabase.auth.signOut();
         return;
       }
 
-      // 4. Actualizar last_login (esto dispara el trigger de auditoría)
+      // 4. Verificar si la asociación vinculada está activa o inactiva
+      if (profile.organization_id && profile.associations) {
+        const estadoAsoc = (profile.associations.status || '').toUpperCase();
+        if (estadoAsoc === 'SUSPENDIDA' || estadoAsoc === 'DESAFILIADA' || estadoAsoc === 'INACTIVA') {
+          setError('Credenciales incorrectas o cuenta inhabilitada. Verifique sus datos o contacte a FECOVOL.');
+          await supabase.auth.signOut();
+          return;
+        }
+      }
+
+      // 5. Verificar si tiene contraseña pendiente (debe definir contraseña antes de acceder)
+      if (profile.status === 'PENDIENTE_CONTRASENA' || profile.status === 'PENDIENTE') {
+        if (onContrasenaPendiente) {
+          onContrasenaPendiente(emailLimpio, 'Su cuenta requiere definir una nueva contraseña antes de ingresar al sistema.');
+        }
+        return;
+      }
+
+      // 6. Actualizar last_login (esto dispara el trigger de auditoría)
       await supabase
         .from('user_profiles')
         .update({ last_login: new Date().toISOString() })
         .eq('id', data.user.id);
 
-      // 5. Redirigir según el rol
-      const rol = profile.roles?.name;
-      const ruta = RUTA_POR_ROL[rol] ?? '/';
+      // 7. Redirigir según el rol o hacia la ruta que intentaba acceder (RF-SEG-006)
+      let rol = Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name;
+      try {
+        const { data: userRoles } = await supabase
+          .from('user_roles')
+          .select('role_id, roles(id, name)')
+          .eq('user_id', data.user.id);
+
+        if (userRoles && userRoles.length > 0) {
+          // Priorizar Administrador si lo posee, o el primer rol registrado en la tabla muchos a muchos
+          const adminRole = userRoles.find(r => r.roles?.name === 'Administrador');
+          rol = adminRole ? 'Administrador' : (userRoles[0].roles?.name || rol);
+        }
+      } catch (e) {}
+
+      const destinoPrevio = location.state?.from?.pathname;
+      let ruta = RUTA_POR_ROL[rol] ?? '/';
+
+      if (destinoPrevio && destinoPrevio !== '/ingresar') {
+        if (rol === 'Administrador' && destinoPrevio.startsWith('/admin')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Personal' && destinoPrevio.startsWith('/personal')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Representante' && destinoPrevio.startsWith('/asociacion')) {
+          ruta = destinoPrevio;
+        } else if (rol === 'Arbitro' && destinoPrevio.startsWith('/arbitro')) {
+          ruta = destinoPrevio;
+        }
+      }
+
       navigate(ruta, { replace: true });
 
     } finally {
@@ -133,6 +269,11 @@ function FormularioLogin({ onRecuperar }) {
         Use las credenciales de su cuenta de la federación.
       </p>
 
+      {aviso && !error && (
+        <div className="alerta" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', marginBottom: '18px' }} role="status">
+          {aviso}
+        </div>
+      )}
       {error && <div className="alerta alerta--error" role="alert">{error}</div>}
 
       {/* Correo */}
@@ -213,26 +354,43 @@ function FormularioLogin({ onRecuperar }) {
 /* ═══════════════════════════════════════════════════════════════════
    Vista de RECUPERAR ACCESO
    ═══════════════════════════════════════════════════════════════════ */
-function FormularioRecuperar({ onVolver }) {
+function FormularioRecuperar({ onVolver, onContrasenaPendiente }) {
   const [correo, setCorreo]       = useState('');
   const [enviado, setEnviado]     = useState(false);
+  const [mensajeRespuesta, setMensajeRespuesta] = useState('');
   const [cargando, setCargando]   = useState(false);
   const [errCorreo, setErrCorreo] = useState('');
 
   async function handleSubmit(ev) {
     ev.preventDefault();
     setErrCorreo('');
-    if (!correo.trim()) {
+    const emailLimpio = correo.trim();
+    if (!emailLimpio) {
       setErrCorreo('Ingrese su correo electrónico.');
       return;
     }
     setCargando(true);
     try {
-      // Por seguridad (RF-SEG-008), siempre mostramos el mensaje de éxito
-      // para no revelar si el correo existe o no en el sistema.
-      await supabase.auth.resetPasswordForEmail(correo, {
-        redirectTo: `${window.location.origin}/restablecer-contrasena`,
+      // 1. Llamar al backend para validar estado (no permite reactivar suspendidos) y actualizar a PENDIENTE_CONTRASENA
+      const res = await fetch('http://localhost:4000/api/users/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailLimpio })
       });
+
+      const resData = await res.json();
+      setMensajeRespuesta(resData?.message || 'Si el correo está registrado y activo, se ha generado la solicitud.');
+      setEnviado(true);
+    } catch (err) {
+      console.error('Error al solicitar recuperación en backend, usando fallback Supabase:', err);
+      try {
+        await supabase.auth.resetPasswordForEmail(emailLimpio, {
+          redirectTo: `${window.location.origin}/restablecer-contrasena`,
+        });
+      } catch (sbErr) {
+        console.warn('Aviso Supabase fallback:', sbErr);
+      }
+      setMensajeRespuesta('Si el correo está registrado y activo, se ha enviado el enlace de restablecimiento.');
       setEnviado(true);
     } finally {
       setCargando(false);
@@ -251,13 +409,21 @@ function FormularioRecuperar({ onVolver }) {
 
       <h1 className="ingresar__titulo">Recuperar el acceso</h1>
       <p className="ingresar__subtitulo">
-        Si su cuenta existe, le enviaremos un enlace para crear una contraseña nueva.
+        Si su cuenta existe y se encuentra activa, podrá restablecer su contraseña.
       </p>
 
       {enviado ? (
-        <div className="alerta alerta--aviso" role="status">
-          Si el correo <strong>{correo}</strong> está registrado, recibirá el
-          enlace en los próximos minutos. Revise también su carpeta de spam.
+        <div>
+          <div className="alerta alerta--aviso" role="status" style={{ marginBottom: '24px' }}>
+            {mensajeRespuesta}
+          </div>
+          <button 
+            type="button" 
+            className="btn-primario"
+            onClick={onVolver}
+          >
+            Volver al inicio de sesión
+          </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} noValidate>
@@ -292,15 +458,15 @@ function FormularioRecuperar({ onVolver }) {
       <ul className="ingresar__pasos" aria-label="Qué esperar">
         <li>
           <span className="ingresar__paso-icono ingresar__paso-icono--1">1</span>
-          Le llegará un correo válido por 15 minutos.
+          Le llegará un correo con un enlace seguro válido por 15 minutos.
         </li>
         <li>
           <span className="ingresar__paso-icono ingresar__paso-icono--2">2</span>
-          Desde ese correo defina una contraseña nueva.
+          Haga clic en el enlace recibido en su correo para validar su identidad.
         </li>
         <li>
           <span className="ingresar__paso-icono ingresar__paso-icono--3">3</span>
-          Vuelva a ingresar con su correo y la contraseña nueva.
+          Defina su nueva contraseña y acceda inmediatamente al sistema.
         </li>
       </ul>
     </div>
@@ -308,10 +474,325 @@ function FormularioRecuperar({ onVolver }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Página principal – alterna entre Login y Recuperar
+   Vista de ESTABLECER / CAMBIAR CONTRASEÑA (Para Invitaciones y Recuperación)
+   ═══════════════════════════════════════════════════════════════════ */
+function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = '', onVolver }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [correo, setCorreo]               = useState(correoPrellenado || location.state?.email || '');
+  const aviso                             = mensajeAviso || location.state?.mensaje;
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [verPass, setVerPass]             = useState(false);
+  const [cargando, setCargando]           = useState(false);
+  const [error, setError]                 = useState('');
+  const [exito, setExito]                 = useState(false);
+  const [tieneToken, setTieneToken]       = useState(false);
+  const [verificandoToken, setVerificandoToken] = useState(true);
+
+  // Verificar obligatoriamente si el usuario llegó con un token firmado válido en la URL o sesión
+  useEffect(() => {
+    async function cargarSesion() {
+      setVerificandoToken(true);
+      const hash = window.location.hash;
+      const hayTokenHash = hash && (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=invite'));
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user?.email) {
+        setCorreo(session.user.email);
+        setTieneToken(true);
+      } else if (hayTokenHash) {
+        setTieneToken(true);
+      } else {
+        setTieneToken(false);
+      }
+      setVerificandoToken(false);
+    }
+    cargarSesion();
+  }, []);
+
+  async function handleSubmit(ev) {
+    ev.preventDefault();
+    setError('');
+
+    const evaluacion = evaluarPoliticaPassword(nuevaPassword);
+    if (!evaluacion.esValida) {
+      setError(evaluacion.errores[0]);
+      return;
+    }
+
+    if (nuevaPassword !== confirmarPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setCargando(true);
+    try {
+      // 1. REGLA DE SEGURIDAD ESTRICTA:
+      // Debe existir sesión activa proveniente del token del correo electrónico
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        setError('Acceso denegado: Debe utilizar el enlace seguro enviado a su correo electrónico para definir su contraseña.');
+        return;
+      }
+
+      const userId = session.user.id;
+
+      // 2. REGLA DE SEGURIDAD CRÍTICA:
+      // Si la cuenta está SUSPENDIDA, NO permitir cambio de contraseña bajo ninguna circunstancia.
+      const { data: profileCheck } = await supabase
+        .from('user_profiles')
+        .select('id, status')
+        .eq('id', userId)
+        .single();
+
+      if (profileCheck?.status === 'SUSPENDIDA') {
+        setError('Acceso denegado: Esta cuenta se encuentra suspendida. No está autorizada para definir contraseñas ni acceder al sistema.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // 3. Actualizar contraseña en Supabase Auth
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        password: nuevaPassword
+      });
+      if (updateError) throw updateError;
+
+      // 4. Actualizar estado a ACTIVA en user_profiles y auditar en bitácora
+      await supabase
+        .from('user_profiles')
+        .update({ 
+          status: 'ACTIVA',
+          last_login: new Date().toISOString() 
+        })
+        .eq('id', userId);
+
+      try {
+        await supabase.from('audit_logs').insert([{
+          usuario: session.user.email,
+          accion: 'UPDATE',
+          tabla: 'auth.users',
+          registro_id: userId,
+          registro_nuevo: {
+            evento: 'Establecimiento de contraseña',
+            email: session.user.email,
+            timestamp: new Date().toISOString()
+          }
+        }]);
+      } catch (e) {}
+
+      // 5. Limpiar cualquier bloqueo temporal por intentos fallidos previos (Bypass seguro por correo)
+      try {
+        await fetch('http://localhost:4000/api/users/record-successful-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email })
+        });
+      } catch (e) {
+        // Silencioso
+      }
+
+      // 6. Validar si la asociación vinculada está inactiva o suspendida
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select(`
+          status,
+          organization_id,
+          roles:roles!user_profiles_role_id_fkey ( name ),
+          associations:organization_id ( id, name, status )
+        `)
+        .eq('id', userId)
+        .single();
+
+      if (profile?.organization_id && profile?.associations) {
+        const estadoAsoc = (profile.associations.status || '').toUpperCase();
+        if (estadoAsoc === 'SUSPENDIDA' || estadoAsoc === 'DESAFILIADA' || estadoAsoc === 'INACTIVA') {
+          setError(`Contraseña guardada con éxito. Sin embargo, su acceso está denegado porque su asociación (${profile.associations.name}) se encuentra inactiva o suspendida en FECOVOL.`);
+          await supabase.auth.signOut();
+          return;
+        }
+      }
+
+      setExito(true);
+
+      setTimeout(() => {
+        const rol = Array.isArray(profile?.roles) ? profile?.roles[0]?.name : profile?.roles?.name;
+        const ruta = RUTA_POR_ROL[rol] ?? '/admin';
+        navigate(ruta, { replace: true });
+      }, 1500);
+
+    } catch (err) {
+      console.error('Error al actualizar contraseña:', err);
+      setError(err.message || 'No se pudo establecer la contraseña');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  return (
+    <div>
+      {onVolver && (
+        <button type="button" className="ingresar__volver" onClick={onVolver}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <path d="M19 12H5M12 5l-7 7 7 7" />
+          </svg>
+          Volver al inicio de sesión
+        </button>
+      )}
+
+      <h1 className="ingresar__titulo">Definir contraseña</h1>
+      <p className="ingresar__subtitulo">
+        Cree una contraseña para completar el acceso a su cuenta de FECOVOL.
+      </p>
+
+      {/* Si no tiene token y ya terminó de verificar, bloquear formulario para prevenir Account Takeover */}
+      {!verificandoToken && !tieneToken ? (
+        <div style={{ marginTop: '16px' }}>
+          <div className="alerta alerta--error" role="alert" style={{ marginBottom: '20px' }}>
+            Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.
+          </div>
+          <button type="button" className="btn-primario" onClick={onVolver}>
+            Volver al inicio de sesión
+          </button>
+        </div>
+      ) : (
+        <>
+          {aviso && !exito && (
+            <div className="alerta" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', marginBottom: '18px' }} role="status">
+              {aviso}
+            </div>
+          )}
+
+          {error && <div className="alerta alerta--error" role="alert">{error}</div>}
+          {exito && (
+            <div className="alerta" style={{ background: 'var(--ok-fondo)', color: 'var(--ok)', border: '1px solid #bbf7d0', marginBottom: '18px' }} role="status">
+              ✓ Contraseña establecida con éxito. Redirigiendo al sistema...
+            </div>
+          )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        {/* Correo electrónico */}
+        <div className="campo">
+          <label htmlFor="correo-est" className="campo__etiqueta">Correo electrónico</label>
+          <input
+            id="correo-est"
+            type="email"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            placeholder="usuario@correo.com"
+            className="campo__input"
+            required
+            readOnly={Boolean(correoPrellenado)}
+            style={correoPrellenado ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}}
+          />
+        </div>
+
+        {/* Nueva Contraseña */}
+        <div className="campo">
+          <label htmlFor="nueva-pass" className="campo__etiqueta">Nueva contraseña</label>
+          <div className="campo__input-wrap">
+            <input
+              id="nueva-pass"
+              type={verPass ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="Mínimo 8 caracteres (a-z, A-Z, 0-9, símbolos)"
+              className="campo__input"
+              value={nuevaPassword}
+              onChange={(e) => setNuevaPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="campo__ojo"
+              onClick={() => setVerPass((v) => !v)}
+              aria-label={verPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <IconoOjo visible={verPass} />
+            </button>
+          </div>
+          <IndicadorPoliticaPassword password={nuevaPassword} />
+        </div>
+
+        {/* Confirmar Contraseña */}
+        <div className="campo" style={{ marginBottom: '24px' }}>
+          <label htmlFor="confirm-pass" className="campo__etiqueta">Confirmar nueva contraseña</label>
+          <input
+            id="confirm-pass"
+            type={verPass ? 'text' : 'password'}
+            autoComplete="new-password"
+            placeholder="Repita la contraseña"
+            className="campo__input"
+            value={confirmarPassword}
+            onChange={(e) => setConfirmarPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        <button type="submit" className="btn-primario" disabled={cargando || exito}>
+          {cargando ? 'Guardando contraseña…' : 'Establecer contraseña y acceder'}
+        </button>
+      </form>
+      </>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Página principal – alterna entre Login, Recuperar y Establecer Contraseña
    ═══════════════════════════════════════════════════════════════════ */
 export default function Ingresar() {
-  const [vista, setVista] = useState('login'); // 'login' | 'recuperar'
+  const location = useLocation();
+  const [vista, setVista] = useState(
+    location.state?.vista || 
+    (location.pathname === '/restablecer-contrasena' ? 'establecer' : 'login')
+  );
+  const [mensajeAviso, setMensajeAviso] = useState(location.state?.mensaje || '');
+  const [correoPendiente, setCorreoPendiente] = useState(location.state?.email || '');
+
+  // Detectar si el enlace trae un token de invitacion o recuperacion o estado previo
+  useEffect(() => {
+    if (location.state?.vista) {
+      setVista(location.state.vista);
+      if (location.state.mensaje) {
+        setMensajeAviso(location.state.mensaje);
+      }
+      if (location.state.email) {
+        setCorreoPendiente(location.state.email);
+      }
+    }
+
+    if (location.pathname === '/restablecer-contrasena') {
+      setVista('establecer');
+      if (!mensajeAviso) {
+        setMensajeAviso('Ingrese su nueva contraseña para restablecer su acceso.');
+      }
+    }
+
+    // 1. Escuchar eventos de cambio de estado de autenticación (ej. PASSWORD_RECOVERY o USER_UPDATED)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setVista('establecer');
+        setMensajeAviso('Por favor, defina una nueva contraseña para restablecer su acceso.');
+        if (session?.user?.email) {
+          setCorreoPendiente(session.user.email);
+        }
+      }
+    });
+
+    // 2. Comprobar si el hash de la URL contiene type=invite o type=recovery
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      setVista('establecer');
+      setMensajeAviso('Complete la configuración de su contraseña para activar su cuenta en FECOVOL.');
+    }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [location.state, location.pathname]);
 
   return (
     <div className="ingresar">
@@ -324,10 +805,34 @@ export default function Ingresar() {
         </div>
 
         <div className="ingresar__caja">
-          {vista === 'login' ? (
-            <FormularioLogin onRecuperar={() => setVista('recuperar')} />
-          ) : (
-            <FormularioRecuperar onVolver={() => setVista('login')} />
+          {vista === 'login' && (
+            <FormularioLogin 
+              correoInicial={correoPendiente}
+              avisoInicial={mensajeAviso}
+              onRecuperar={() => setVista('recuperar')} 
+              onContrasenaPendiente={(email, msg) => {
+                setCorreoPendiente(email);
+                setMensajeAviso(msg);
+                setVista('establecer');
+              }}
+            />
+          )}
+          {vista === 'recuperar' && (
+            <FormularioRecuperar 
+              onVolver={() => setVista('login')} 
+              onContrasenaPendiente={(email, msg) => {
+                setCorreoPendiente(email);
+                setMensajeAviso(msg);
+                setVista('establecer');
+              }}
+            />
+          )}
+          {vista === 'establecer' && (
+            <FormularioEstablecerContrasena 
+              correoPrellenado={correoPendiente} 
+              mensajeAviso={mensajeAviso} 
+              onVolver={() => setVista('login')} 
+            />
           )}
         </div>
       </div>
