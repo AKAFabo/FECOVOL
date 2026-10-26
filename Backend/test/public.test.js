@@ -337,3 +337,105 @@ test('sitioWeb solo acepta direcciones http(s)', () => {
   assert.equal(sitioWeb('   '), null);
   assert.equal(sitioWeb(null), null);
 });
+
+/* ------------------------------------------------------------------------------------------------
+   Noticias
+   ------------------------------------------------------------------------------------------------ */
+const { limpiarHtml } = require('../src/public/htmlSeguro');
+const NOT = '66666666-6666-4666-8666-666666666666';
+
+const filaNoticia = {
+  id: NOT,
+  slug: 'sarchi-toma-la-punta',
+  title: 'CD Sarchí toma la punta',
+  summary: 'Resumen de la jornada.',
+  cover_image_url: 'https://bwfvqtevenwgyfjcngae.supabase.co/storage/v1/object/public/noticias/portada.jpg',
+  cover_image_alt: 'Jugadoras celebrando',
+  is_featured: true,
+  published_at: '2026-10-20T15:00:00+00:00',
+  competencia: { id: COMP, name: 'Liga Superior Femenina 2026', status: 'EN_CURSO' },
+  author_id: 'secreto-autor',
+  updated_by: 'secreto-editor',
+  content: '<p>Hola</p><script>alert(1)</script><img src=x onerror="alert(2)"><a href="javascript:alert(3)">x</a>'
+};
+
+test('el listado de noticias solo pide publicadas, no borradas y con fecha ya cumplida', async () => {
+  fake.alResponderTabla('news', { data: [filaNoticia], error: null, count: 13 });
+
+  const r = await get('/api/public/news?page=2');
+
+  assert.equal(r.status, 200);
+  const p = pasos('news');
+  assert.deepEqual(p.find((x) => x[0] === 'eq'), ['eq', 'status', 'PUBLICADA']);
+  assert.deepEqual(p.find((x) => x[0] === 'is'), ['is', 'deleted_at', null]);
+  assert.deepEqual(p.find((x) => x[0] === 'not'), ['not', 'published_at', 'is', null]);
+  const lte = p.find((x) => x[0] === 'lte');
+  assert.equal(lte[1], 'published_at');
+  assert.ok(Math.abs(new Date(lte[2]) - Date.now()) < 5000);
+  assert.deepEqual(p.find((x) => x[0] === 'range'), ['range', 12, 23]);
+  assert.doesNotMatch(p.find((x) => x[0] === 'select')[1], /content|author|updated_by/);
+
+  assert.deepEqual(r.json.data.items[0], {
+    id: NOT,
+    slug: 'sarchi-toma-la-punta',
+    title: 'CD Sarchí toma la punta',
+    summary: 'Resumen de la jornada.',
+    cover: { url: filaNoticia.cover_image_url, alt: 'Jugadoras celebrando' },
+    featured: true,
+    published_at: '2026-10-20T15:00:00+00:00',
+    competition: { id: COMP, name: 'Liga Superior Femenina 2026' }
+  });
+  assert.deepEqual([r.json.data.page, r.json.data.page_size, r.json.data.total], [2, 12, 13]);
+});
+
+test('una página inválida da 400 sin consultar la base', async () => {
+  for (const q of ['page=0', 'page=-1', 'page=abc', 'page=1e3', 'page=9999', 'page[]=1']) {
+    const r = await get(`/api/public/news?${q}`);
+    assert.equal(r.status, 400, q);
+  }
+  assert.equal(fake.llamadas.length, 0);
+});
+
+test('el detalle devuelve el cuerpo sin scripts, eventos ni enlaces javascript', async () => {
+  fake.alResponderTabla('news', { data: filaNoticia, error: null });
+
+  const r = await get(`/api/public/news/${NOT}`);
+
+  assert.equal(r.status, 200);
+  const html = r.json.data.content_html;
+  assert.equal(html.includes('<p>Hola</p>'), true);
+  assert.doesNotMatch(html, /script|onerror|javascript:|alert/i);
+  assert.doesNotMatch(JSON.stringify(r.json), /secreto/);
+});
+
+test('una noticia en borrador, archivada, borrada o programada da 404', async () => {
+  fake.alResponderTabla('news', { data: null, error: null });
+  const r = await get(`/api/public/news/${NOT}`);
+  assert.equal(r.status, 404);
+});
+
+test('una portada que no es https y una competencia en borrador no se publican', async () => {
+  fake.alResponderTabla('news', {
+    data: [{ ...filaNoticia, cover_image_url: 'javascript:alert(1)', competencia: { id: COMP, name: 'Borrador', status: 'PLANIFICACION' } }],
+    error: null,
+    count: 1
+  });
+  const r = await get('/api/public/news');
+  assert.equal(r.json.data.items[0].cover, null);
+  assert.equal(r.json.data.items[0].competition, null);
+});
+
+test('limpiarHtml conserva el formato permitido y elimina lo peligroso', () => {
+  assert.equal(limpiarHtml('<h1>T</h1><div>d</div>'), '<h2>T</h2><p>d</p>');
+  assert.equal(limpiarHtml('<p style="color:red" onclick="x()">a</p>'), '<p>a</p>');
+  assert.equal(limpiarHtml('<iframe src="https://x"></iframe><svg><script>1</script></svg>'), '');
+  assert.equal(limpiarHtml('<img src="data:image/svg+xml;base64,PHN2Zz4=">'), '');
+  assert.equal(limpiarHtml('<img src="http://sin-cifrar.cr/a.png">'), '');
+  assert.equal(limpiarHtml('<img src="https://fecovol.cr/a.png" alt="a">'), '<img src="https://fecovol.cr/a.png" alt="a" />');
+  assert.equal(
+    limpiarHtml('<a href="https://fecovol.cr" target="_self">ok</a>'),
+    '<a href="https://fecovol.cr" target="_blank" rel="noopener noreferrer nofollow">ok</a>'
+  );
+  assert.doesNotMatch(limpiarHtml('<a href="jav&#x09;ascript:alert(1)">t</a>'), /href/);
+  assert.equal(limpiarHtml(null), '');
+});

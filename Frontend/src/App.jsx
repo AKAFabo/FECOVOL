@@ -28,6 +28,10 @@ import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
 import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
 import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
 
+// Noticias (portal público)
+import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
+import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
+
 export default function App() {
   return (
     <Routes>
@@ -39,7 +43,8 @@ export default function App() {
         <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
         <Route path="asociaciones" element={<AsociacionesPublicas />} />
         <Route path="asociaciones/:id" element={<AsociacionDetallePublica />} />
-        <Route path="noticias/*"     element={<EnConstruccion titulo="Noticias" />} />
+        <Route path="noticias" element={<NoticiasPublicas />} />
+        <Route path="noticias/:id" element={<NoticiaDetallePublica />} />
         <Route path="federacion/*"   element={<EnConstruccion titulo="La Federación" />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />
         <Route path="ingresar"       element={<Ingresar />} />

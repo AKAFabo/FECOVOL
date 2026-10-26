@@ -41,3 +41,15 @@ export function rangoFechas(inicio, fin) {
 export function isoValida(iso) {
   return aFechaUTC(iso) ? iso : undefined;
 }
+
+// Fechas con hora (timestamptz), mostradas en la hora de Costa Rica.
+const fechaPublicada = new Intl.DateTimeFormat('es-CR', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Costa_Rica'
+});
+
+/** "20 de octubre de 2026" para un instante ISO con hora; null si no es válido. */
+export function fechaLarga(isoConHora) {
+  if (typeof isoConHora !== 'string') return null;
+  const f = new Date(isoConHora);
+  return Number.isNaN(f.getTime()) ? null : fechaPublicada.format(f);
+}

@@ -24,6 +24,7 @@ router.use((req, res, next) => {
 
 router.use('/competitions', require('./public/competitions'));
 router.use('/associations', require('./public/associations'));
+router.use('/news', require('./public/news'));
 
 // Cualquier otra ruta o método bajo /api/public.
 router.use((req, res) => {

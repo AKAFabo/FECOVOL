@@ -74,6 +74,10 @@ solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/p
 - De las asociaciones no se publican cédula jurídica, dirección, correo, teléfono ni junta
   directiva, y de los equipos no se publican sus integrantes. Solo aparecen asociaciones
   `AFILIADA` y equipos `ACTIVO`.
+- Una noticia es pública si está `PUBLICADA`, no fue borrada y su fecha de publicación ya pasó.
+  Su cuerpo (HTML del editor) se limpia con `sanitize-html` y una lista blanca de etiquetas
+  (`src/public/htmlSeguro.js`): no pasan scripts, eventos (`onclick`...), estilos, iframes, SVG ni
+  enlaces `javascript:`. Los enlaces se abren en otra pestaña con `rel="noopener noreferrer nofollow"`.
 - Las competencias en `PLANIFICACION` (borradores) no se muestran; pedirlas da 404, igual que si
   no existieran.
 - Límite de 120 solicitudes por minuto por IP (`src/middleware/rateLimit.js`). Si la API se
@@ -89,6 +93,8 @@ solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/p
 | GET | `/api/public/competitions/:id/matches` | Calendario y resultados, con los puntos por set de los partidos terminados |
 | GET | `/api/public/associations` | Asociaciones afiliadas con su cantidad de equipos activos |
 | GET | `/api/public/associations/:id` | Datos públicos de la asociación, sus equipos y las competencias en que participan |
+| GET | `/api/public/news?page=` | Noticias publicadas, de la más reciente a la más antigua, 12 por página |
+| GET | `/api/public/news/:id` | Noticia completa, con el cuerpo ya limpio (`content_html`) |
 
 ## Códigos de respuesta
 
