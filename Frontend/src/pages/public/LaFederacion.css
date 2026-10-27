@@ -1,0 +1,260 @@
+/* Página "La Federación". */
+
+.federacion-titulo {
+  margin-bottom: 24px;
+}
+
+.federacion-nota {
+  margin-top: 14px;
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+/* ----- Quiénes somos ----- */
+.federacion-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 48px;
+}
+
+.federacion-intro__texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.federacion-parrafo {
+  max-width: 620px;
+  color: var(--texto-cuerpo);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.federacion-cifras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.federacion-cifra {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 20px 22px;
+  border-radius: var(--radio);
+  background: var(--arena);
+}
+
+.federacion-cifra__valor {
+  margin: 0;
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.federacion-cifra__texto {
+  color: var(--texto-mudo);
+  font-size: 14px;
+}
+
+/* ----- Misión y visión ----- */
+.federacion-mision {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.federacion-mision__tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 26px 28px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.federacion-mision__texto {
+  font-family: var(--fuente-titulo);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+/* ----- Junta directiva ----- */
+.federacion-junta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.federacion-junta__miembro {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.federacion-junta__avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--avatar);
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.federacion-junta__nombre {
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.federacion-junta__cargo {
+  color: var(--texto-mudo);
+  font-size: 14px;
+}
+
+/* ----- Documentos ----- */
+.federacion-documentos {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  list-style: none;
+}
+
+.federacion-documento {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.federacion-documento + .federacion-documento {
+  border-top: 1px solid var(--linea);
+}
+
+.federacion-documento__tipo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radio-sm);
+  background: #e3ecf6;
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 10.5px;
+}
+
+.federacion-documento__titulo {
+  font-weight: 700;
+}
+
+.federacion-documento__detalle,
+.federacion-documento__peso {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+.federacion-documento__boton {
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+.federacion-documento__boton:hover {
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+/* ----- Contacto ----- */
+.federacion-contacto {
+  max-width: 640px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.federacion-contacto__fila {
+  padding: 14px 20px;
+}
+
+.federacion-contacto__fila + .federacion-contacto__fila {
+  border-top: 1px solid var(--linea);
+}
+
+.federacion-contacto dt {
+  color: var(--texto-mudo);
+  font-size: 13px;
+}
+
+.federacion-contacto dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.federacion-contacto a {
+  color: var(--azul);
+}
+
+.federacion-contacto a:hover {
+  text-decoration: underline;
+}
+
+.federacion-redes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.federacion-redes__usuario {
+  color: var(--texto-mudo);
+  font-weight: 400;
+}
+
+@media (max-width: 1100px) {
+  .federacion-intro { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .federacion-junta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .federacion-mision,
+  .federacion-junta { grid-template-columns: minmax(0, 1fr); }
+  .federacion-mision__tarjeta { padding: 20px; }
+  .federacion-mision__texto { font-size: 17px; }
+  .federacion-cifra { padding: 16px; }
+  .federacion-cifra__valor { font-size: 28px; }
+  .federacion-documento { grid-template-columns: auto minmax(0, 1fr); padding: 14px 16px; }
+  .federacion-documento__peso { grid-column: 2; }
+  .federacion-documento__boton { grid-column: 2; justify-self: start; }
+  .federacion-contacto__fila { padding: 12px 16px; }
+}

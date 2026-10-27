@@ -1,0 +1,100 @@
+.cabecera-seccion {
+  background: var(--azul);
+  color: #fff;
+}
+
+.cabecera-seccion__interior {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: center;
+  gap: 40px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.cabecera-seccion__interior--sin-imagen {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cabecera-seccion__texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cabecera-seccion__titulo {
+  color: #fff;
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.cabecera-seccion__bajada {
+  max-width: 620px;
+  color: #c2d3e7;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.cabecera-seccion__imagen {
+  height: 150px;
+  overflow: hidden;
+  border-radius: var(--radio);
+  opacity: 0.9;
+}
+
+.cabecera-seccion__imagen svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Migas de pan sobre el título (páginas de detalle). */
+.migas {
+  color: var(--sobre-oscuro);
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.migas a {
+  color: var(--sobre-oscuro-2);
+  font-weight: 600;
+}
+
+.migas a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.migas__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.migas__item + .migas__item::before {
+  content: '›';
+  margin: 0 8px;
+  color: var(--sobre-oscuro);
+}
+
+.migas__item [aria-current] {
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .cabecera-seccion__interior { grid-template-columns: minmax(0, 1fr); }
+  .cabecera-seccion__imagen { display: none; }
+}
+
+@media (max-width: 720px) {
+  .cabecera-seccion__interior { padding-top: 28px; padding-bottom: 28px; }
+  .cabecera-seccion__titulo { font-size: 28px; }
+  .cabecera-seccion__bajada { font-size: 15.5px; }
+}

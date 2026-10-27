@@ -1,0 +1,219 @@
+/* Página "Selecciones nacionales". Paneles y tablas: src/styles/paneles.css. */
+
+.selecciones-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  margin-top: 16px;
+}
+
+.selecciones-titulo {
+  margin-bottom: 24px;
+}
+
+/* Aviso de vista previa (solo en desarrollo con ?demo). */
+.aviso-ejemplo {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0d9a8;
+  background: #fff6e0;
+  color: #6b4a00;
+  font-size: 14px;
+}
+
+.aviso-ejemplo code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+}
+
+/* ----- Tarjetas de selecciones ----- */
+.lista-selecciones {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta-seleccion {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tarjeta-seleccion--activa {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 1px var(--azul);
+}
+
+.tarjeta-seleccion__imagen {
+  height: 120px;
+  background: var(--azul);
+}
+
+.tarjeta-seleccion--juvenil .tarjeta-seleccion__imagen { background: #24548a; }
+.tarjeta-seleccion--playa .tarjeta-seleccion__imagen { background: #0d5560; }
+
+.tarjeta-seleccion__imagen svg {
+  width: 100%;
+  height: 100%;
+  opacity: 0.35;
+  mix-blend-mode: luminosity;
+}
+
+.tarjeta-seleccion__cuerpo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px 20px 20px;
+}
+
+.tarjeta-seleccion__pastillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tarjeta-seleccion__nombre {
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.tarjeta-seleccion__compromiso {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+.tarjeta-seleccion__etiqueta {
+  font-size: 12.5px;
+}
+
+.tarjeta-seleccion__evento {
+  color: var(--texto);
+  font-weight: 700;
+  font-size: 14.5px;
+}
+
+.tarjeta-seleccion__sin {
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+.tarjeta-seleccion__accion {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+/* ----- Convocatoria ----- */
+.convocatoria:focus {
+  outline: none;
+}
+
+.convocatoria__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.convocatoria__titulo {
+  margin-top: 8px;
+}
+
+.convocatoria__descarga {
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+.convocatoria__descarga:hover {
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+.convocatoria__atletas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.convocatoria__atleta,
+.convocatoria__miembro {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--linea);
+}
+
+/* La primera fila de cada columna no lleva borde superior. */
+.convocatoria__atletas .convocatoria__atleta:nth-child(-n + 2),
+.convocatoria__cuerpo .convocatoria__miembro:first-child {
+  border-top: 0;
+}
+
+.convocatoria__numero,
+.convocatoria__avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e3ecf6;
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.convocatoria__avatar {
+  background: var(--avatar);
+  font-size: 11px;
+}
+
+.convocatoria__nombre {
+  font-weight: 700;
+  font-size: 14.5px;
+}
+
+.convocatoria__detalle {
+  color: var(--texto-mudo);
+  font-size: 13px;
+}
+
+.convocatoria__cuerpo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 1100px) {
+  .lista-selecciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .lista-selecciones { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .tarjeta-seleccion__imagen { height: 72px; }
+  .tarjeta-seleccion__cuerpo { padding: 16px; }
+  .selecciones-filtros { gap: 12px; }
+  .convocatoria__atletas { grid-template-columns: minmax(0, 1fr); }
+  .convocatoria__atletas .convocatoria__atleta:nth-child(2) { border-top: 1px solid var(--linea); }
+  .convocatoria__atleta,
+  .convocatoria__miembro { padding: 12px 16px; }
+}

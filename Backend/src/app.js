@@ -11,15 +11,24 @@ const personsRoutes = require('./routes/persons.routes');
 const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
+const competitionsRoutes = require('./routes/competitions.routes');
+const matchesRoutes = require('./routes/matches.routes');
 const usersRoutes = require('./routes/users.routes');
 const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
 const auditRoutes = require('./routes/audit.routes');
+const publicRoutes = require('./routes/public.routes');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Portal público: solo lectura y sin sesión (ver routes/public.routes.js). Va antes de
+// resolveScope y currentUser porque no usa el ámbito del usuario: así no se consulta la base
+// para resolver un usuario que el portal no necesita.
+app.use('/api/public', publicRoutes);
+
 app.use(resolveScope);
 app.use(currentUser);
 
@@ -34,10 +43,13 @@ app.get('/', (req, res) => {
       '/api/documents',
       '/api/referee-assignments',
       '/api/catalogs',
+      '/api/competitions',
+      '/api/matches',
       '/api/users',
       '/api/roles',
       '/api/parameters',
-      '/api/audit'
+      '/api/audit',
+      '/api/public'
     ]
   });
 });
@@ -48,6 +60,8 @@ app.use('/api/persons', personsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
+app.use('/api/competitions', competitionsRoutes);
+app.use('/api/matches', matchesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);

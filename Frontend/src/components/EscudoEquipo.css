@@ -1,0 +1,17 @@
+.escudo-equipo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--avatar);
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.escudo-equipo--s { width: 24px; height: 24px; font-size: 8.5px; }
+.escudo-equipo--m { width: 36px; height: 36px; font-size: 11px; }
+.escudo-equipo--l { width: 44px; height: 44px; font-size: 12.5px; }

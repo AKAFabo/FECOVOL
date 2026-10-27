@@ -62,6 +62,50 @@ encabezado `x-user-email`. Si no viene, se registra como `sistema`.
 | POST | `/api/referee-assignments` | Designar árbitro (`match_id`, `person_id`, `official_type_code`) |
 | PATCH | `/api/referee-assignments/:id` | Confirmar, rechazar, cumplir o anular |
 
+## API pública (portal web)
+
+`/api/public` es la parte de la API que consume el portal público, sin iniciar sesión. Está
+separada de las rutas internas a propósito. `src/routes/public.routes.js` aplica el límite de
+solicitudes y el manejo de errores, y monta un archivo por tema en `src/routes/public/`:
+
+- Solo tiene `GET`; cualquier otro método responde 404.
+- Cada respuesta se arma campo por campo en `src/public/*Dto.js` (lista blanca). Una columna
+  nueva en la base de datos no se publica sola.
+- De las asociaciones no se publican cédula jurídica, dirección, correo, teléfono ni junta
+  directiva. Solo aparecen asociaciones `AFILIADA` y equipos `ACTIVO`.
+- De los integrantes de un equipo inscrito en una competencia se publican **solo nombre, número
+  y posición** (y la función del cuerpo técnico). Nunca cédula, fecha o año de nacimiento,
+  contactos ni el estado de habilitación: hay categorías juveniles con menores de edad. Solo
+  aparecen personas `ACTIVA`.
+- Las cifras de `/federation` son conteos; no devuelven ningún registro.
+- Las consultas que pueden pasar de 1000 filas (límite de Supabase por consulta) se piden por
+  bloques con `src/public/paginar.js`.
+- Una noticia es pública si está `PUBLICADA`, no fue borrada y su fecha de publicación ya pasó.
+  Su cuerpo (HTML del editor) se limpia con `sanitize-html` y una lista blanca de etiquetas
+  (`src/public/htmlSeguro.js`): no pasan scripts, eventos (`onclick`...), estilos, iframes, SVG ni
+  enlaces `javascript:`. Los enlaces se abren en otra pestaña con `rel="noopener noreferrer nofollow"`.
+- Las competencias en `PLANIFICACION` (borradores) no se muestran; pedirlas da 404, igual que si
+  no existieran.
+- Límite de 120 solicitudes por minuto por IP (`src/middleware/rateLimit.js`). Si la API se
+  publica detrás de un proxy hay que configurar `app.set('trust proxy', ...)`.
+- Un error de la base devuelve 503 con un mensaje genérico; el detalle solo queda en la consola
+  del servidor.
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/api/public/competitions?status=&season=` | Competencias publicadas con su avance (`status`: INSCRIPCIONES, EN_CURSO, FINALIZADA o CERRADA; `season`: año) |
+| GET | `/api/public/competitions/:id` | Datos de una competencia con su avance (equipos, jornada actual, primer lugar) y la fecha de la última actualización |
+| GET | `/api/public/competitions/:id/standings` | Tabla de posiciones, con todos los equipos inscritos |
+| GET | `/api/public/competitions/:id/matches` | Calendario y resultados, con los puntos por set de los partidos terminados |
+| GET | `/api/public/competitions/:id/statistics` | Totales de la competencia y rendimiento por equipo (sets, puntos, partidos a 5 sets, racha) |
+| GET | `/api/public/competitions/:id/teams` | Equipos inscritos con asociación, provincia, sede y cantidad de jugadores en la nómina |
+| GET | `/api/public/competitions/:id/teams/:teamId` | Equipo en la competencia: posición, nómina (nombre, número, posición), cuerpo técnico y partidos |
+| GET | `/api/public/federation` | Cantidad de asociaciones afiliadas, equipos activos, personas registradas y árbitros activos |
+| GET | `/api/public/associations` | Asociaciones afiliadas con su cantidad de equipos activos |
+| GET | `/api/public/associations/:id` | Datos públicos de la asociación, sus equipos y las competencias en que participan |
+| GET | `/api/public/news?page=` | Noticias publicadas, de la más reciente a la más antigua, 12 por página |
+| GET | `/api/public/news/:id` | Noticia completa, con el cuerpo ya limpio (`content_html`) |
+
 ## Códigos de respuesta
 
 - `400`: falta un dato, un valor no permitido o un id que no es UUID.

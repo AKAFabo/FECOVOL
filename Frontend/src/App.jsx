@@ -24,6 +24,26 @@ import Perfil from './pages/admin/perfil/Perfil.jsx';
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
 import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
 import PersonalPanel from './pages/personal/PersonalPanel.jsx';
+import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
+
+// Competencias (portal público)
+import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
+import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
+import EquipoCompetenciaPublica from './pages/public/EquipoCompetenciaPublica.jsx';
+
+// Asociaciones afiliadas (portal público)
+import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
+import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
+
+// Noticias (portal público)
+import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
+import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
+
+// Selecciones nacionales (portal público)
+import SeleccionesPublicas from './pages/public/SeleccionesPublicas.jsx';
+
+// La Federación (portal público)
+import LaFederacion from './pages/public/LaFederacion.jsx';
 
 export default function App() {
   return (
@@ -31,11 +51,15 @@ export default function App() {
       {/* ── Portal público ────────────────────────────────────────── */}
       <Route element={<PublicLayout />}>
         <Route index element={<Inicio />} />
-        <Route path="competencias/*" element={<EnConstruccion titulo="Competencias" />} />
-        <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
-        <Route path="asociaciones/*" element={<EnConstruccion titulo="Asociaciones afiliadas" />} />
-        <Route path="noticias/*"     element={<EnConstruccion titulo="Noticias" />} />
-        <Route path="federacion/*"   element={<EnConstruccion titulo="La Federación" />} />
+        <Route path="competencias" element={<CompetenciasPublicas />} />
+        <Route path="competencias/:id" element={<CompetenciaDetallePublica />} />
+        <Route path="competencias/:id/equipos/:equipoId" element={<EquipoCompetenciaPublica />} />
+        <Route path="selecciones" element={<SeleccionesPublicas />} />
+        <Route path="asociaciones" element={<AsociacionesPublicas />} />
+        <Route path="asociaciones/:id" element={<AsociacionDetallePublica />} />
+        <Route path="noticias" element={<NoticiasPublicas />} />
+        <Route path="noticias/:id" element={<NoticiaDetallePublica />} />
+        <Route path="federacion" element={<LaFederacion />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />
         <Route path="ingresar"       element={<Ingresar />} />
         <Route path="restablecer-contrasena" element={<Ingresar />} />
@@ -63,6 +87,7 @@ export default function App() {
       {/* ── Entorno de Personal Técnico de Competencias (/personal) ── */}
       <Route element={<RutaProtegida subruta="/personal" rolesPermitidos={['Personal', 'Administrador']} />}>
         <Route path="/personal/*" element={<PersonalPanel />} />
+        <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
       </Route>
 
       {/* ── Entorno de Representante de Asociación (/asociacion) ── */}
