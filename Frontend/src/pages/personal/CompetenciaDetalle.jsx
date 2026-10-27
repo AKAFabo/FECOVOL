@@ -34,7 +34,8 @@ export default function CompetenciaDetalle() {
         setCargando(false);
       }
     }
-    cargarDatos();
+    // La función maneja sus propios errores; no hay nada que esperar aquí.
+    void cargarDatos();
   }, [id]);
 
   // Muestra el indicador de carga
@@ -49,12 +50,13 @@ export default function CompetenciaDetalle() {
       {/* Renderiza el encabezado con botón de retorno */}
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
-          <span 
-            style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer' }} 
+          <button
+            type="button"
+            style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer', background: 'none', border: 0, padding: 0, textAlign: 'left' }}
             onClick={() => navigate('/personal')}
           >
             ← Volver a competencias
-          </span>
+          </button>
           <h1 style={{ marginTop: '8px' }}>{competencia.name}</h1>
           <p className="admin-page-header__subtitle">
             {competencia.categoria?.value} · {competencia.rama?.value} · Temporada {competencia.season}

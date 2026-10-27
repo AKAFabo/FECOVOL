@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js'; 
 
+// Clase de la pastilla según el estado de la competencia.
+const CLASE_ESTADO = {
+  EN_CURSO: 'badge-status--activa',
+  INSCRIPCIONES: 'badge-status--inactivo'
+};
+
 export default function PersonalPanel() {
   const navigate = useNavigate();
   
@@ -34,7 +40,8 @@ export default function PersonalPanel() {
         setCargando(false);
       }
     }
-    cargarCompetencias();
+    // La función maneja sus propios errores; no hay nada que esperar aquí.
+    void cargarCompetencias();
   }, []);
 
   // Filtra el listado según criterios seleccionados para optimizar renderizado
@@ -130,10 +137,7 @@ export default function PersonalPanel() {
                     {comp.start_date} al {comp.end_date}
                   </td>
                   <td>
-                    <span className={`badge-status ${
-                      comp.status === 'EN_CURSO' ? 'badge-status--activa' : 
-                      comp.status === 'INSCRIPCIONES' ? 'badge-status--inactivo' : ''
-                    }`}>
+                    <span className={`badge-status ${CLASE_ESTADO[comp.status] || ''}`}>
                       {comp.status.replace('_', ' ')}
                     </span>
                   </td>

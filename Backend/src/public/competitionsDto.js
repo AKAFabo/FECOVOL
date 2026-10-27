@@ -230,7 +230,7 @@ function armarPosiciones(inscritos, filasVista) {
 
   for (const insc of inscritos) {
     const equipo = aEquipo(insc.equipo);
-    if (!equipo || !equipo.id) continue;
+    if (!equipo?.id) continue;
     porEquipo.set(equipo.id, {
       team: equipo,
       played: 0,
