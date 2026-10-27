@@ -5,7 +5,7 @@ import EscudoEquipo from '../../../components/EscudoEquipo.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import Selector from '../../../components/Selector.jsx';
 import useCarga from '../../../hooks/useCarga.js';
-import { listarEquipos } from '../../../services/competencias.js';
+import { CARGAS } from './cargas.js';
 import { etiquetaInscritos } from './partidos.js';
 
 const TODAS = 'todas';
@@ -44,7 +44,8 @@ function TarjetaEquipo({ competencia, equipo: e }) {
 }
 
 export default function PestanaEquipos({ competencia }) {
-  const carga = useCarga((signal) => listarEquipos(competencia.id, { signal }), [competencia.id]);
+  const { clave, cargar } = CARGAS.equipos(competencia.id);
+  const carga = useCarga(cargar, [competencia.id], { clave });
   const [provincia, setProvincia] = useState(TODAS);
 
   if (carga.estado === 'cargando') return <Cargando texto="Cargando equipos…" />;

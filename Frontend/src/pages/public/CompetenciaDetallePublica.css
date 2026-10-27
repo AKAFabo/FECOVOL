@@ -10,6 +10,9 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  /* Alto mínimo mientras una pestaña carga por primera vez: evita que el pie de página suba
+     un instante y la página "salte" al cambiar de pestaña. */
+  min-height: 480px;
 }
 
 /* ----- Cabecera con pestañas ----- */

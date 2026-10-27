@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import EscudoEquipo from '../../../components/EscudoEquipo.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import useCarga from '../../../hooks/useCarga.js';
-import { obtenerEstadisticas } from '../../../services/competencias.js';
+import { CARGAS } from './cargas.js';
 import { plural } from '../../../utils/formato.js';
 import { cociente, numero, unDecimal } from './partidos.js';
 
@@ -32,7 +32,8 @@ const COLUMNAS = [
 ];
 
 export default function PestanaEstadisticas({ competencia }) {
-  const carga = useCarga((signal) => obtenerEstadisticas(competencia.id, { signal }), [competencia.id]);
+  const { clave, cargar } = CARGAS.estadisticas(competencia.id);
+  const carga = useCarga(cargar, [competencia.id], { clave });
 
   if (carga.estado === 'cargando') return <Cargando texto="Calculando estadísticas…" />;
   if (carga.estado === 'error') return <ErrorCarga mensaje={carga.error.message} onReintentar={carga.reintentar} />;

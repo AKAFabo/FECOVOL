@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
 import Migas from '../../components/Migas.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import { esIdValido, estadoCompetencia, obtenerCompetencia } from '../../services/competencias.js';
 import { fechaHora } from '../../utils/formato.js';
+import { precargarCompetencia } from './competencia/cargas.js';
 import PestanaCalendario from './competencia/PestanaCalendario.jsx';
 import PestanaEquipos from './competencia/PestanaEquipos.jsx';
 import PestanaEstadisticas from './competencia/PestanaEstadisticas.jsx';
@@ -166,13 +167,26 @@ export default function CompetenciaDetallePublica() {
     [id, idValido]
   );
 
+  // Con la competencia confirmada, se piden en segundo plano los datos de todas las pestañas:
+  // así cambiar de pestaña no pasa por "Cargando…" ni hace saltar la página.
+  const competenciaLista = competencia.estado === 'listo';
+  useEffect(() => {
+    if (competenciaLista) precargarCompetencia(id);
+  }, [competenciaLista, id]);
+
   function cambiarVista(valor) {
     const siguiente = new URLSearchParams(params);
     if (valor === 'posiciones') siguiente.delete('vista');
     else siguiente.set('vista', valor);
     setParams(siguiente, { replace: true });
-    // Los enlaces "Ver todas las jornadas" están abajo en la página: se vuelve a las pestañas.
-    document.getElementById(`pestana-${valor}`)?.focus();
+
+    const pestana = document.getElementById(`pestana-${valor}`);
+    if (!pestana) return;
+    pestana.focus({ preventScroll: true });
+    // Los enlaces "Ver todas las jornadas" están abajo en la página: si las pestañas quedaron
+    // fuera de la vista, se sube hasta ellas. Si ya se ven, la página no se mueve.
+    const arriba = pestana.getBoundingClientRect().top;
+    if (arriba < 0) window.scrollTo({ top: window.scrollY + arriba - 8, behavior: 'smooth' });
   }
 
   if (!idValido) return <NoEncontrada />;

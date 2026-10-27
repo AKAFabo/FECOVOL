@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import Selector from '../../../components/Selector.jsx';
 import useCarga from '../../../hooks/useCarga.js';
-import { obtenerPartidos } from '../../../services/competencias.js';
+import { CARGAS } from './cargas.js';
 import { fechasJornada } from '../../../utils/formato.js';
 import TarjetaResultado from './TarjetaResultado.jsx';
 import { equiposDe, juegaEn, porJornada, terminado } from './partidos.js';
@@ -10,7 +10,8 @@ import { equiposDe, juegaEn, porJornada, terminado } from './partidos.js';
 const TODOS = 'todos';
 
 export default function PestanaResultados({ competenciaId }) {
-  const carga = useCarga((signal) => obtenerPartidos(competenciaId, { signal }), [competenciaId]);
+  const { clave, cargar } = CARGAS.partidos(competenciaId);
+  const carga = useCarga(cargar, [competenciaId], { clave });
   const [jornada, setJornada] = useState(TODOS);
   const [equipo, setEquipo] = useState(TODOS);
 

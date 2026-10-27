@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import EscudoEquipo from '../../../components/EscudoEquipo.jsx';
 import { Cargando, ErrorCarga, SinResultados } from '../../../components/EstadoContenido.jsx';
 import useCarga from '../../../hooks/useCarga.js';
-import { listarEquipos, obtenerPartidos, obtenerPosiciones } from '../../../services/competencias.js';
 import { diaYHora, fechasJornada, rangoFechas } from '../../../utils/formato.js';
+import { CARGAS } from './cargas.js';
 import TarjetaResultado from './TarjetaResultado.jsx';
 import { cociente, proximaJornada, ultimaJornadaJugada } from './partidos.js';
 
@@ -133,16 +133,16 @@ function DatosCompetencia({ competencia: c, partidos, equipos }) {
 
 export default function PestanaPosiciones({ competencia, onCambiarVista }) {
   const id = competencia.id;
-  const carga = useCarga(
-    (signal) =>
-      Promise.all([
-        obtenerPosiciones(id, { signal }),
-        obtenerPartidos(id, { signal }),
-        // Los equipos solo se usan para contar asociaciones: si fallan, la pestaña igual se muestra.
-        listarEquipos(id, { signal }).catch((e) => (signal.aborted ? Promise.reject(e) : null))
-      ]),
-    [id]
-  );
+  const tabla = CARGAS.posiciones(id);
+  const calendario = CARGAS.partidos(id);
+  const inscritos = CARGAS.equipos(id);
+  const cargaTabla = useCarga(tabla.cargar, [id], { clave: tabla.clave });
+  const cargaPartidos = useCarga(calendario.cargar, [id], { clave: calendario.clave });
+  // Los equipos solo se usan para contar asociaciones: si fallan, la pestaña igual se muestra.
+  const cargaEquipos = useCarga(inscritos.cargar, [id], { clave: inscritos.clave });
+
+  const fallo = [cargaTabla, cargaPartidos].find((c) => c.estado === 'error');
+  const carga = fallo || (cargaTabla.estado === 'listo' && cargaPartidos.estado === 'listo' ? { estado: 'listo' } : { estado: 'cargando' });
 
   if (carga.estado !== 'listo') {
     return (
@@ -158,7 +158,9 @@ export default function PestanaPosiciones({ competencia, onCambiarVista }) {
     );
   }
 
-  const [posiciones, partidos, equipos] = carga.datos;
+  const posiciones = cargaTabla.datos;
+  const partidos = cargaPartidos.datos;
+  const equipos = cargaEquipos.estado === 'listo' ? cargaEquipos.datos : null;
   const proxima = proximaJornada(partidos);
   const ultima = ultimaJornadaJugada(partidos);
 
