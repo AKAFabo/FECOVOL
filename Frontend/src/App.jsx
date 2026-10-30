@@ -20,17 +20,23 @@ import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
 
-
-// MÓDULO DE COMPETENCIAS ---
+// MÓDULO DE COMPETENCIAS
 import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
 import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
 import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
+import PersonalPanel from './pages/personal/PersonalPanel.jsx';
+import Inscripciones from './pages/personal/Inscripciones.jsx';
+import CalendarioPartidos from './pages/personal/CalendarioPartidos.jsx';
+import Resultados from './pages/personal/Resultados.jsx';
+import ResultadoDetalle from './pages/personal/ResultadoDetalle.jsx';
+import Reportes from './pages/personal/Reportes.jsx';
+
+// Layout del Personal de Competencias
+import PersonalLayout from './layouts/PersonalLayout.jsx';
 
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
 import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
-import PersonalPanel from './pages/personal/PersonalPanel.jsx';
-
 
 export default function App() {
   return (
@@ -60,7 +66,6 @@ export default function App() {
           <Route path="parametros" element={<ParametrosSistema />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
           <Route path="noticias" element={<NoticiasComunicados />} />
-          {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="perfil" element={<Perfil />} />
@@ -70,9 +75,15 @@ export default function App() {
 
       {/* ── Entorno de Personal Técnico de Competencias (/personal) ── */}
       <Route element={<RutaProtegida subruta="/personal" rolesPermitidos={['Personal', 'Administrador']} />}>
-        <Route path="/personal/*" element={<PersonalPanel />} />
-        {/* Módulo de Competencias Internas */}
-        <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
+        <Route path="/personal" element={<PersonalLayout />}>
+          <Route index element={<PersonalPanel />} />
+          <Route path="inscripciones" element={<Inscripciones />} />
+          <Route path="calendario" element={<CalendarioPartidos />} />
+          <Route path="resultados" element={<Resultados />} />
+          <Route path="resultados/:matchId" element={<ResultadoDetalle />} />
+          <Route path="reportes" element={<Reportes />} />
+          <Route path="competencia/:id" element={<CompetenciaDetalle />} />
+        </Route>
       </Route>
 
       {/* ── Entorno de Representante de Asociación (/asociacion) ── */}
