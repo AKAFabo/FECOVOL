@@ -23,44 +23,35 @@ import Perfil from './pages/admin/perfil/Perfil.jsx';
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
 import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
+
+// MÓDULO DE COMPETENCIAS (Estudiante 2)
 import PersonalPanel from './pages/personal/PersonalPanel.jsx';
 import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
-
-// Competencias (portal público)
-import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
-import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
-import EquipoCompetenciaPublica from './pages/public/EquipoCompetenciaPublica.jsx';
-
-// Asociaciones afiliadas (portal público)
-import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
-import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
-
-// Noticias (portal público)
-import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
-import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
-
-// Selecciones nacionales (portal público)
-import SeleccionesPublicas from './pages/public/SeleccionesPublicas.jsx';
-
-// La Federación (portal público)
-import LaFederacion from './pages/public/LaFederacion.jsx';
-// MÓDULO DE COMPETENCIAS
-import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
-import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
-import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
-import PersonalPanel from './pages/personal/PersonalPanel.jsx';
 import Inscripciones from './pages/personal/Inscripciones.jsx';
 import CalendarioPartidos from './pages/personal/CalendarioPartidos.jsx';
 import Resultados from './pages/personal/Resultados.jsx';
 import ResultadoDetalle from './pages/personal/ResultadoDetalle.jsx';
 import Reportes from './pages/personal/Reportes.jsx';
+import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
+import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
+import EquipoCompetenciaPublica from './pages/public/EquipoCompetenciaPublica.jsx';
 
 // Layout del Personal de Competencias
 import PersonalLayout from './layouts/PersonalLayout.jsx';
 
-// Paneles protegidos por entorno/rol
-import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
-import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
+// Asociaciones afiliadas (portal público) - Estudiante 4
+import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
+import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
+
+// Noticias (portal público) - Estudiante 4
+import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
+import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
+
+// Selecciones nacionales (portal público) - Estudiante 4
+import SeleccionesPublicas from './pages/public/SeleccionesPublicas.jsx';
+
+// La Federación (portal público) - Estudiante 4
+import LaFederacion from './pages/public/LaFederacion.jsx';
 
 export default function App() {
   return (

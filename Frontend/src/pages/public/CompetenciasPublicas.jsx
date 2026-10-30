@@ -168,36 +168,7 @@ export default function CompetenciasPublicas() {
             No hay competencias disponibles con los filtros seleccionados.
           </div>
         )}
-      </CabeceraSeccion>
-
-      <section className="bloque competencias-publicas" aria-label="Listado de competencias">
-        <div className="contenedor">
-          {estado === 'cargando' && <Cargando texto="Cargando competencias…" />}
-          {estado === 'error' && <ErrorCarga mensaje={error.message} onReintentar={reintentar} />}
-          {estado === 'listo' && porGrupo.length === 0 && (
-            <SinResultados
-              titulo={filtrando ? 'Ninguna competencia coincide con los filtros' : 'Todavía no hay competencias publicadas'}
-              texto={filtrando ? undefined : 'Cuando la Federación publique una competencia, aparecerá aquí.'}
-            >
-              {filtrando && (
-                <button type="button" className="boton boton--primario boton--chico" onClick={limpiarFiltros}>
-                  Quitar filtros
-                </button>
-              )}
-            </SinResultados>
-          )}
-          {porGrupo.map((g) => (
-            <section key={g.clave} className="grupo-competencias" aria-labelledby={`grupo-${g.clave}`}>
-              <h2 id={`grupo-${g.clave}`} className="grupo-competencias__titulo">{g.titulo}</h2>
-              <ul className="lista-competencias">
-                {g.lista.map((c) => (
-                  <TarjetaCompetencia key={c.id} competencia={c} />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      </section>
-    </>
+      </div>
+    </div>
   );
 }
