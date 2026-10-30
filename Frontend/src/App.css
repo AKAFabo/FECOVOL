@@ -1,3 +1,26 @@
+/* =========================================
+   Estilos para impresión de reportes
+   ========================================= */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #area-impresion, #area-impresion * {
+    visibility: visible;
+  }
+  #area-impresion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .admin-page-header, .admin-modal-overlay {
+    display: none !important;
+  }
+}
+
 /* =========================================================================
    Componentes compartidos: contenedor, botones, pastillas, encabezados
    de sección y enlaces con flecha. Se usan en el portal público y en las

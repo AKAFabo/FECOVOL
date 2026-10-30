@@ -13,6 +13,8 @@ const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const matchesRoutes = require('./routes/matches.routes');
+const inscriptionsRoutes = require('./routes/inscriptions.routes');
+const reportsRoutes = require('./routes/reports.routes');
 const usersRoutes = require('./routes/users.routes');
 const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
@@ -35,7 +37,7 @@ app.use(currentUser);
 app.get('/', (req, res) => {
   res.json({
     message: 'API del Sistema de Informacion FECOVOL',
-    modulo: 'Asociaciones y Arbitraje',
+    modulo: 'Competencias y Resultados',
     endpoints: [
       '/api/associations',
       '/api/teams',
@@ -45,6 +47,8 @@ app.get('/', (req, res) => {
       '/api/catalogs',
       '/api/competitions',
       '/api/matches',
+      '/api/inscriptions',
+      '/api/reports',
       '/api/users',
       '/api/roles',
       '/api/parameters',
@@ -62,6 +66,8 @@ app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/competitions', competitionsRoutes);
 app.use('/api/matches', matchesRoutes);
+app.use('/api/inscriptions', inscriptionsRoutes);
+app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);
