@@ -111,7 +111,9 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // POST /api/roles -> Crear nuevo rol con permisos iniciales (RF-SEG-005 / RF-SEG-010)
 router.post('/', authorize({ requiredPermission: '/admin/listas-valores', resourceTable: 'roles' }), asyncHandler(async (req, res) => {
-  const { name, description, permissions, admin_email } = req.body;
+  const { name, description, permissions } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     await logDeniedAttempt({
@@ -209,7 +211,9 @@ router.post('/', authorize({ requiredPermission: '/admin/listas-valores', resour
 // PUT /api/roles/:id -> Editar información y matriz de permisos de un rol (RF-SEG-005 / RF-SEG-010)
 router.put('/:id', authorize({ requiredPermission: '/admin/listas-valores', resourceTable: 'roles' }), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, description, permissions, admin_email } = req.body;
+  const { name, description, permissions } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
 
   // 1. Consultar rol actual
   const { data: rolActual, error: errGet } = await supabase
@@ -330,7 +334,7 @@ router.put('/:id', authorize({ requiredPermission: '/admin/listas-valores', reso
 // DELETE /api/roles/:id -> Eliminar rol con validación preventiva de usuarios asignados (RF-SEG-005 / RF-SEG-010)
 router.delete('/:id', authorize({ requiredPermission: '/admin/listas-valores', resourceTable: 'roles' }), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const admin_email = req.body?.admin_email || req.query?.admin_email || req.authorizedUser?.email || 'Administrador';
+  const admin_email = req.authorizedUser?.email || req.currentUser; // del token verificado
 
   // 1. Consultar rol
   const { data: rol, error: errRol } = await supabase

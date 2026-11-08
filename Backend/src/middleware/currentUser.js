@@ -1,7 +1,7 @@
-// Mientras el modulo de Seguridad no entregue el login, el usuario que ejecuta la
-// accion llega en el encabezado x-user-email. Ese valor se le pasa a los
-// procedimientos almacenados (p_admin_user) para que quede en la bitacora.
+// Usuario que ejecuta la acción, para la bitácora (los procedimientos almacenados lo reciben como
+// p_admin_user). Sale del token verificado en middleware/authenticate.js; sin sesión queda
+// 'sistema'. Nunca se toma de un encabezado o del cuerpo de la solicitud.
 module.exports = function currentUser(req, res, next) {
-  req.currentUser = req.header('x-user-email') || 'sistema';
+  req.currentUser = req.auth?.email || 'sistema';
   next();
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 
+const { authenticate } = require('./middleware/authenticate');
 const currentUser = require('./middleware/currentUser');
 const { resolveScope } = require('./middleware/scopeOrganization');
 const errorHandler = require('./middleware/errorHandler');
@@ -31,6 +32,8 @@ app.use(express.json());
 // para resolver un usuario que el portal no necesita.
 app.use('/api/public', publicRoutes);
 
+// Identidad (token de Supabase) -> ámbito organizacional -> usuario para la bitácora.
+app.use(authenticate);
 app.use(resolveScope);
 app.use(currentUser);
 

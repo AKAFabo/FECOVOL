@@ -1,0 +1,64 @@
+/* Entorno del representante: misma estructura que AdminLayout con el acento morado del rol. */
+
+.admin-layout--asociacion { --g-acento: #6f3a9e; --g-acento-oscuro: #5a2d82; }
+
+.admin-layout--asociacion .admin-sidebar__badge-fv,
+.admin-layout--asociacion .admin-topbar__avatar { background: var(--g-acento); }
+
+.admin-layout--asociacion .admin-sidebar__role-box {
+  background: rgba(111, 58, 158, 0.22);
+  border-left-color: #a97bd1;
+}
+
+.admin-layout--asociacion .admin-sidebar__role-label { color: #d9c3ee; }
+.admin-layout--asociacion .admin-sidebar__link--active .admin-sidebar__icon-placeholder { background: #b98ae0; }
+
+.admin-sidebar__brand-text .asociacion-marca {
+  margin: 0;
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.asociacion-contenido { padding: 28px; }
+
+.asociacion-migas ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.asociacion-migas li + li::before { content: '›'; margin-right: 6px; color: var(--texto-tenue); }
+.asociacion-migas a { color: var(--texto-mudo); text-decoration: none; }
+.asociacion-migas a:hover { color: var(--azul); text-decoration: underline; }
+.asociacion-migas [aria-current='page'] { color: var(--texto-suave); font-weight: 600; }
+
+.asociacion-sin {
+  max-width: 620px;
+  margin: 48px auto;
+  padding: 32px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  text-align: center;
+}
+
+.asociacion-sin h1 { margin: 0 0 10px; font-family: var(--fuente-titulo); font-size: 22px; }
+.asociacion-sin p { margin: 0 0 18px; color: var(--texto-mudo); line-height: 1.5; }
+
+.admin-layout--asociacion .admin-main { min-width: 0; }
+
+@media (max-width: 900px) {
+  .admin-layout--asociacion { flex-direction: column; }
+  .admin-layout--asociacion .admin-topbar__season { display: none; }
+  .admin-layout--asociacion .admin-topbar { gap: 12px; padding-right: 16px; padding-left: 16px; }
+  .admin-layout--asociacion .admin-sidebar { width: 100%; }
+  .admin-layout--asociacion .admin-sidebar__nav ul { flex-direction: row; flex-wrap: wrap; }
+  .asociacion-contenido { padding: 20px 16px; }
+}

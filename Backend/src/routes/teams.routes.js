@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
+const { puedeVerPrivado, exigirGestion, esDeOtraAsociacion } = require('../utils/ambito');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
@@ -49,11 +50,28 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   if (status) query = query.eq('status', status);
-  if (q) query = query.ilike('name', `%${q}%`);
+  if (q) query = query.ilike('name', `%${String(q).replace(/[%_\\]/g, ' ').trim().slice(0, 80)}%`);
 
   const { data, error } = await query;
   const err = fromSupabase(error);
   if (err) throw err;
+
+  // Con sesión (FECOVOL o la propia asociación) se agrega cuántos integrantes activos tiene cada
+  // equipo: lo usan "Mis equipos" y el panel del representante.
+  if (puedeVerPrivado(scope) && data.length) {
+    const { data: miembros } = await supabase
+      .from('team_members')
+      .select('team_id, member_type')
+      .in('team_id', data.map((t) => t.id))
+      .eq('status', 'ACTIVO');
+    const conteo = {};
+    for (const m of miembros || []) {
+      conteo[m.team_id] = conteo[m.team_id] || { jugadores: 0, tecnicos: 0 };
+      if (m.member_type === 'JUGADOR') conteo[m.team_id].jugadores += 1;
+      else conteo[m.team_id].tecnicos += 1;
+    }
+    return res.json({ data: data.map((t) => ({ ...t, ...(conteo[t.id] || { jugadores: 0, tecnicos: 0 }) })) });
+  }
 
   res.json({ data });
 }));
@@ -88,9 +106,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para registrar equipos.');
-  }
+  exigirGestion(scope, 'registrar equipos');
 
   let targetAssociationId = req.body.association_id;
 
@@ -141,9 +157,7 @@ router.post('/', asyncHandler(async (req, res) => {
 router.patch('/:id', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para modificar equipos.');
-  }
+  exigirGestion(scope, 'modificar equipos');
 
   // Verificar pertenencia del equipo antes de mutar
   const { data: equipoActual } = await supabase
@@ -223,7 +237,7 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
 
   // Clasificación de visibilidad (RF-SEG-011 Criterio 2):
   // Si la petición es PÚBLICA, nunca expone document_number ni birth_date en el select de BD
-  const personSelect = scope.isPublic
+  const personSelect = !puedeVerPrivado(scope)
     ? 'persona:persons!team_members_person_id_fkey(id, first_name, last_name, is_verified)'
     : 'persona:persons!team_members_person_id_fkey(id, first_name, last_name, document_number, birth_date, is_verified)';
 
@@ -248,9 +262,7 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
 router.post('/:id/members', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para inscribir miembros en un equipo.');
-  }
+  exigirGestion(scope, 'inscribir integrantes');
 
   // Verificar pertenencia del equipo
   const { data: equipo } = await supabase
@@ -283,13 +295,13 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
   // Si es Asociación, verificar que la persona a inscribir pertenezca a su asociación o no tenga otra asociación asignada
   if (scope.isAssociation) {
     const { data: persona } = await supabase.from('persons').select('id, association_id, first_name, last_name').eq('id', person_id).single();
-    if (persona && persona.association_id && persona.association_id !== scope.organizationId) {
+    if (!persona || persona.association_id !== scope.organizationId) {
       await logDeniedAttempt({
         usuario: scope.userEmail,
         accion: 'ACCESO_DENEGADO',
         tabla: 'team_members',
         registroId: person_id,
-        motivo: `Intento de inscribir a persona afiliada a otra asociación (${persona.association_id})`,
+        motivo: `Intento de inscribir a una persona fuera de su asociación (${persona?.association_id || 'sin asociación o inexistente'})`,
         endpoint: `POST /api/teams/${req.params.id}/members`,
         ip: getClientIp(req),
         datosIntentados: req.body
@@ -318,9 +330,7 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
 router.delete('/members/:memberId', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para dar de baja a un integrante.');
-  }
+  exigirGestion(scope, 'dar de baja integrantes');
 
   // Si es Asociación, verificar que el integrante pertenezca a un equipo de su organización
   if (scope.isAssociation) {
@@ -330,7 +340,7 @@ router.delete('/members/:memberId', asyncHandler(async (req, res) => {
       .eq('id', req.params.memberId)
       .maybeSingle();
 
-    if (member?.team?.association_id && member.team.association_id !== scope.organizationId) {
+    if (!member?.team || member.team.association_id !== scope.organizationId) {
       await logDeniedAttempt({
         usuario: scope.userEmail,
         accion: 'ACCESO_DENEGADO',

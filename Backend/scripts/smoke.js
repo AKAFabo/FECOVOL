@@ -3,9 +3,19 @@
  * Levante el servidor (npm run dev) y ejecute: npm run smoke
  * Crea una asociacion de prueba, un equipo, una persona, la agrega a la nomina,
  * sube y revisa un documento, designa un arbitro y deja todo en estado consultable.
+ *
+ * Necesita la sesión de un Administrador: inicie sesión en el frontend, copie el access_token
+ * (DevTools > Application > Local Storage > sb-...-auth-token) y ejecútelo así:
+ *   SMOKE_TOKEN=<access_token> npm run smoke
+ * El token vence en una hora y no se guarda en ningún archivo.
  */
 const BASE = process.env.API_URL || 'http://localhost:4000';
-const USER = 'smoke@fecovol.cr';
+const TOKEN = process.env.SMOKE_TOKEN;
+if (!TOKEN) {
+  console.error('Falta SMOKE_TOKEN (access_token de una sesión de Administrador).');
+  process.exit(1);
+}
+const AUTH = { Authorization: `Bearer ${TOKEN}` };
 
 let ok = 0;
 let fail = 0;
@@ -13,7 +23,7 @@ let fail = 0;
 async function call(method, path, body) {
   const res = await fetch(BASE + path, {
     method,
-    headers: { 'Content-Type': 'application/json', 'x-user-email': USER },
+    headers: { 'Content-Type': 'application/json', ...AUTH },
     body: body ? JSON.stringify(body) : undefined
   });
   const json = await res.json().catch(() => ({}));
@@ -100,20 +110,30 @@ function check(nombre, condicion, extra) {
   check('nomina con 1 integrante', nomina.status === 200 && nomina.json.total === 1, nomina.json);
 
   console.log('\n5. Documentos');
-  const doc = await call('POST', '/api/documents', {
+  const subir = async (campos, contenido) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(campos)) f.append(k, v);
+    f.append('archivo', new Blob([contenido], { type: 'application/pdf' }), 'constancia.pdf');
+    const res = await fetch(BASE + '/api/documents', { method: 'POST', headers: AUTH, body: f });
+    return { status: res.status, json: await res.json().catch(() => ({})) };
+  };
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+  const doc = await subir({
     document_type_code: 'MED',
-    file_url: 'https://storage/prueba.pdf',
-    file_name: 'constancia.pdf',
     person_id: personaId,
     expiry_date: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
-  });
+  }, pdf);
   check('subir documento', doc.status === 201, doc.json);
   const docId = doc.json.data && doc.json.data.id;
 
-  const malDoc = await call('POST', '/api/documents', {
-    document_type_code: 'MED', file_url: 'x', person_id: personaId, team_id: teamId
-  });
+  const archivo = await call('GET', `/api/documents/${docId}/archivo`);
+  check('enlace firmado del documento', archivo.status === 200 && /^https:/.test(archivo.json.data?.url || ''), archivo.json);
+
+  const malDoc = await subir({ document_type_code: 'MED', person_id: personaId, team_id: teamId }, pdf);
   check('rechaza documento con dos duenos', malDoc.status === 400, malDoc.json);
+
+  const falso = await subir({ document_type_code: 'MED', person_id: personaId }, Buffer.from('MZ no es un pdf'));
+  check('rechaza un archivo que no es PDF/JPG/PNG', falso.status === 415, falso.json);
 
   const revisado = await call('PATCH', `/api/documents/${docId}/review`, { status: 'VIGENTE' });
   check('revisar documento', revisado.status === 200 && revisado.json.data.status === 'VIGENTE', revisado.json);

@@ -189,8 +189,10 @@ router.get('/values/:valueId/dependencies', asyncHandler(async (req, res) => {
 
 // PUT /api/catalogs/values/:valueId -> Editar valor existente (código, valor/etiqueta, descripción, estado)
 router.put('/values/:valueId', authorize(['Administrador', 'Personal']), asyncHandler(async (req, res) => {
-  const { code, value, description, is_active, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { code, value, description, is_active } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (!code || !code.trim() || !value || !value.trim()) {
     throw new HttpError(400, 'El código y el valor/etiqueta son obligatorios.');
@@ -246,7 +248,7 @@ router.put('/values/:valueId', authorize(['Administrador', 'Personal']), asyncHa
 
 // PATCH /api/catalogs/values/:valueId/toggle -> Activar / Desactivar valor con validación de dependencias (RF-AUD-002)
 router.patch('/values/:valueId/toggle', authorize(['Administrador', 'Personal']), asyncHandler(async (req, res) => {
-  const usuario = req.authorizedUser?.email || req.body?.admin_email || req.header('x-user-email') || 'Administrador';
+  const usuario = req.authorizedUser?.email || req.currentUser;
   const { confirm_deactivation } = req.body || {};
 
   const { data: actual, error: errActual } = await supabase
@@ -311,8 +313,10 @@ router.patch('/values/:valueId/toggle', authorize(['Administrador', 'Personal'])
 
 // POST /api/catalogs/:id/values -> Agregar valor al catálogo especificado
 router.post('/:id/values', authorize(['Administrador', 'Personal']), asyncHandler(async (req, res) => {
-  const { code, value, description, is_active, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { code, value, description, is_active } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (!code || !code.trim() || !value || !value.trim()) {
     throw new HttpError(400, 'El código y el valor/etiqueta son obligatorios.');
@@ -360,8 +364,10 @@ router.post('/:id/values', authorize(['Administrador', 'Personal']), asyncHandle
 
 // POST /api/catalogs -> Crear nuevo catálogo (RF-AUD-001)
 router.post('/', authorize(['Administrador', 'Personal']), asyncHandler(async (req, res) => {
-  const { name, description, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { name, description } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (!name || !name.trim()) {
     throw new HttpError(400, 'El nombre del catálogo es obligatorio.');
@@ -404,8 +410,10 @@ router.post('/', authorize(['Administrador', 'Personal']), asyncHandler(async (r
 
 // PUT /api/catalogs/:id -> Editar catálogo existente (nombre y descripción)
 router.put('/:id', authorize(['Administrador', 'Personal']), asyncHandler(async (req, res) => {
-  const { name, description, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { name, description } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (!name || !name.trim()) {
     throw new HttpError(400, 'El nombre del catálogo es obligatorio.');

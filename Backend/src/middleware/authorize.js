@@ -12,10 +12,18 @@ const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
  * @param {string} [options.requiredPermission] - Subruta requerida en role_permissions (ej. '/admin/usuarios', '/admin/listas-valores')
  * @param {boolean} [options.requireAdmin] - Si true, exige rol Administrador obligatoriamente
  * @param {string} [options.resourceTable] - Nombre de la tabla para registrar en la bitácora
+ *
+ * También acepta una lista de roles permitidos: authorize(['Administrador', 'Personal']).
+ * Antes esa forma se ignoraba en silencio (se desestructuraba como objeto) y dejaba pasar a
+ * cualquier usuario con perfil.
  */
-function authorize({ requiredPermission = null, requireAdmin = false, resourceTable = 'seguridad' } = {}) {
+function authorize(options = {}) {
+  const allowedRoles = Array.isArray(options) ? options.map((r) => String(r).toLowerCase()) : null;
+  const { requiredPermission = null, requireAdmin = false, resourceTable = 'seguridad' } = Array.isArray(options) ? {} : options;
   return async (req, res, next) => {
-    const callerEmail = req.header('x-user-email') || req.body?.admin_email || req.query?.admin_email;
+    // Identidad verificada por middleware/authenticate.js (token de Supabase), nunca un valor que
+    // mande el cliente.
+    const callerEmail = req.auth?.email;
     const ip = getClientIp(req);
     const endpoint = `${req.method} ${req.baseUrl || ''}${req.path || ''}`;
 
@@ -25,7 +33,7 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
         usuario: 'Anónimo / Sin encabezado',
         accion: 'ACCESO_DENEGADO',
         tabla: resourceTable,
-        motivo: 'Petición administrativa rechazada: No se proveyó correo de usuario en x-user-email ni admin_email',
+        motivo: 'Petición administrativa rechazada: la solicitud no trae una sesión válida',
         endpoint,
         ip,
         datosIntentados: req.method !== 'GET' ? req.body : null
@@ -112,6 +120,32 @@ function authorize({ requiredPermission = null, requireAdmin = false, resourceTa
           organizationId: profile.organization_id || null
         };
         return next();
+      }
+
+      // Lista de roles permitidos: basta con tener uno de ellos.
+      if (allowedRoles) {
+        if (roleNames.some((r) => allowedRoles.includes(r.toLowerCase()))) {
+          req.authorizedUser = {
+            id: profile.id,
+            email: emailLimpio,
+            isAdmin: false,
+            roles: roleNames,
+            roleIds,
+            organizationId: profile.organization_id || null
+          };
+          return next();
+        }
+        await logDeniedAttempt({
+          usuario: emailLimpio,
+          accion: 'ACCESO_DENEGADO',
+          tabla: resourceTable,
+          registroId: profile.id,
+          motivo: `Operación reservada a [${allowedRoles.join(', ')}]. Roles del usuario: [${roleNames.join(', ')}]`,
+          endpoint,
+          ip,
+          datosIntentados: req.method !== 'GET' ? req.body : null
+        });
+        return next(new HttpError(403, 'Acceso denegado: Su rol no tiene permiso para esta operación.'));
       }
 
       // Si se requería específicamente rol Administrador y no lo es

@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
+const { puedeVerPrivado, exigirGestion, esDeOtraAsociacion } = require('../utils/ambito');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
@@ -30,7 +31,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
   // Selección de proyección según clasificación de visibilidad (RF-SEG-011)
-  const baseProjection = scope.isPublic ? SELECT_PERSON_PUBLIC : SELECT_PERSON;
+  const baseProjection = puedeVerPrivado(scope) ? SELECT_PERSON : SELECT_PERSON_PUBLIC;
 
   // Con role se usa un join interno para filtrar en la base de datos y no en memoria.
   const select = role
@@ -69,7 +70,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   if (q) {
     // Búsqueda delimitada por clasificación: el público NUNCA busca por número de cédula/documento
-    if (scope.isPublic) {
+    if (!puedeVerPrivado(scope)) {
       query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
     } else {
       query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,document_number.ilike.%${q}%`);
@@ -80,6 +81,28 @@ router.get('/', asyncHandler(async (req, res) => {
   const err = fromSupabase(error);
   if (err) throw err;
 
+  // Equipos en los que participa cada persona (nómina activa), cuando se consulta una asociación
+  // concreta con sesión: lo usa la pantalla "Personas" del representante.
+  const asociacionConsultada = scope.isAssociation ? scope.organizationId : (scope.isAdmin ? association_id : null);
+  if (asociacionConsultada && data.length) {
+    const { data: nominas } = await supabase
+      .from('team_members')
+      .select('person_id, member_type, technical_role, equipo:teams!inner(id, name, short_name, association_id)')
+      .eq('status', 'ACTIVO')
+      .eq('equipo.association_id', asociacionConsultada);
+    const porPersona = {};
+    for (const n of nominas || []) {
+      (porPersona[n.person_id] = porPersona[n.person_id] || []).push({
+        id: n.equipo.id,
+        name: n.equipo.name,
+        short_name: n.equipo.short_name,
+        member_type: n.member_type,
+        technical_role: n.technical_role
+      });
+    }
+    return res.json({ data: data.map((p) => ({ ...p, equipos: porPersona[p.id] || [] })), total: count ?? data.length });
+  }
+
   res.json({ data, total: count ?? data.length });
 }));
 
@@ -88,14 +111,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
   // Selección de proyección según clasificación
-  const projection = scope.isPublic ? SELECT_PERSON_PUBLIC : SELECT_PERSON;
+  const projection = puedeVerPrivado(scope) ? SELECT_PERSON : SELECT_PERSON_PUBLIC;
 
   const { data, error } = await supabase.from('persons').select(projection).eq('id', req.params.id).single();
   const err = fromSupabase(error, 'Persona');
   if (err) throw err;
 
   // Validación de acceso directo por ID para representantes de asociación (RF-SEG-011)
-  if (scope.isAssociation && data.association_id && data.association_id !== scope.organizationId) {
+  if (esDeOtraAsociacion(scope, data.association_id)) {
     await logDeniedAttempt({
       usuario: scope.userEmail,
       accion: 'ACCESO_DENEGADO',
@@ -118,7 +141,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   // Clasificación de visibilidad: Documentos de respaldo (RF-SEG-011 Criterio 2)
   // "Un usuario público no obtiene datos personales ni documentos de respaldo por ninguna vía"
   let documentos = [];
-  if (!scope.isPublic) {
+  if (puedeVerPrivado(scope)) {
     const { data: docs } = await supabase
       .from('documents')
       .select('id, status, issue_date, expiry_date, file_name, tipo:catalog_values!documents_document_type_value_id_fkey(code, value)')
@@ -133,9 +156,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para registrar personas.');
-  }
+  exigirGestion(scope, 'registrar personas');
 
   const { document_type_code, document_number, first_name, last_name, birth_date } = req.body;
 
@@ -199,14 +220,12 @@ router.post('/', asyncHandler(async (req, res) => {
 router.patch('/:id', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para modificar personas.');
-  }
+  exigirGestion(scope, 'modificar personas');
 
   // Validar pertenencia al ámbito antes de mutar
   const { data: personaActual } = await supabase
     .from('persons')
-    .select('id, association_id, first_name, last_name')
+    .select('id, association_id, first_name, last_name, is_verified')
     .eq('id', req.params.id)
     .single();
 
@@ -214,7 +233,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Persona no encontrada.');
   }
 
-  if (scope.isAssociation && personaActual.association_id && personaActual.association_id !== scope.organizationId) {
+  if (esDeOtraAsociacion(scope, personaActual.association_id)) {
     await logDeniedAttempt({
       usuario: scope.userEmail,
       accion: 'ACCESO_DENEGADO',
@@ -229,19 +248,23 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   }
 
   const b = req.body;
+  // Con la identidad ya verificada por FECOVOL, el nombre, la fecha de nacimiento y el sexo solo
+  // los corrige FECOVOL: si no, la verificación dejaría de corresponder al documento.
+  const identidadLibre = scope.isAdmin || !personaActual.is_verified;
 
   const { error } = await supabase.rpc('sp_update_person', {
     p_id: req.params.id,
     p_admin_user: req.currentUser,
-    p_first_name: b.first_name ?? null,
-    p_last_name: b.last_name ?? null,
-    p_birth_date: b.birth_date ?? null,
-    p_sex: b.sex ?? null,
+    p_first_name: identidadLibre ? (b.first_name ?? null) : null,
+    p_last_name: identidadLibre ? (b.last_name ?? null) : null,
+    p_birth_date: identidadLibre ? (b.birth_date ?? null) : null,
+    p_sex: identidadLibre ? (b.sex ?? null) : null,
     p_email: b.email ?? null,
     p_phone: b.phone ?? null,
     p_province: b.province ?? null,
     p_emergency_contact: b.emergency_contact ?? null,
-    p_status: b.status ?? null
+    // Suspender o inactivar a una persona es decisión de FECOVOL, no de la asociación.
+    p_status: scope.isAdmin ? (b.status ?? null) : null
   });
 
   const err = fromSupabase(error, 'Persona');
@@ -284,9 +307,7 @@ router.post('/:id/verify', asyncHandler(async (req, res) => {
 router.post('/:id/roles', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación.');
-  }
+  exigirGestion(scope, 'asignar roles');
 
   const { role_type } = req.body;
   const is_active = req.body.is_active !== false;
@@ -305,7 +326,7 @@ router.post('/:id/roles', asyncHandler(async (req, res) => {
       .eq('id', req.params.id)
       .single();
 
-    if (persona && persona.association_id && persona.association_id !== scope.organizationId) {
+    if (!persona || persona.association_id !== scope.organizationId) {
       await logDeniedAttempt({
         usuario: scope.userEmail,
         accion: 'ACCESO_DENEGADO',

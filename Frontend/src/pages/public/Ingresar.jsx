@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo.jsx';
 import './Ingresar.css';
 import { supabase } from '../../supabaseClient.js';
+import { URL_BACKEND } from '../../services/backend.js';
 import { evaluarPoliticaPassword } from '../../utils/passwordPolicy.js';
 import IndicadorPoliticaPassword from '../../components/IndicadorPoliticaPassword.jsx';
 
@@ -96,7 +97,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
     try {
       // 0. Comprobar bloqueo temporal tras 5 intentos fallidos consecutivos (RF-SEG-001)
       try {
-        const resLock = await fetch('http://localhost:4000/api/users/check-lockout', {
+        const resLock = await fetch(`${URL_BACKEND}/api/users/check-lockout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: emailLimpio })
@@ -120,7 +121,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
         // Registrar intento fallido en Backend (RF-SEG-001)
         let msgBloqueo = null;
         try {
-          const resFail = await fetch('http://localhost:4000/api/users/record-failed-login', {
+          const resFail = await fetch(`${URL_BACKEND}/api/users/record-failed-login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: emailLimpio })
@@ -142,7 +143,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
 
         // Si la cuenta tiene contraseña pendiente de activación, informar al usuario
         try {
-          const res = await fetch('http://localhost:4000/api/users/check-pending', {
+          const res = await fetch(`${URL_BACKEND}/api/users/check-pending`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: emailLimpio })
@@ -163,7 +164,7 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
 
       // Reiniciar contador de intentos fallidos al tener éxito
       try {
-        await fetch('http://localhost:4000/api/users/record-successful-login', {
+        await fetch(`${URL_BACKEND}/api/users/record-successful-login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: emailLimpio })
@@ -372,7 +373,7 @@ function FormularioRecuperar({ onVolver, onContrasenaPendiente }) {
     setCargando(true);
     try {
       // 1. Llamar al backend para validar estado (no permite reactivar suspendidos) y actualizar a PENDIENTE_CONTRASENA
-      const res = await fetch('http://localhost:4000/api/users/request-password-reset', {
+      const res = await fetch(`${URL_BACKEND}/api/users/request-password-reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailLimpio })
@@ -584,7 +585,7 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
 
       // 5. Limpiar cualquier bloqueo temporal por intentos fallidos previos (Bypass seguro por correo)
       try {
-        await fetch('http://localhost:4000/api/users/record-successful-login', {
+        await fetch(`${URL_BACKEND}/api/users/record-successful-login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: session.user.email })

@@ -3,6 +3,7 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const authorize = require('../middleware/authorize');
+const { requireSession } = require('../middleware/authenticate');
 const { logDeniedAttempt, logFailedLogin, logSystemProcess, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
 
 const router = express.Router();
@@ -10,11 +11,13 @@ const router = express.Router();
 // POST /api/users/record-denied-attempt -> Registra en bitácora un intento denegado detectado por el frontend (RF-SEG-010)
 router.post('/record-denied-attempt', asyncHandler(async (req, res) => {
   const { email, subruta, motivo, user_id, rol } = req.body;
+  // Con sesión, el usuario de la bitácora es el del token; sin sesión, se anota como no verificado
+  // para que nadie pueda registrar intentos a nombre de otra persona.
   await logDeniedAttempt({
-    usuario: email || 'Usuario anónimo',
+    usuario: req.auth?.email || `No verificado (${String(email || 'anónimo').slice(0, 120)})`,
     accion: 'ACCESO_DENEGADO',
     tabla: 'rutas_sistema',
-    registroId: user_id || null,
+    registroId: req.auth?.userId || null,
     motivo: motivo || `Acceso denegado a "${subruta || 'subruta'}" desde el rol "${rol || 'Sin rol'}"`,
     endpoint: subruta || 'Navegación directa',
     ip: getAuditClientIp(req),
@@ -25,7 +28,9 @@ router.post('/record-denied-attempt', asyncHandler(async (req, res) => {
 
 // POST /api/users/invite -> Invita un usuario por correo usando Supabase Auth Admin
 router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'auth.users' }), asyncHandler(async (req, res) => {
-  const { email, full_name, role_id, role_ids, organization_id, status, admin_email } = req.body;
+  const { email, full_name, role_id, role_ids, organization_id, status } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
 
   if (!email || !full_name) {
     throw new HttpError(400, 'El correo y el nombre completo son obligatorios');
@@ -122,7 +127,9 @@ router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resour
 
 // POST /api/users/resend-password-link -> Reenvía enlace para definir/restablecer contraseña (RF-SEG-009)
 router.post('/resend-password-link', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'auth.users' }), asyncHandler(async (req, res) => {
-  const { user_id, email, admin_email } = req.body;
+  const { user_id, email } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
 
   if (!user_id && !email) {
     throw new HttpError(400, 'El ID de usuario o el correo electrónico son obligatorios');
@@ -390,13 +397,11 @@ router.post('/record-failed-login', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/users/record-successful-login -> Reinicia el contador tras autenticación correcta
-router.post('/record-successful-login', asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  if (!email || typeof email !== 'string') {
-    return res.json({ success: true });
-  }
-
-  const emailLimpio = email.trim().toLowerCase();
+// Exige la sesión recién abierta y usa su correo: si aceptara cualquier correo en el cuerpo, un
+// atacante podría borrar el contador de intentos fallidos de otra cuenta y seguir probando
+// contraseñas sin que se bloquee.
+router.post('/record-successful-login', requireSession, asyncHandler(async (req, res) => {
+  const emailLimpio = req.auth.email;
   const ip = getClientIp(req);
   const cacheKey = `${emailLimpio}::${ip}`;
 
@@ -530,11 +535,14 @@ router.post('/request-password-reset', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/users/establish-password -> Permite establecer la contraseña de una cuenta con contraseña pendiente
-router.post('/establish-password', asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+// Exige la sesión que abre el enlace del correo: sin ella, cualquiera que conociera el correo de
+// una cuenta pendiente podía ponerle contraseña y quedarse con la cuenta.
+router.post('/establish-password', requireSession, asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const email = req.auth.email;
 
-  if (!email || !password) {
-    throw new HttpError(400, 'El correo y la nueva contraseña son obligatorios');
+  if (!password || typeof password !== 'string') {
+    throw new HttpError(400, 'La nueva contraseña es obligatoria');
   }
 
   if (password.length < 6) {
@@ -545,7 +553,7 @@ router.post('/establish-password', asyncHandler(async (req, res) => {
   const { data: profile, error: errProfile } = await supabase
     .from('user_profiles')
     .select('id, email, status, organization_id, roles(name)')
-    .ilike('email', email.trim())
+    .eq('id', req.auth.userId)
     .maybeSingle();
 
   if (errProfile || !profile) {
@@ -589,6 +597,41 @@ router.post('/establish-password', asyncHandler(async (req, res) => {
   res.status(200).json({
     message: 'Contraseña establecida exitosamente',
     data: { id: profile.id, email: profile.email }
+  });
+}));
+
+// GET /api/users/me -> Perfil de quien tiene la sesión: nombre, rol activo y organización.
+// Lo usan los entornos con sesión (representante, árbitro) para saber qué asociación administra.
+router.get('/me', requireSession, asyncHandler(async (req, res) => {
+  const { data: profile, error } = await supabase
+    .from('user_profiles')
+    .select('id, email, full_name, status, role_id, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
+    .eq('id', req.auth.userId)
+    .maybeSingle();
+  if (error) throw new HttpError(500, 'No fue posible consultar su perfil.');
+  if (!profile) throw new HttpError(404, 'Su cuenta no tiene un perfil en el sistema. Contacte a FECOVOL.');
+
+  let organizacion = null;
+  if (profile.organization_id) {
+    const { data: aso } = await supabase
+      .from('associations')
+      .select('id, name, short_name, status')
+      .eq('id', profile.organization_id)
+      .maybeSingle();
+    organizacion = aso || null;
+  }
+
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    data: {
+      id: profile.id,
+      email: profile.email,
+      full_name: profile.full_name,
+      status: profile.status,
+      role_id: profile.role_id,
+      rol: profile.roles?.name || null,
+      organizacion
+    }
   });
 }));
 
@@ -662,7 +705,9 @@ router.get('/', authorize({ requiredPermission: '/admin/usuarios', resourceTable
 // PUT /api/users/:id -> Actualiza perfil de usuario y gestiona múltiples roles (RF-SEG-006 / RF-SEG-010)
 router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'user_profiles' }), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { full_name, role_id, role_ids, organization_id, status, admin_email } = req.body;
+  const { full_name, role_id, role_ids, organization_id, status } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
 
   // 1. Consultar estado previo para detectar cambios sensibles (rol o estado)
   const { data: usuarioPrevio } = await supabase
@@ -879,11 +924,13 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
 }));
 
 // POST /api/users/switch-active-role -> Permite al usuario cambiar su visualización / rol activo (RF-SEG-006 / RF-SEG-010)
-router.post('/switch-active-role', asyncHandler(async (req, res) => {
-  const { user_id, role_id } = req.body;
+// Solo el propio usuario cambia su rol activo: el id sale del token, no del cuerpo.
+router.post('/switch-active-role', requireSession, asyncHandler(async (req, res) => {
+  const { role_id } = req.body;
+  const user_id = req.auth.userId;
 
-  if (!user_id || !role_id) {
-    throw new HttpError(400, 'user_id y role_id son requeridos');
+  if (!role_id) {
+    throw new HttpError(400, 'role_id es requerido');
   }
 
   // Verificar cuenta en user_profiles
@@ -964,8 +1011,12 @@ router.post('/switch-active-role', asyncHandler(async (req, res) => {
 
 // POST /api/users/logout-audit -> Registra en audit_logs el evento de cierre de sesión
 router.post('/logout-audit', asyncHandler(async (req, res) => {
-  const { user_id, email, full_name, razon } = req.body;
-  const usuario = email || 'Usuario';
+  const { full_name, razon } = req.body;
+  // El cierre se registra a nombre del usuario del token. Si la sesión ya venció (por ejemplo, un
+  // cierre por inactividad), se anota el correo informado marcado como no verificado.
+  const email = req.auth?.email || null;
+  const user_id = req.auth?.userId || null;
+  const usuario = email || `No verificado (${String(req.body.email || 'usuario').slice(0, 120)})`;
 
   const { data, error } = await supabase
     .from('audit_logs')
@@ -995,8 +1046,12 @@ router.post('/logout-audit', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/users/sessions/:userId -> Consulta sesiones activas de un usuario (RF-SEG-003, RF-SEG-007)
-router.get('/sessions/:userId', asyncHandler(async (req, res) => {
+router.get('/sessions/:userId', requireSession, asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  // Cada usuario ve solo sus propias sesiones (IP y navegador son datos personales).
+  if (userId !== req.auth.userId) {
+    throw new HttpError(403, 'Solo puede consultar sus propias sesiones.');
+  }
 
   let sessions = [];
   try {
@@ -1026,12 +1081,11 @@ router.get('/sessions/:userId', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/users/revoke-other-sessions -> Cierra otras sesiones abiertas (RF-SEG-007)
-router.post('/revoke-other-sessions', asyncHandler(async (req, res) => {
-  const { user_id, current_session_id, email } = req.body;
-
-  if (!user_id) {
-    throw new HttpError(400, 'El user_id es obligatorio');
-  }
+router.post('/revoke-other-sessions', requireSession, asyncHandler(async (req, res) => {
+  const { current_session_id } = req.body;
+  // Solo se cierran las sesiones del propio usuario del token.
+  const user_id = req.auth.userId;
+  const email = req.auth.email;
 
   try {
     await supabase.rpc('fn_revoke_other_sessions', {
