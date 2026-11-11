@@ -11,6 +11,9 @@ const personsRoutes = require('./routes/persons.routes');
 const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
+const competitionsRoutes = require('./routes/competitions.routes');
+const matchesRoutes = require('./routes/matches.routes');
+const publicRoutes = require('./routes/public.routes');
 const usersRoutes = require('./routes/users.routes');
 const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
@@ -42,12 +45,17 @@ app.get('/', (req, res) => {
   });
 });
 
+// Portal público: solo lectura, sin sesión (ver routes/public.routes.js).
+app.use('/api/public', publicRoutes);
+
 app.use('/api/associations', associationsRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/persons', personsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
+app.use('/api/competitions', competitionsRoutes);
+app.use('/api/matches', matchesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);

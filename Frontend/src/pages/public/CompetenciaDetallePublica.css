@@ -1,0 +1,306 @@
+.detalle-competencia {
+  flex: 1;
+  background: var(--fondo);
+}
+
+/* ----- Cabecera ----- */
+.detalle-competencia__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: #c2d3e7;
+  font-size: 15px;
+}
+
+/* ----- Pestañas ----- */
+.pestanas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--borde);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pestana {
+  position: relative;
+  flex: none;
+  padding: 12px 18px 14px;
+  border: 0;
+  background: none;
+  color: var(--texto-mudo);
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pestana:hover {
+  color: var(--texto);
+}
+
+.pestana--activa {
+  color: var(--azul);
+}
+
+.pestana--activa::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rojo);
+}
+
+.panel:focus-visible {
+  outline: none;
+  box-shadow: var(--sombra-foco);
+  border-radius: var(--radio);
+}
+
+/* ----- Tabla de posiciones ----- */
+.tabla-posiciones__marco {
+  overflow-x: auto;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.tabla-posiciones {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-posiciones th,
+.tabla-posiciones td {
+  padding: 13px 12px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.tabla-posiciones thead th {
+  background: var(--azul);
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tabla-posiciones abbr {
+  text-decoration: none;
+  cursor: help;
+}
+
+.tabla-posiciones tbody tr + tr {
+  border-top: 1px solid var(--linea);
+}
+
+.tabla-posiciones tbody tr:hover {
+  background: #f8fafc;
+}
+
+.tabla-posiciones__pos {
+  width: 56px;
+  color: var(--texto-mudo);
+  font-weight: 700;
+}
+
+.tabla-posiciones tbody .tabla-posiciones__equipo,
+.tabla-posiciones thead .tabla-posiciones__equipo {
+  text-align: left;
+}
+
+.tabla-posiciones tbody .tabla-posiciones__equipo {
+  text-align: left;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.tabla-posiciones td.tabla-posiciones__puntos {
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.nota-tabla {
+  margin-top: 12px;
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+/* ----- Partidos ----- */
+.jornadas {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.jornada {
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.jornada__titulo {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--linea);
+  background: #fafbfc;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.jornada__partidos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jornada__partidos--suelta {
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.partido-fila {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 200px;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 16px 20px;
+}
+
+.partido-fila + .partido-fila {
+  border-top: 1px solid var(--linea);
+}
+
+.partido-fila__cuando {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--texto-mudo);
+  font-size: 13.5px;
+}
+
+.partido-fila__cuando time {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.partido-fila__duelo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.partido-fila__equipo {
+  font-weight: 600;
+  font-size: 15.5px;
+  overflow-wrap: anywhere;
+}
+
+.partido-fila__equipo--local {
+  text-align: right;
+}
+
+.partido-fila__equipo--ganador {
+  color: var(--azul);
+  font-weight: 800;
+}
+
+.partido-fila__marcador {
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: var(--radio-sm);
+  background: var(--fondo);
+  color: var(--azul);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.partido-fila__vs {
+  color: var(--texto-tenue);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.partido-fila__extra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.partido-fila__sede {
+  color: var(--texto-mudo);
+  font-size: 13px;
+}
+
+.partido-fila__sets {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2 / 3;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--texto-cuerpo);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.partido-fila__set-numero {
+  color: var(--texto-tenue);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .partido-fila {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .partido-fila__duelo {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .partido-fila__extra {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .partido-fila__sets {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .pestana { padding: 12px 14px 14px; font-size: 14.5px; }
+  .partido-fila { padding: 14px 16px; }
+  .partido-fila__duelo { gap: 10px; }
+  .partido-fila__equipo { font-size: 14.5px; }
+  .partido-fila__marcador { min-width: 60px; font-size: 16px; }
+  .partido-fila__sede { display: none; }
+  .tabla-posiciones { min-width: 0; }
+  /* En teléfono se ocultan los sets para que la tabla quepa sin desplazamiento lateral. */
+  .tabla-posiciones__extra { display: none; }
+  .tabla-posiciones th,
+  .tabla-posiciones td { padding: 12px 8px; font-size: 14px; }
+}

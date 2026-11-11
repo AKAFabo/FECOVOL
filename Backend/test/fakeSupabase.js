@@ -9,7 +9,7 @@ function crearFake() {
     const registro = { tipo: 'from', tabla, pasos: [] };
     llamadas.push(registro);
     const b = {};
-    for (const m of ['select', 'eq', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'range']) {
+    for (const m of ['select', 'eq', 'in', 'is', 'not', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'maybeSingle', 'range']) {
       b[m] = (...args) => {
         registro.pasos.push([m, ...args]);
         return b;
