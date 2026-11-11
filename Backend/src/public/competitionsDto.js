@@ -190,22 +190,38 @@ function armarNomina(filasNomina = [], filasMiembros = []) {
    Partidos
    ---------------------------------------------------------------------------------------------- */
 
+// Resultados especiales que registra el personal de competencias (módulo de resultados). Se
+// publican con un texto para el público; el resto de los valores internos no sale del backend.
+const RESULTADOS_ESPECIALES = {
+  NO_PRESENTADO_LOCAL: 'No presentación del local',
+  NO_PRESENTADO_VISITANTE: 'No presentación del visitante',
+  GANADO_POR_DEFECTO_LOCAL: 'Ganado por defecto (local)',
+  GANADO_POR_DEFECTO_VISITANTE: 'Ganado por defecto (visitante)',
+  SUSPENDIDO_DEFINITIVO: 'Suspendido definitivamente'
+};
+
+// Sets del marcador, o null si no hay (por ejemplo, un partido suspendido definitivamente).
+const setsMarcador = (valor) => (valor === null || valor === undefined ? null : entero(valor));
+
 // sets: filas de match_sets del partido. Solo se publican cuando el partido terminó, para no
 // mostrar marcadores parciales que todavía pueden corregirse.
 function aPartido(fila, sets = []) {
   const terminado = fila.status === 'FINALIZADO';
+  const especial = terminado ? RESULTADOS_ESPECIALES[fila.result_type] || null : null;
   return {
     id: fila.id,
     number: entero(fila.match_number),
     matchday: entero(fila.matchday),
     date: fila.scheduled_date || null,
     time: fila.scheduled_time ? String(fila.scheduled_time).slice(0, 5) : null,
-    venue: texto(fila.venue),
+    // La sede sale del catálogo "Sedes" (antes era texto libre en matches.venue).
+    venue: texto(fila.sede?.value ?? fila.venue),
     status: fila.status,
     home: aEquipo(fila.local),
     away: aEquipo(fila.visitante),
-    home_sets: terminado ? entero(fila.home_sets_won) : null,
-    away_sets: terminado ? entero(fila.away_sets_won) : null,
+    home_sets: terminado ? setsMarcador(fila.home_sets_won) : null,
+    away_sets: terminado ? setsMarcador(fila.away_sets_won) : null,
+    special_result: especial,
     sets: terminado
       ? sets
           .map((s) => ({ number: entero(s.set_number), home: entero(s.home_points), away: entero(s.away_points) }))
@@ -222,9 +238,9 @@ function aPartido(fila, sets = []) {
 // que ya jugaron algún partido; aquí los demás aparecen con cero para que la tabla esté completa
 // desde la primera jornada.
 //
-// Orden: puntos, luego sets ganados (el mismo criterio que usa GET /api/competitions/:id/standings)
-// y al final el nombre, solo para que el orden sea estable. Las reglas oficiales de desempate
-// siguen pendientes (decisión DP-01 del SAD); cuando se definan, se cambian en un solo lugar.
+// Orden: puntos, cociente de sets y cociente de puntos, el mismo criterio que usa el módulo de
+// competencias (GET /api/reports/team-stats, vista v_standings), y al final el nombre, solo para
+// que el orden sea estable.
 function armarPosiciones(inscritos, filasVista) {
   const porEquipo = new Map();
 
@@ -238,7 +254,9 @@ function armarPosiciones(inscritos, filasVista) {
       lost: 0,
       sets_won: 0,
       sets_lost: 0,
-      points: 0
+      points: 0,
+      ratio_sets: 0,
+      ratio_puntos: 0
     });
   }
 
@@ -252,16 +270,20 @@ function armarPosiciones(inscritos, filasVista) {
     fila.sets_won = entero(f.sets_won);
     fila.sets_lost = entero(f.sets_lost);
     fila.points = entero(f.total_points);
+    fila.ratio_sets = Number.isFinite(Number(f.ratio_sets)) ? Number(f.ratio_sets) : 0;
+    fila.ratio_puntos = Number.isFinite(Number(f.ratio_puntos)) ? Number(f.ratio_puntos) : 0;
   }
 
   return [...porEquipo.values()]
     .toSorted(
       (a, b) =>
         b.points - a.points ||
-        b.sets_won - a.sets_won ||
+        b.ratio_sets - a.ratio_sets ||
+        b.ratio_puntos - a.ratio_puntos ||
         (a.team.name || '').localeCompare(b.team.name || '', 'es')
     )
-    .map((fila, i) => ({ position: i + 1, ...fila }));
+    // Los cocientes solo sirven para ordenar; la tabla pública muestra puntos y sets.
+    .map(({ ratio_sets: _rs, ratio_puntos: _rp, ...fila }, i) => ({ position: i + 1, ...fila }));
 }
 
 /* ----------------------------------------------------------------------------------------------
@@ -323,7 +345,10 @@ const promedio = (total, cantidad) => (cantidad ? Math.round((total / cantidad) 
 // posiciones: salida de armarPosiciones() (da el orden y la lista de equipos inscritos).
 // partidos: salida de aPartido() de todos los partidos de la competencia.
 function armarEstadisticas(posiciones, partidos) {
-  const jugados = partidos.filter((p) => p.status === 'FINALIZADO' && p.home && p.away).toSorted(cronologico);
+  // Un partido suspendido definitivamente no tiene marcador: no suma a las estadísticas.
+  const jugados = partidos
+    .filter((p) => p.status === 'FINALIZADO' && p.home && p.away && p.home_sets !== null && p.away_sets !== null)
+    .toSorted(cronologico);
   const validos = partidos.filter((p) => p.status !== 'CANCELADO');
   const porEquipo = new Map(posiciones.map((f) => [f.team.id, filaEstadistica(f)]));
 
