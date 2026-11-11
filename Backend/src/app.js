@@ -11,10 +11,13 @@ const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const usersRoutes = require('./routes/users.routes');
+const newsRoutes = require('./routes/news.routes');
 
 const app = express();
 
 app.use(cors());
+// El cuerpo de una noticia puede traer imagenes incrustadas por el editor.
+app.use('/api/news', express.json({ limit: '25mb' }));
 app.use(express.json());
 app.use(currentUser);
 
@@ -29,7 +32,8 @@ app.get('/', (req, res) => {
       '/api/documents',
       '/api/referee-assignments',
       '/api/catalogs',
-      '/api/users'
+      '/api/users',
+      '/api/news'
     ]
   });
 });
@@ -41,6 +45,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/news', newsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

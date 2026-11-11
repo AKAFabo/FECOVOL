@@ -481,3 +481,9 @@
   line-height: 1.6;
   color: var(--texto-suave);
 }
+
+.redactar-error {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: var(--rojo);
+}

@@ -53,3 +53,16 @@
   background-color: var(--neutro-fondo);
   color: var(--neutro);
 }
+
+/* Mensajes de la tabla */
+.noticias-error {
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+  color: var(--rojo);
+}
+
+.noticias-vacio {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--texto-mudo);
+}

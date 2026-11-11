@@ -9,7 +9,7 @@ function crearFake() {
     const registro = { tipo: 'from', tabla, pasos: [] };
     llamadas.push(registro);
     const b = {};
-    for (const m of ['select', 'eq', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'range']) {
+    for (const m of ['select', 'eq', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'range', 'maybeSingle', 'update', 'is', 'neq', 'gt', 'like']) {
       b[m] = (...args) => {
         registro.pasos.push([m, ...args]);
         return b;
@@ -23,7 +23,7 @@ function crearFake() {
     return b;
   }
 
-  return {
+  const fake = {
     llamadas,
     alResponderTabla(tabla, ...respuestas) {
       respuestasTabla[tabla] = respuestas;
@@ -36,12 +36,19 @@ function crearFake() {
       for (const k of Object.keys(respuestasTabla)) delete respuestasTabla[k];
       for (const k of Object.keys(respuestasRpc)) delete respuestasRpc[k];
     },
+    // Sesion falsa: la prueba decide que usuario devuelve el token.
+    usuarioAuth: null,
+    auth: {
+      getUser: async () =>
+        fake.usuarioAuth ? { data: { user: fake.usuarioAuth }, error: null } : { data: { user: null }, error: { message: 'invalid' } }
+    },
     from: builder,
     rpc(nombre, params) {
       llamadas.push({ tipo: 'rpc', nombre, params });
       return Promise.resolve(respuestasRpc[nombre] || { data: null, error: null });
     }
   };
+  return fake;
 }
 
 module.exports = crearFake;

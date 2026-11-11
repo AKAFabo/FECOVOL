@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import '../AdminCommon.css';
 import './RedactarNoticia.css';
 import EditorTexto from './EditorTexto.jsx';
 import RecorteImagen from './RecorteImagen.jsx';
-import { obtenerNoticia } from './noticiasDatos.js';
+import { guardarNoticia, listarCompetencias, obtenerNoticia, retirarNoticia } from './noticiasDatos.js';
 
 const NOTICIA_VACIA = {
   titulo: '',
   bajada: '',
   cuerpo: '',
   estado: 'BORRADOR',
-  categoria: '',
   fechaPublicacion: '',
-  competencia: '',
-  etiquetas: [],
+  competenciaId: '',
   destacada: false,
   textoAlternativo: ''
 };
@@ -22,10 +20,9 @@ const NOTICIA_VACIA = {
 const ESTADOS = [
   { valor: 'BORRADOR', texto: 'Borrador', clase: 'badge-status--borrador' },
   { valor: 'PROGRAMADA', texto: 'Programada', clase: 'badge-status--programada' },
-  { valor: 'PUBLICADA', texto: 'Publicada', clase: 'badge-status--activa' }
+  { valor: 'PUBLICADA', texto: 'Publicada', clase: 'badge-status--activa' },
+  { valor: 'ARCHIVADA', texto: 'Archivada', clase: 'badge-status--inactivo' }
 ];
-const CATEGORIAS = ['Liga Superior', 'Selecciones', 'Competencias', 'Arbitraje', 'Voleibol de playa'];
-const COMPETENCIAS = ['Liga Superior Femenina 2026', 'Liga Superior Masculina 2026', 'Campeonato Nacional U-19'];
 
 // Misma proporción que el bloque grande de noticias de la portada (Inicio.css).
 const ASPECTO_IMAGEN = 744 / 330;
@@ -43,12 +40,15 @@ const aFormulario = (guardada) =>
 // Sirve para redactar (/admin/noticias/redactar) y para editar (/admin/noticias/:id/editar).
 export default function RedactarNoticia() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const esEdicion = Boolean(id);
   const [cargando, setCargando] = useState(esEdicion);
   const [noEncontrada, setNoEncontrada] = useState(false);
 
   const [noticia, setNoticia] = useState(NOTICIA_VACIA);
-  const [nuevaEtiqueta, setNuevaEtiqueta] = useState('');
+  const [competencias, setCompetencias] = useState([]);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
 
   // Imagen destacada: archivo original + recorte aplicado (blob listo para subir).
   const [imagen, setImagen] = useState(null); // { archivo, urlOriginal, blob, url, recorte } | null
@@ -79,7 +79,10 @@ export default function RedactarNoticia() {
     setNoEncontrada(false);
     setNoticia(NOTICIA_VACIA);
     setImagen(null);
-    obtenerNoticia(id).then((guardada) => {
+    obtenerNoticia(id).catch((e) => {
+      if (!cancelado) setError(e.message);
+      return null;
+    }).then((guardada) => {
       if (cancelado) return;
       if (!guardada) {
         setNoEncontrada(true);
@@ -100,25 +103,55 @@ export default function RedactarNoticia() {
   const actualizar = (campo) => (e) => setNoticia((n) => ({ ...n, [campo]: e.target.value }));
   const estadoActual = ESTADOS.find((e) => e.valor === noticia.estado);
 
-  // ── Etiquetas ──────────────────────────────────────────────
-  function agregarEtiqueta() {
-    const etiqueta = nuevaEtiqueta.trim().replace(/,$/, '');
-    if (etiqueta && !noticia.etiquetas.some((t) => t.toLowerCase() === etiqueta.toLowerCase())) {
-      setNoticia((n) => ({ ...n, etiquetas: [...n.etiquetas, etiqueta] }));
+  // Competencias para el select (viene del Backend).
+  useEffect(() => {
+    let cancelado = false;
+    listarCompetencias()
+      .then((lista) => !cancelado && setCompetencias(lista))
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // ── Guardar / publicar / retirar ───────────────────────────
+  async function guardar(estado) {
+    const aGuardar = { ...noticia, estado };
+
+    if (!aGuardar.titulo.trim()) {
+      setError('Escriba el título de la noticia.');
+      return;
     }
-    setNuevaEtiqueta('');
+    if (estado === 'PROGRAMADA' && !(new Date(aGuardar.fechaPublicacion) > new Date())) {
+      setError('Para programar la noticia indique una fecha de publicación futura.');
+      return;
+    }
+    // "Publicada" con una fecha futura quedaría programada: se publica desde ahora.
+    if (estado === 'PUBLICADA' && new Date(aGuardar.fechaPublicacion) > new Date()) {
+      aGuardar.fechaPublicacion = '';
+    }
+
+    setError('');
+    setGuardando(true);
+    try {
+      await guardarNoticia(id, aGuardar, imagen);
+      navigate('/admin/noticias');
+    } catch (e) {
+      setError(e.message);
+      setGuardando(false);
+    }
   }
 
-  function quitarEtiqueta(etiqueta) {
-    setNoticia((n) => ({ ...n, etiquetas: n.etiquetas.filter((t) => t !== etiqueta) }));
-  }
-
-  function teclaEtiqueta(e) {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      agregarEtiqueta();
-    } else if (e.key === 'Backspace' && !nuevaEtiqueta && noticia.etiquetas.length) {
-      quitarEtiqueta(noticia.etiquetas[noticia.etiquetas.length - 1]);
+  async function retirar() {
+    if (!window.confirm('¿Retirar esta noticia? Dejará de verse en el panel y en el sitio público.')) return;
+    setError('');
+    setGuardando(true);
+    try {
+      await retirarNoticia(id);
+      navigate('/admin/noticias');
+    } catch (e) {
+      setError(e.message);
+      setGuardando(false);
     }
   }
 
@@ -188,7 +221,7 @@ export default function RedactarNoticia() {
             <p>Cargando noticia…</p>
           ) : (
             <>
-              <p>No se encontró la noticia solicitada.</p>
+              <p>{error || 'No se encontró la noticia solicitada.'}</p>
               <Link to="/admin/noticias" className="admin-btn admin-btn--secondary">
                 Volver a noticias
               </Link>
@@ -212,15 +245,43 @@ export default function RedactarNoticia() {
         <div className="admin-page-header__actions">
           <button type="button" className="admin-btn admin-btn--secondary">Vista previa</button>
           {esEdicion ? (
-            <button type="button" className="admin-btn admin-btn--primary">Guardar cambios</button>
+            <>
+              <button type="button" className="admin-btn admin-btn--secondary" disabled={guardando} onClick={retirar}>
+                Retirar
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                disabled={guardando}
+                onClick={() => guardar(noticia.estado)}
+              >
+                {guardando ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </>
           ) : (
             <>
-              <button type="button" className="admin-btn admin-btn--secondary">Guardar borrador</button>
-              <button type="button" className="admin-btn admin-btn--primary">Publicar</button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--secondary"
+                disabled={guardando}
+                onClick={() => guardar('BORRADOR')}
+              >
+                Guardar borrador
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                disabled={guardando}
+                onClick={() => guardar(noticia.estado === 'PROGRAMADA' ? 'PROGRAMADA' : 'PUBLICADA')}
+              >
+                {guardando ? 'Guardando…' : noticia.estado === 'PROGRAMADA' ? 'Programar' : 'Publicar'}
+              </button>
             </>
           )}
         </div>
       </div>
+
+      {error && <p className="redactar-error" role="alert">{error}</p>}
 
       <div className="redactar-layout">
         {/* Columna principal */}
@@ -343,16 +404,6 @@ export default function RedactarNoticia() {
               </div>
 
               <div className="redactar-campo">
-                <label className="redactar-campo__etiqueta" htmlFor="noticia-categoria">Categoría</label>
-                <select id="noticia-categoria" className="admin-select redactar-campo__select" value={noticia.categoria} onChange={actualizar('categoria')}>
-                  <option value="">Seleccionar categoría…</option>
-                  {CATEGORIAS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="redactar-campo">
                 <label className="redactar-campo__etiqueta" htmlFor="noticia-fecha">Fecha de publicación</label>
                 <input
                   id="noticia-fecha"
@@ -365,38 +416,12 @@ export default function RedactarNoticia() {
 
               <div className="redactar-campo">
                 <label className="redactar-campo__etiqueta" htmlFor="noticia-competencia">Competencia relacionada</label>
-                <select id="noticia-competencia" className="admin-select redactar-campo__select" value={noticia.competencia} onChange={actualizar('competencia')}>
+                <select id="noticia-competencia" className="admin-select redactar-campo__select" value={noticia.competenciaId} onChange={actualizar('competenciaId')}>
                   <option value="">Ninguna</option>
-                  {COMPETENCIAS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                  {competencias.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
                 </select>
-              </div>
-
-              <div className="redactar-campo">
-                <label className="redactar-campo__etiqueta" htmlFor="noticia-etiquetas">Etiquetas</label>
-                {noticia.etiquetas.length > 0 && (
-                  <div className="redactar-etiquetas">
-                    {noticia.etiquetas.map((t) => (
-                      <span key={t} className="badge-status badge-status--borrador redactar-etiqueta">
-                        {t}
-                        <button type="button" aria-label={`Quitar etiqueta ${t}`} onClick={() => quitarEtiqueta(t)}>
-                          &times;
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <input
-                  id="noticia-etiquetas"
-                  type="text"
-                  className="admin-input redactar-campo__select"
-                  placeholder="Escriba y presione Enter"
-                  value={nuevaEtiqueta}
-                  onChange={(e) => setNuevaEtiqueta(e.target.value)}
-                  onKeyDown={teclaEtiqueta}
-                  onBlur={agregarEtiqueta}
-                />
               </div>
 
               <div className="redactar-destacar">
@@ -429,7 +454,7 @@ export default function RedactarNoticia() {
               ) : (
                 <div className="redactar-imagen redactar-imagen--mini" aria-hidden="true" />
               )}
-              <p className="antetitulo redactar-vista__categoria">{noticia.categoria || 'Sin categoría'}</p>
+              <p className="antetitulo redactar-vista__categoria">{competencias.find((c) => c.id === noticia.competenciaId)?.nombre || 'Noticias'}</p>
               <h3 className="redactar-vista__titulo">{noticia.titulo || 'Título de la noticia'}</h3>
               <time className="redactar-vista__fecha">{formatearFecha(noticia.fechaPublicacion)}</time>
             </div>

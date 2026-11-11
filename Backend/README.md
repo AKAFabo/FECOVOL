@@ -61,6 +61,16 @@ encabezado `x-user-email`. Si no viene, se registra como `sistema`.
 | GET | `/api/referee-assignments?match_id=&person_id=&status=` | Designaciones |
 | POST | `/api/referee-assignments` | Designar árbitro (`match_id`, `person_id`, `official_type_code`) |
 | PATCH | `/api/referee-assignments/:id` | Confirmar, rechazar, cumplir o anular |
+| GET | `/api/news?status=&author_id=&q=&page=&limit=` | Noticias del panel (`status` admite tambien `PROGRAMADA`) |
+| GET | `/api/news/summary` | Totales y autores para los filtros |
+| GET | `/api/news/competitions` | Competencias para relacionar una noticia |
+| GET | `/api/news/:id` | Detalle de la noticia |
+| POST | `/api/news` | Crear noticia (`title` obligatorio; borrador por defecto) |
+| PATCH | `/api/news/:id` | Editar, publicar, programar o archivar |
+| DELETE | `/api/news/:id` | Retirar (borrado logico) |
+| POST | `/api/news/cover` | Subir la imagen destacada (cuerpo binario JPG, PNG o WebP) |
+
+Las rutas de `/api/news` exigen `Authorization: Bearer <token de sesion de Supabase>` de un usuario con rol Administrador.
 
 ## Códigos de respuesta
 
