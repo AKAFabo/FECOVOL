@@ -179,6 +179,21 @@ export function useMensaje() {
   return [nodo, setMensaje];
 }
 
+/**
+ * Opciones para elegir la sede (catálogo "Sedes"). La sede se guarda por nombre; si la actual no
+ * está en el catálogo (por ejemplo, se escribió antes a mano), se conserva como opción.
+ */
+export function OpcionesSede({ sedes, actual }) {
+  const nombres = (sedes || []).map((s) => s.value);
+  return (
+    <>
+      <option value="">Sin sede asignada</option>
+      {actual && !nombres.includes(actual) && <option value={actual}>{actual}</option>}
+      {nombres.map((n) => <option key={n} value={n}>{n}</option>)}
+    </>
+  );
+}
+
 /** Selector de un catálogo ya cargado: [{ code, value }]. */
 export function OpcionesCatalogo({ valores, vacia }) {
   return (

@@ -21,8 +21,6 @@ const NAV = [
   { to: '/asociacion/equipos', texto: 'Mis equipos' },
   { to: '/asociacion/personas', texto: 'Personas' },
   { to: '/asociacion/documentos', texto: 'Documentos' },
-  { to: '/asociacion/inscripciones', texto: 'Inscripciones' },
-  { to: '/asociacion/calendario', texto: 'Calendario' },
   { to: '/asociacion/mi-asociacion', texto: 'Mi asociación' }
 ];
 

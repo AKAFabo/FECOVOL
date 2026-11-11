@@ -2,7 +2,7 @@
 // asociación. El nombre legal y la cédula jurídica solo los cambia FECOVOL.
 import { useState } from 'react';
 import { Cargando, ErrorCarga } from '../../components/EstadoContenido.jsx';
-import { Campo, Confirmar, Encabezado, Estado, Modal, Tarjeta, useMensaje } from '../../components/gestion/Gestion.jsx';
+import { Campo, Confirmar, Encabezado, Estado, Modal, OpcionesSede, Tarjeta, useMensaje } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import {
   actualizarAsociacion, agregarCargo, correoValido, editarCargo, listarDocumentos, obtenerAsociacion, terminarCargo, valoresCatalogo, PROVINCIAS
@@ -22,7 +22,12 @@ const ESTADO_ASOCIACION = {
 const CAMPOS = ['short_name', 'province', 'canton', 'email', 'phone', 'website', 'home_venue', 'address'];
 const datosDe = (a) => Object.fromEntries(CAMPOS.map((c) => [c, a[c] || '']));
 
+const CARGOS = ['Presidencia', 'Vicepresidencia', 'Secretaría', 'Tesorería', 'Fiscalía', 'Vocalía'];
+const OTRO = '__otro__';
+
 function CargoModal({ cargo, onCerrar, onGuardar }) {
+  const habitual = !cargo?.position || CARGOS.includes(cargo.position);
+  const [eleccion, setEleccion] = useState(habitual ? (cargo?.position || '') : OTRO);
   const [f, setF] = useState({ position: cargo?.position || '', full_name: cargo?.full_name || '', email: cargo?.email || '', phone: cargo?.phone || '' });
   const [errores, setErrores] = useState({});
   const [estado, setEstado] = useState({ guardando: false, error: null });
@@ -57,12 +62,29 @@ function CargoModal({ cargo, onCerrar, onGuardar }) {
     >
       {estado.error && <p className="g-aviso g-aviso--error" role="alert">{estado.error}</p>}
       <div className="g-formulario">
-        <Campo etiqueta="Cargo" obligatorio error={errores.position}>
-          {(a) => <input {...a} className="g-control" value={f.position} onChange={cambiar('position')} maxLength={80} list="cargos" data-autofoco />}
+        <Campo etiqueta="Cargo" obligatorio error={eleccion === OTRO ? undefined : errores.position}>
+          {(a) => (
+            <select
+              {...a}
+              className="g-control"
+              value={eleccion}
+              data-autofoco
+              onChange={(e) => {
+                setEleccion(e.target.value);
+                setF((x) => ({ ...x, position: e.target.value === OTRO ? '' : e.target.value }));
+              }}
+            >
+              <option value="">Elija…</option>
+              {CARGOS.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value={OTRO}>Otro cargo</option>
+            </select>
+          )}
         </Campo>
-        <datalist id="cargos">
-          {['Presidencia', 'Vicepresidencia', 'Secretaría', 'Tesorería', 'Fiscalía', 'Vocalía'].map((c) => <option key={c} value={c} />)}
-        </datalist>
+        {eleccion === OTRO && (
+          <Campo etiqueta="Nombre del cargo" obligatorio error={errores.position}>
+            {(a) => <input {...a} className="g-control" value={f.position} onChange={cambiar('position')} maxLength={80} />}
+          </Campo>
+        )}
         <Campo etiqueta="Nombre completo" obligatorio error={errores.full_name}>
           {(a) => <input {...a} className="g-control" value={f.full_name} onChange={cambiar('full_name')} maxLength={150} />}
         </Campo>
@@ -131,7 +153,7 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
 
       <div className="g-rejilla">
         <div className="g-columna">
-          <Tarjeta titulo="Datos generales" nota="Los cambios se guardan con el botón Guardar cambios.">
+          <Tarjeta titulo="Datos generales">
             <div className="g-tarjeta__cuerpo g-formulario">
               <Campo etiqueta="Nombre de la asociación" ayuda="Solo FECOVOL puede cambiar el nombre legal.">
                 {(a2) => <input {...a2} className="g-control" value={a.name} readOnly />}
@@ -161,10 +183,9 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
               </Campo>
               <Campo etiqueta="Gimnasio sede">
                 {(a2) => (
-                  <>
-                    <input {...a2} className="g-control" value={f.home_venue} onChange={cambiar('home_venue')} maxLength={120} list="sedes-aso" />
-                    <datalist id="sedes-aso">{sedes.map((s) => <option key={s.code} value={s.value} />)}</datalist>
-                  </>
+                  <select {...a2} className="g-control" value={f.home_venue} onChange={cambiar('home_venue')}>
+                    <OpcionesSede sedes={sedes} actual={a.home_venue} />
+                  </select>
                 )}
               </Campo>
               <Campo etiqueta="Dirección" ancho>
@@ -225,14 +246,6 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
               <div className="g-datos__fila"><dt>Rol</dt><dd>Representante de asociación</dd></div>
             </dl>
           </Tarjeta>
-          <p className="g-aviso g-aviso--ok">
-            <span className="g-aviso__titulo">Sin trámites</span>
-            La asociación actualiza aquí sus datos, equipos, personas y documentos. No hace falta enviar archivos a FECOVOL por otro medio.
-          </p>
-          <p className="g-aviso">
-            <span className="g-aviso__titulo">Qué revisa FECOVOL</span>
-            Solo el nombre legal y la cédula jurídica los cambia la Federación. Los documentos nuevos quedan en revisión.
-          </p>
         </div>
       </div>
 

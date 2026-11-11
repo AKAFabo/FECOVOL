@@ -4,7 +4,6 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Cargando } from '../../components/EstadoContenido.jsx';
 import AsociacionLayout from '../../layouts/AsociacionLayout.jsx';
-import EnDesarrollo from './EnDesarrollo.jsx';
 import Panel from './Panel.jsx';
 
 // Las pantallas se cargan al abrirlas: el portal público no descarga el código del entorno.
@@ -37,8 +36,6 @@ export default function AsociacionPanel() {
         <Route path="personas/:id" element={pagina(PersonaFicha)} />
         <Route path="documentos" element={pagina(Documentos)} />
         <Route path="mi-asociacion" element={pagina(MiAsociacion)} />
-        <Route path="inscripciones" element={<EnDesarrollo titulo="Inscripciones" />} />
-        <Route path="calendario" element={<EnDesarrollo titulo="Calendario" />} />
         <Route path="*" element={<Navigate to="/asociacion" replace />} />
       </Route>
     </Routes>

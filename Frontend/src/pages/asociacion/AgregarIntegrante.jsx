@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Campo, Estado, Modal, OpcionesCatalogo } from '../../components/gestion/Gestion.jsx';
-import { agregarIntegrante, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
+import { agregarIntegrante, coincidePersona, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
 import { RUTA } from './contexto.js';
 
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -29,7 +29,7 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
     const t = sinTildes(q.trim());
     if (t.length < 2) return [];
     return personas
-      .filter((p) => sinTildes(`${nombrePersona(p)} ${p.document_number || ''}`).includes(t))
+      .filter((p) => coincidePersona(p, q))
       .slice(0, 8);
   }, [personas, q]);
 

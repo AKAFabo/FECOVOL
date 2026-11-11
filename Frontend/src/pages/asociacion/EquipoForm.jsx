@@ -3,12 +3,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
-import { Campo, Encabezado, OpcionesCatalogo, Tarjeta } from '../../components/gestion/Gestion.jsx';
+import { Campo, Encabezado, OpcionesCatalogo, OpcionesSede, Tarjeta } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import { actualizarEquipo, crearEquipo, esId, obtenerEquipo, valoresCatalogo } from '../../services/representante.js';
 import { RUTA, useAsociacion } from './contexto.js';
-
-const COLOR = /^#[0-9a-f]{6}$/i;
 
 function inicial(equipo) {
   return {
@@ -18,8 +16,6 @@ function inicial(equipo) {
     branch_code: equipo?.rama?.code || '',
     modality_code: equipo?.modalidad?.code || '',
     home_venue: equipo?.home_venue || '',
-    primary_color: COLOR.test(equipo?.primary_color || '') ? equipo.primary_color : '#0e3b6b',
-    secondary_color: COLOR.test(equipo?.secondary_color || '') ? equipo.secondary_color : '#ffffff',
     status: equipo?.status || 'ACTIVO'
   };
 }
@@ -55,9 +51,7 @@ function Formulario({ equipo, catalogos, asociacion }) {
     const comunes = {
       name: f.name.trim(),
       short_name: f.short_name.trim() || null,
-      home_venue: f.home_venue.trim() || null,
-      primary_color: f.primary_color,
-      secondary_color: f.secondary_color
+      home_venue: f.home_venue || null
     };
     try {
       const guardado = nuevo
@@ -88,8 +82,7 @@ function Formulario({ equipo, catalogos, asociacion }) {
 
       {estado.error && <p className="g-aviso g-aviso--error" role="alert">{estado.error}</p>}
 
-      <div className="g-rejilla">
-        <div className="g-columna">
+      <div className="g-columna g-formulario-pagina">
           <Tarjeta titulo="Datos del equipo">
             <div className="g-tarjeta__cuerpo g-formulario">
               <Campo etiqueta="Nombre del equipo" obligatorio error={errores.name} ancho>
@@ -100,10 +93,9 @@ function Formulario({ equipo, catalogos, asociacion }) {
               </Campo>
               <Campo etiqueta="Gimnasio sede">
                 {(a) => (
-                  <>
-                    <input {...a} className="g-control" value={f.home_venue} onChange={cambiar('home_venue')} maxLength={120} list="sedes" autoComplete="off" />
-                    <datalist id="sedes">{catalogos.sedes.map((s) => <option key={s.code} value={s.value} />)}</datalist>
-                  </>
+                  <select {...a} className="g-control" value={f.home_venue} onChange={cambiar('home_venue')}>
+                    <OpcionesSede sedes={catalogos.sedes} actual={equipo?.home_venue} />
+                  </select>
                 )}
               </Campo>
               {!nuevo && (
@@ -144,24 +136,6 @@ function Formulario({ equipo, catalogos, asociacion }) {
               </Campo>
             </div>
           </Tarjeta>
-        </div>
-
-        <div className="g-columna">
-          <Tarjeta titulo="Colores">
-            <div className="g-tarjeta__cuerpo g-formulario">
-              <Campo etiqueta="Principal">
-                {(a) => <input {...a} type="color" className="g-control" value={f.primary_color} onChange={cambiar('primary_color')} />}
-              </Campo>
-              <Campo etiqueta="Secundario">
-                {(a) => <input {...a} type="color" className="g-control" value={f.secondary_color} onChange={cambiar('secondary_color')} />}
-              </Campo>
-            </div>
-          </Tarjeta>
-          <p className="g-aviso">
-            <span className="g-aviso__titulo">Después de guardar</span>
-            Arme la nómina desde la ficha del equipo: agregue jugadores y cuerpo técnico que ya estén registrados en Personas.
-          </p>
-        </div>
       </div>
     </form>
   );

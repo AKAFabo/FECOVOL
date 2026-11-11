@@ -4,8 +4,33 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 
+const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
+
 const router = express.Router();
 router.param('id', validateUuidParams);
+
+// Las designaciones traen la cédula del árbitro y deciden quién pita cada partido: por ahora solo
+// las consulta y modifica FECOVOL. Cuando exista la vista "Mis designaciones", el árbitro podrá
+// ver y confirmar las suyas.
+async function soloFecovol(req, res, next) {
+  const scope = req.userScope || { isPublic: true };
+  if (scope.isAdmin) return next();
+  if (!scope.isPublic) {
+    await logDeniedAttempt({
+      usuario: scope.userEmail,
+      accion: 'ACCESO_DENEGADO',
+      tabla: 'referee_assignments',
+      motivo: `Intento de ${req.method === 'GET' ? 'consultar' : 'modificar'} designaciones arbitrales sin permisos de FECOVOL`,
+      endpoint: `${req.method} ${req.baseUrl}${req.path}`,
+      ip: getClientIp(req),
+      datosIntentados: req.method === 'GET' ? req.query : req.body
+    });
+  }
+  next(new HttpError(scope.isPublic ? 401 : 403, scope.isPublic
+    ? 'Se requiere iniciar sesión para gestionar designaciones arbitrales.'
+    : 'Acceso denegado: Solo FECOVOL gestiona las designaciones arbitrales.'));
+}
+router.use(soloFecovol);
 
 const SELECT_ASSIGNMENT = `id, match_id, status, assigned_by, assigned_at, responded_at, notes,
   arbitro:persons!referee_assignments_person_id_fkey(id, first_name, last_name, document_number),

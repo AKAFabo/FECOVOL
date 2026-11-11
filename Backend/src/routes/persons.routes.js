@@ -158,7 +158,15 @@ router.post('/', asyncHandler(async (req, res) => {
 
   exigirGestion(scope, 'registrar personas');
 
-  const { document_type_code, document_number, first_name, last_name, birth_date } = req.body;
+  const { document_type_code, first_name, last_name, birth_date } = req.body;
+  // La cédula se guarda siempre como 1-2345-6789, aunque llegue sin guiones: así no se duplica
+  // a la misma persona por escribirla de dos formas.
+  let document_number = typeof req.body.document_number === 'string' ? req.body.document_number.trim() : req.body.document_number;
+  if (document_type_code === 'CED' && typeof document_number === 'string') {
+    const digitos = document_number.replace(/\D/g, '');
+    if (digitos.length !== 9) throw new HttpError(400, 'La cédula debe tener 9 dígitos.');
+    document_number = `${digitos[0]}-${digitos.slice(1, 5)}-${digitos.slice(5)}`;
+  }
 
   if (!document_type_code || !document_number || !first_name || !last_name || !birth_date) {
     throw new HttpError(400, 'document_type_code, document_number, first_name, last_name y birth_date son obligatorios');

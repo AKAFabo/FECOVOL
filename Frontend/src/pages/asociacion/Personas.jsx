@@ -4,10 +4,9 @@ import { Link } from 'react-router-dom';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
 import { Cifras, Encabezado, Estado } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
-import { estadoDocumento, listarDocumentos, listarEquipos, listarPersonas, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
+import { coincidePersona, estadoDocumento, listarDocumentos, listarEquipos, listarPersonas, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
 import { RUTA, useAsociacion } from './contexto.js';
 
-const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const rolesActivos = (p) => (p.person_roles || []).filter((r) => r.is_active).map((r) => r.role_type);
 
 // Resumen de documentos por persona: cuántos tiene y cuántos requieren acción.
@@ -50,7 +49,6 @@ export default function Personas() {
 
   const visibles = useMemo(() => {
     if (carga.estado !== 'listo') return [];
-    const q = sinTildes(filtro.q.trim());
     return carga.datos.personas.filter((p) => {
       if (filtro.rol && !rolesActivos(p).includes(filtro.rol)) return false;
       if (filtro.equipo && !(p.equipos || []).some((e) => e.id === filtro.equipo)) return false;
@@ -58,7 +56,7 @@ export default function Personas() {
       if (filtro.documentos === 'sin' && r) return false;
       if (filtro.documentos === 'pendientes' && !(r && (r.accion || r.porVencer))) return false;
       if (filtro.documentos === 'al-dia' && !(r && !r.accion && !r.porVencer)) return false;
-      return !q || sinTildes(`${nombrePersona(p)} ${p.document_number || ''}`).includes(q);
+      return coincidePersona(p, filtro.q);
     });
   }, [carga, filtro]);
 

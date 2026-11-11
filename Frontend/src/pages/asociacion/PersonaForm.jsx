@@ -6,7 +6,7 @@ import { Cargando, ErrorCarga } from '../../components/EstadoContenido.jsx';
 import { Campo, Encabezado, OpcionesCatalogo, Tarjeta } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import {
-  agregarIntegrante, correoValido, crearPersona, listarEquipos, revisarIdentificacion, valoresCatalogo,
+  agregarIntegrante, correoValido, crearPersona, listarEquipos, normalizarIdentificacion, revisarIdentificacion, valoresCatalogo,
   PROVINCIAS, TIPOS_IDENTIFICACION
 } from '../../services/representante.js';
 import { RUTA, useAsociacion } from './contexto.js';
@@ -58,7 +58,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones }) {
     try {
       persona = await crearPersona({
         document_type_code: f.document_type_code,
-        document_number: f.document_number.trim(),
+        document_number: normalizarIdentificacion(f.document_type_code, f.document_number),
         first_name: f.first_name.trim(),
         last_name: f.last_name.trim(),
         birth_date: f.birth_date,
@@ -102,8 +102,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones }) {
       />
       {estado.error && <p className="g-aviso g-aviso--error" role="alert">{estado.error}</p>}
 
-      <div className="g-rejilla">
-        <div className="g-columna">
+      <div className="g-columna g-formulario-pagina">
           <Tarjeta titulo="Identificación">
             <div className="g-tarjeta__cuerpo g-formulario">
               <Campo etiqueta="Tipo de identificación" obligatorio>
@@ -113,8 +112,19 @@ function Formulario({ asociacion, equipos, tipos, posiciones }) {
                   </select>
                 )}
               </Campo>
-              <Campo etiqueta="Número" obligatorio error={errores.document_number}>
-                {(a) => <input {...a} className="g-control" value={f.document_number} onChange={cambiar('document_number')} maxLength={20} autoComplete="off" inputMode={f.document_type_code === 'PAS' ? 'text' : 'numeric'} />}
+              <Campo etiqueta="Número" obligatorio error={errores.document_number} ayuda={f.document_type_code === 'CED' ? 'Con o sin guiones: 1-2345-6789 o 123456789.' : undefined}>
+                {(a) => (
+                  <input
+                    {...a}
+                    className="g-control"
+                    value={f.document_number}
+                    onChange={cambiar('document_number')}
+                    onBlur={() => setF((x) => ({ ...x, document_number: normalizarIdentificacion(x.document_type_code, x.document_number) }))}
+                    maxLength={20}
+                    autoComplete="off"
+                    inputMode={f.document_type_code === 'PAS' ? 'text' : 'numeric'}
+                  />
+                )}
               </Campo>
               <Campo etiqueta="Nombre" obligatorio error={errores.first_name}>
                 {(a) => <input {...a} className="g-control" value={f.first_name} onChange={cambiar('first_name')} maxLength={80} autoComplete="off" />}
@@ -196,19 +206,6 @@ function Formulario({ asociacion, equipos, tipos, posiciones }) {
               )}
             </div>
           </Tarjeta>
-        </div>
-
-        <div className="g-columna">
-          <p className="g-aviso">
-            <span className="g-aviso__titulo">Datos que verifica FECOVOL</span>
-            Identificación, nombre y fecha de nacimiento quedan guardados de inmediato y FECOVOL los verifica contra el
-            documento. Mientras tanto la persona ya puede agregarse a una nómina.
-          </p>
-          <p className="g-aviso g-aviso--ok">
-            <span className="g-aviso__titulo">Documentos</span>
-            Después de guardar, cargue la copia de la identificación y los demás documentos desde la ficha de la persona.
-          </p>
-        </div>
       </div>
     </form>
   );

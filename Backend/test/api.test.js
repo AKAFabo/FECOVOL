@@ -310,3 +310,20 @@ test('con la identidad verificada, el representante no cambia el nombre ni la fe
   assert.equal(llamada.params.p_birth_date, null);
   assert.equal(llamada.params.p_phone, '8888-0000');
 });
+
+test('las designaciones arbitrales no son publicas ni las toca un representante', async () => {
+  const anonimo = await call('GET', '/api/referee-assignments', null, null);
+  assert.equal(anonimo.status, 401);
+  const repre = await call('POST', '/api/referee-assignments', { match_id: UUID, person_id: UUID, official_type_code: 'P1' }, REPRE);
+  assert.equal(repre.status, 403);
+  assert.equal(rpcs().length, 0);
+});
+
+test('la cedula se guarda con guiones aunque llegue sin ellos', async () => {
+  fake.alResponderRpc('sp_create_person', { data: UUID, error: null });
+  const r = await call('POST', '/api/persons', { document_type_code: 'CED', document_number: '112345678', first_name: 'Ana', last_name: 'Mora', birth_date: '2004-02-01' }, REPRE);
+  assert.equal(r.status, 201);
+  assert.equal(rpcs()[0].params.p_document_number, '1-1234-5678');
+  const mala = await call('POST', '/api/persons', { document_type_code: 'CED', document_number: '12-34', first_name: 'A', last_name: 'B', birth_date: '2004-02-01' }, REPRE);
+  assert.equal(mala.status, 400);
+});

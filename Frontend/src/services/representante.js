@@ -86,7 +86,12 @@ export function subirDocumento({ archivo, tipo, titular, emision, vencimiento })
  */
 export async function abrirDocumento(id) {
   const ventana = window.open('', '_blank');
-  if (ventana) ventana.opener = null;
+  if (ventana) {
+    ventana.opener = null;
+    ventana.document.title = 'Abriendo documento…';
+    ventana.document.body.style.font = '16px system-ui, sans-serif';
+    ventana.document.body.textContent = 'Abriendo documento…';
+  }
   try {
     const { url } = await datos(api.get(`/documents/${enc(id)}/archivo`));
     // Solo enlaces https (los firma Supabase): nunca se navega a otro esquema.
@@ -145,12 +150,42 @@ export const TIPOS_IDENTIFICACION = ['CED', 'DIMEX', 'PAS'];
 
 /** Revisa el formato del número de identificación según el tipo. Devuelve un mensaje o null. */
 export function revisarIdentificacion(tipo, numero) {
-  const n = String(numero || '').trim();
+  const n = normalizarIdentificacion(tipo, numero);
   if (!n) return 'Escriba el número de identificación.';
-  if (tipo === 'CED' && !/^\d-?\d{4}-?\d{4}$/.test(n)) return 'La cédula tiene 9 dígitos, por ejemplo 1-2345-6789.';
-  if (tipo === 'DIMEX' && !/^\d{11,12}$/.test(n)) return 'El DIMEX tiene 11 o 12 dígitos, sin guiones.';
-  if (tipo === 'PAS' && !/^[A-Za-z0-9]{5,20}$/.test(n)) return 'El pasaporte tiene entre 5 y 20 letras o números.';
+  if (tipo === 'CED' && !/^\d-\d{4}-\d{4}$/.test(n)) return 'La cédula tiene 9 dígitos, por ejemplo 1-2345-6789 o 123456789.';
+  if (tipo === 'DIMEX' && !/^\d{11,12}$/.test(n)) return 'El DIMEX tiene 11 o 12 dígitos.';
+  if (tipo === 'PAS' && !/^[A-Z0-9]{5,20}$/.test(n)) return 'El pasaporte tiene entre 5 y 20 letras o números.';
   return null;
+}
+
+/**
+ * Deja el número de identificación en el formato con que se guarda, sin importar cómo se
+ * escribió: la cédula como 1-2345-6789 (con o sin guiones, espacios o puntos), el DIMEX solo con
+ * dígitos y el pasaporte en mayúsculas sin espacios.
+ */
+export function normalizarIdentificacion(tipo, numero) {
+  const texto = String(numero || '').trim();
+  if (tipo === 'CED') {
+    const d = texto.replace(/\D/g, '');
+    return d.length === 9 ? `${d[0]}-${d.slice(1, 5)}-${d.slice(5)}` : texto;
+  }
+  if (tipo === 'DIMEX') return texto.replace(/\D/g, '');
+  if (tipo === 'PAS') return texto.replace(/[\s-]/g, '').toUpperCase();
+  return texto;
+}
+
+const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * ¿La persona coincide con la búsqueda? Busca por nombre (sin importar tildes) y por
+ * identificación, con o sin guiones: "111111111" encuentra a "1-1111-1111".
+ */
+export function coincidePersona(persona, busqueda) {
+  const q = sinTildes(String(busqueda || '').trim());
+  if (!q) return true;
+  if (sinTildes(`${persona.first_name || ''} ${persona.last_name || ''} ${persona.document_number || ''}`).includes(q)) return true;
+  const digitos = q.replace(/\D/g, '');
+  return digitos.length >= 3 && String(persona.document_number || '').replace(/\D/g, '').includes(digitos);
 }
 
 export const correoValido = (c) => !c || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c);

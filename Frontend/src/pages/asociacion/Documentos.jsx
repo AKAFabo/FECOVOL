@@ -145,11 +145,6 @@ export default function Documentos() {
               </div>
             </div>
           </Tarjeta>
-          <p className="g-aviso">
-            <span className="g-aviso__titulo">Qué revisa FECOVOL</span>
-            Cada documento nuevo queda en revisión. Si FECOVOL lo rechaza, verá el motivo aquí y podrá reemplazarlo.
-            Los archivos solo los ven su asociación y FECOVOL.
-          </p>
         </div>
       </div>
 

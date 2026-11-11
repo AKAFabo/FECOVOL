@@ -272,7 +272,8 @@ router.get('/:id/archivo', asyncHandler(async (req, res) => {
     const ruta = doc.file_url.slice(PREFIJO.length);
     const { data: firmado, error: errFirma } = await supabase.storage
       .from(BUCKET)
-      .createSignedUrl(ruta, VIGENCIA_ENLACE_S, { download: doc.file_name || true });
+      // Sin "download": el navegador muestra el PDF o la imagen en la pestaña en vez de descargarlo.
+      .createSignedUrl(ruta, VIGENCIA_ENLACE_S);
     if (errFirma || !firmado?.signedUrl) {
       console.error('[documentos] no se pudo firmar el enlace:', errFirma?.message || errFirma);
       throw new HttpError(503, 'No fue posible abrir el archivo en este momento.');

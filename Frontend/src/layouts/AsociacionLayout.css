@@ -58,7 +58,7 @@
   .admin-layout--asociacion { flex-direction: column; }
   .admin-layout--asociacion .admin-topbar__season { display: none; }
   .admin-layout--asociacion .admin-topbar { gap: 12px; padding-right: 16px; padding-left: 16px; }
-  .admin-layout--asociacion .admin-sidebar { width: 100%; }
+  .admin-layout--asociacion .admin-sidebar { position: static; width: 100%; height: auto; }
   .admin-layout--asociacion .admin-sidebar__nav ul { flex-direction: row; flex-wrap: wrap; }
   .asociacion-contenido { padding: 20px 16px; }
 }
