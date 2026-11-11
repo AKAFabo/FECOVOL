@@ -21,8 +21,17 @@ module.exports = asyncHandler(async (req, res, next) => {
   if (error || !perfil) throw new HttpError(403, 'El usuario no tiene un perfil en el sistema');
   if (perfil.status === 'SUSPENDIDA') throw new HttpError(403, 'La cuenta esta suspendida');
 
-  const rol = (Array.isArray(perfil.rol) ? perfil.rol[0]?.name : perfil.rol?.name) || '';
-  if (rol.trim().toLowerCase() !== 'administrador') {
+  // El rol puede estar en user_profiles.role_id (rol principal) o en user_roles (roles adicionales).
+  const { data: adicionales, error: errorRoles } = await supabase
+    .from('user_roles')
+    .select('roles(name)')
+    .eq('user_id', perfil.id);
+  if (errorRoles) throw new HttpError(500, 'No se pudieron consultar los roles del usuario');
+
+  const nombres = [perfil.rol, ...(adicionales || []).map((r) => r.roles)]
+    .flat()
+    .map((r) => (r?.name || '').trim().toLowerCase());
+  if (!nombres.includes('administrador')) {
     throw new HttpError(403, 'Solo un administrador puede realizar esta accion');
   }
 

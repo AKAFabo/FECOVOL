@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const currentUser = require('./middleware/currentUser');
+const { resolveScope } = require('./middleware/scopeOrganization');
 const errorHandler = require('./middleware/errorHandler');
 
 const associationsRoutes = require('./routes/associations.routes');
@@ -12,6 +13,9 @@ const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const usersRoutes = require('./routes/users.routes');
 const newsRoutes = require('./routes/news.routes');
+const rolesRoutes = require('./routes/roles.routes');
+const parametersRoutes = require('./routes/parameters.routes');
+const auditRoutes = require('./routes/audit.routes');
 
 const app = express();
 
@@ -19,6 +23,7 @@ app.use(cors());
 // El cuerpo de una noticia puede traer imagenes incrustadas por el editor.
 app.use('/api/news', express.json({ limit: '25mb' }));
 app.use(express.json());
+app.use(resolveScope);
 app.use(currentUser);
 
 app.get('/', (req, res) => {
@@ -33,7 +38,10 @@ app.get('/', (req, res) => {
       '/api/referee-assignments',
       '/api/catalogs',
       '/api/users',
-      '/api/news'
+      '/api/news',
+      '/api/roles',
+      '/api/parameters',
+      '/api/audit'
     ]
   });
 });
@@ -46,6 +54,9 @@ app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/parameters', parametersRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

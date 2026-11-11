@@ -23,7 +23,22 @@ before(async () => {
 });
 
 after(() => server.close());
-beforeEach(() => fake.reset());
+// resolveScope busca en user_profiles al usuario del encabezado x-user-email.
+// Por defecto ese usuario es un administrador de FECOVOL (ambito GLOBAL).
+const PERFIL_ADMIN = {
+  id: '22222222-2222-4222-8222-222222222222',
+  email: 'prueba@fecovol.cr',
+  status: 'ACTIVA',
+  organization_id: null,
+  role_id: null,
+  roles: { id: null, name: 'Administrador' },
+  user_roles: []
+};
+
+beforeEach(() => {
+  fake.reset();
+  fake.alResponderTablaPorDefecto('user_profiles', { data: PERFIL_ADMIN, error: null });
+});
 
 async function call(method, ruta, body, usuario = 'prueba@fecovol.cr') {
   const res = await fetch(base + ruta, {
@@ -35,6 +50,8 @@ async function call(method, ruta, body, usuario = 'prueba@fecovol.cr') {
 }
 
 const rpcs = () => fake.llamadas.filter((l) => l.tipo === 'rpc');
+// Llamadas a la base sin contar la busqueda del perfil que hace resolveScope.
+const llamadasDeNegocio = () => fake.llamadas.filter((l) => l.tabla !== 'user_profiles');
 
 test('la raiz responde con la lista de endpoints', async () => {
   const r = await call('GET', '/');
@@ -45,7 +62,7 @@ test('la raiz responde con la lista de endpoints', async () => {
 test('crear asociacion sin cedula juridica da 400 y no toca la base de datos', async () => {
   const r = await call('POST', '/api/associations', { name: 'Sin cedula' });
   assert.equal(r.status, 400);
-  assert.equal(fake.llamadas.length, 0);
+  assert.equal(llamadasDeNegocio().length, 0);
 });
 
 test('crear asociacion llama al procedimiento con el usuario del encabezado', async () => {
@@ -59,24 +76,49 @@ test('crear asociacion llama al procedimiento con el usuario del encabezado', as
   const [llamada] = rpcs();
   assert.equal(llamada.nombre, 'sp_create_association');
   assert.equal(llamada.params.p_admin_user, 'rep@grecia.cr');
-  assert.equal(llamada.params.p_status, 'PROVISIONAL');
+  assert.equal(llamada.params.p_status, 'AFILIADA');
 });
 
-test('un RAISE EXCEPTION de "ya existe" se convierte en 409', async () => {
+test('un usuario sin rol de FECOVOL no puede afiliar asociaciones (403) y queda en bitacora', async () => {
+  fake.alResponderTabla('user_profiles', {
+    data: { ...PERFIL_ADMIN, email: 'arbitro@fecovol.cr', roles: { id: null, name: 'Arbitro' } },
+    error: null
+  });
+
+  const r = await call('POST', '/api/associations', { name: 'AD Grecia', tax_id: '3-002-1' }, 'arbitro@fecovol.cr');
+
+  assert.equal(r.status, 403);
+  assert.equal(rpcs().length, 0);
+  assert.ok(fake.llamadas.some((l) => l.tabla === 'audit_logs'), 'el intento denegado se registra');
+});
+
+// Si el procedimiento falla, la ruta reintenta con un insert/update directo:
+// el codigo HTTP lo decide el resultado de ese respaldo.
+test('cedula juridica repetida: si el procedimiento falla, el insert directo da 409', async () => {
   fake.alResponderRpc('sp_create_association', {
     data: null,
     error: { code: 'P0001', message: 'Ya existe una asociacion con la cedula juridica 3-002-1' }
   });
+  fake.alResponderTabla('associations', {
+    data: null,
+    error: { code: '23505', message: 'duplicate key value violates unique constraint "associations_tax_id_key"' }
+  });
+
   const r = await call('POST', '/api/associations', { name: 'X', tax_id: '3-002-1' });
   assert.equal(r.status, 409);
   assert.match(r.json.error, /Ya existe/);
 });
 
-test('un RAISE EXCEPTION de "no existe" se convierte en 404', async () => {
+test('editar una asociacion inexistente da 404 aunque el update directo no falle', async () => {
   fake.alResponderRpc('sp_update_association', {
     data: null,
     error: { code: 'P0001', message: `No existe la asociacion ${UUID}` }
   });
+  fake.alResponderTabla(
+    'associations',
+    { data: null, error: null },
+    { data: null, error: { code: 'PGRST116', message: 'no rows' } }
+  );
   const r = await call('PATCH', `/api/associations/${UUID}`, { phone: '2222-2222' });
   assert.equal(r.status, 404);
 });
@@ -93,7 +135,7 @@ test('una violacion de llave unica (23505) se convierte en 409', async () => {
 test('un id que no es UUID da 400 antes de consultar', async () => {
   const r = await call('GET', '/api/teams/no-es-un-uuid');
   assert.equal(r.status, 400);
-  assert.equal(fake.llamadas.length, 0);
+  assert.equal(llamadasDeNegocio().length, 0);
 });
 
 test('detalle inexistente (PGRST116) da 404', async () => {

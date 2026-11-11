@@ -4,12 +4,14 @@ function crearFake() {
   const llamadas = [];
   const respuestasTabla = {};
   const respuestasRpc = {};
+  // Respuesta que da una tabla cuando la prueba no encolo ninguna (se conserva entre pruebas).
+  const respuestasPorDefecto = {};
 
   function builder(tabla) {
     const registro = { tipo: 'from', tabla, pasos: [] };
     llamadas.push(registro);
     const b = {};
-    for (const m of ['select', 'eq', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'range', 'maybeSingle', 'update', 'is', 'neq', 'gt', 'like']) {
+    for (const m of ['select', 'eq', 'ilike', 'or', 'order', 'limit', 'lte', 'insert', 'upsert', 'single', 'range', 'maybeSingle', 'update', 'is', 'neq', 'gt', 'like', 'in', 'gte', 'not', 'filter']) {
       b[m] = (...args) => {
         registro.pasos.push([m, ...args]);
         return b;
@@ -17,7 +19,7 @@ function crearFake() {
     }
     b.then = (resolve, reject) => {
       const cola = respuestasTabla[tabla];
-      const r = (cola && cola.length ? cola.shift() : null) || { data: [], error: null, count: 0 };
+      const r = (cola && cola.length ? cola.shift() : null) || respuestasPorDefecto[tabla] || { data: [], error: null, count: 0 };
       return Promise.resolve(r).then(resolve, reject);
     };
     return b;
@@ -27,6 +29,10 @@ function crearFake() {
     llamadas,
     alResponderTabla(tabla, ...respuestas) {
       respuestasTabla[tabla] = respuestas;
+    },
+    alResponderTablaPorDefecto(tabla, respuesta) {
+      if (respuesta === undefined) delete respuestasPorDefecto[tabla];
+      else respuestasPorDefecto[tabla] = respuesta;
     },
     alResponderRpc(nombre, respuesta) {
       respuestasRpc[nombre] = respuesta;
