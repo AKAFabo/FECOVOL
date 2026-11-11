@@ -408,6 +408,42 @@ test('el detalle devuelve el cuerpo sin scripts, eventos ni enlaces javascript',
   assert.doesNotMatch(JSON.stringify(r.json), /secreto/);
 });
 
+test('la portada usa la destacada aunque sea antigua y no la repite entre las recientes', async () => {
+  const otra = (id, fecha) => ({ ...filaNoticia, id, is_featured: false, published_at: fecha });
+  const A = '77777777-7777-4777-8777-777777777771';
+  const B = '77777777-7777-4777-8777-777777777772';
+  fake.alResponderTabla(
+    'news',
+    { data: [{ ...filaNoticia, published_at: '2026-01-05T15:00:00+00:00' }], error: null },
+    { data: [otra(A, '2026-10-22T15:00:00+00:00'), { ...filaNoticia }, otra(B, '2026-10-19T15:00:00+00:00')], error: null }
+  );
+
+  const r = await get('/api/public/news/portada');
+
+  assert.equal(r.status, 200);
+  assert.equal(r.json.data.featured.id, NOT);
+  assert.deepEqual(r.json.data.recent.map((n) => n.id), [A, B]);
+  for (const consulta of fake.llamadas.filter((l) => l.tabla === 'news')) {
+    assert.ok(consulta.pasos.some((x) => x[0] === 'eq' && x[1] === 'status' && x[2] === 'PUBLICADA'));
+    assert.ok(consulta.pasos.some((x) => x[0] === 'lte' && x[1] === 'published_at'));
+  }
+  assert.doesNotMatch(JSON.stringify(r.json), /secreto/);
+});
+
+test('sin destacada, la portada usa la más reciente', async () => {
+  const A = '77777777-7777-4777-8777-777777777771';
+  fake.alResponderTabla(
+    'news',
+    { data: [], error: null },
+    { data: [{ ...filaNoticia, id: A, is_featured: false }, { ...filaNoticia, is_featured: false }], error: null }
+  );
+
+  const r = await get('/api/public/news/portada');
+
+  assert.equal(r.json.data.featured.id, A);
+  assert.deepEqual(r.json.data.recent.map((n) => n.id), [NOT]);
+});
+
 test('una noticia en borrador, archivada, borrada o programada da 404', async () => {
   fake.alResponderTabla('news', { data: null, error: null });
   const r = await get(`/api/public/news/${NOT}`);
