@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { esCancelacion } from '../services/apiPublica.js';
 
 // Memoria de corta duración para datos que varias vistas piden igual (por ejemplo, los partidos
 // de una competencia los usan las pestañas Posiciones, Calendario y Resultados). Si una vista ya
@@ -80,7 +79,9 @@ export default function useCarga(cargar, dependencias, { clave } = {}) {
         setResultado({ estado: 'listo', datos, error: null });
       })
       .catch((error) => {
-        if (control.signal.aborted || esCancelacion(error)) return;
+        // Solo se ignora si la cancelación es de esta carga. Una cancelación ajena (por ejemplo, de
+        // una solicitud compartida) se muestra como error: si no, la vista quedaría en "Cargando…".
+        if (control.signal.aborted) return;
         setResultado({ estado: 'error', datos: null, error });
       });
 

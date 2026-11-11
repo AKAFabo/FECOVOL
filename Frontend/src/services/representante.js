@@ -19,10 +19,16 @@ export const terminarCargo = (cargoId) => datos(api.del(`/associations/board/${e
 
 /* Catálogos ---------------------------------------------------------------------------------- */
 const catalogos = new Map();
-/** Valores activos de un catálogo (se guardan mientras dure la página). */
-export function valoresCatalogo(nombre, opciones) {
+/**
+ * Valores activos de un catálogo (se guardan mientras dure la página).
+ * La solicitud se comparte entre pantallas, así que NO usa la señal de cancelación de quien la
+ * pidió primero: si esa pantalla se desmonta (o React monta dos veces en desarrollo), cancelarla
+ * dejaría a las demás esperando para siempre.
+ */
+// eslint-disable-next-line no-unused-vars
+export function valoresCatalogo(nombre, _opciones) {
   if (!catalogos.has(nombre)) {
-    const promesa = datos(api.get(`/catalogs/${enc(nombre)}/values`, opciones)).catch((e) => {
+    const promesa = datos(api.get(`/catalogs/${enc(nombre)}/values`)).catch((e) => {
       catalogos.delete(nombre);
       throw e;
     });
