@@ -588,3 +588,22 @@
 
   .suscripcion__formulario input { padding: 15px 14px; font-size: 16px; }
 }
+
+/* Noticias traídas de la base de datos: la portada real ocupa todo el recuadro */
+.noticia-principal__imagen img,
+.noticia__imagen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.noticia__imagen {
+  overflow: hidden;
+  background-color: var(--azul-medio);
+}
+
+.noticias__vacio {
+  margin: 26px 0 0;
+  color: var(--texto-mudo);
+}

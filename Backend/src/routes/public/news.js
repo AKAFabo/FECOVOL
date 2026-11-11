@@ -58,6 +58,39 @@ router.get('/', asyncHandler(async (req, res) => {
   });
 }));
 
+const RECIENTES_PORTADA = 4;
+
+// GET /api/public/news/portada -> bloque de noticias de la página principal.
+// featured: la noticia marcada "Destacar en portada" (aunque no sea de las más recientes);
+//           si no hay ninguna, la más reciente.
+// recientes: las siguientes noticias más recientes, sin repetir la destacada.
+// Va antes de /:id para que "portada" no se tome como un identificador.
+router.get('/portada', asyncHandler(async (req, res) => {
+  const [destacadas, ultimas] = await Promise.all([
+    soloPublicas(supabase.from('news').select(SELECT_RESUMEN))
+      .eq('is_featured', true)
+      .order('published_at', { ascending: false })
+      .limit(1),
+    soloPublicas(supabase.from('news').select(SELECT_RESUMEN))
+      .order('published_at', { ascending: false })
+      .order('id')
+      .limit(RECIENTES_PORTADA + 1)
+  ]);
+  if (destacadas.error) throw fallaBaseDatos(destacadas.error);
+  if (ultimas.error) throw fallaBaseDatos(ultimas.error);
+
+  const lista = ultimas.data || [];
+  const principal = (destacadas.data || [])[0] || lista[0] || null;
+  const recientes = lista.filter((n) => !principal || n.id !== principal.id).slice(0, RECIENTES_PORTADA);
+
+  res.json({
+    data: {
+      featured: principal ? aNoticiaResumen(principal) : null,
+      recent: recientes.map(aNoticiaResumen)
+    }
+  });
+}));
+
 // GET /api/public/news/:id
 router.get('/:id', asyncHandler(async (req, res) => {
   const { data, error } = await soloPublicas(

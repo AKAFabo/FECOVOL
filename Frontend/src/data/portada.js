@@ -1,5 +1,6 @@
 // Contenido de ejemplo de la portada.
-// Mientras los módulos de Competencias, Noticias y Selecciones no tengan su API,
+// Las noticias ya vienen de la base de datos (GET /api/public/news/portada).
+// Mientras los módulos de Competencias y Selecciones no tengan su API,
 // la portada se llena con estos datos. Cuando existan los endpoints, cada bloque
 // se reemplaza por su llamada (por ejemplo GET /api/public/partidos?recientes=4).
 
@@ -33,46 +34,6 @@ export const partidos = [
     detalle: 'Jornada 8',
     local: { nombre: 'AD Turrialba' },
     visita: { nombre: 'CD Sarchí' }
-  }
-];
-
-export const noticiaPrincipal = {
-  id: 1,
-  categoria: 'Liga Superior',
-  fecha: '12 de setiembre, 2026',
-  titulo: 'CD Sarchí se impone en el clásico y toma la punta de la Liga Superior Femenina',
-  resumen:
-    'Con una actuación decisiva en el cuarto set, las de Sarchí se llevaron el partido más esperado de la jornada y llegan a 20 puntos, a falta de siete fechas para el cierre de la fase regular.'
-};
-
-export const noticias = [
-  {
-    id: 2,
-    categoria: 'Selecciones',
-    fecha: '10 de setiembre, 2026',
-    titulo: 'Convocatoria de la Selección Nacional Femenina para el próximo ciclo de entrenamiento',
-    color: '#14532d'
-  },
-  {
-    id: 3,
-    categoria: 'Competencias',
-    fecha: '8 de setiembre, 2026',
-    titulo: 'Abren las inscripciones para el Campeonato Nacional U-19',
-    color: '#8a3311'
-  },
-  {
-    id: 4,
-    categoria: 'Arbitraje',
-    fecha: '5 de setiembre, 2026',
-    titulo: 'Curso de actualización para el cuerpo arbitral: fechas y requisitos',
-    color: '#2f3d4c'
-  },
-  {
-    id: 5,
-    categoria: 'Voleibol de playa',
-    fecha: '2 de setiembre, 2026',
-    titulo: 'FECOVOL presenta el calendario del circuito nacional de playa 2026',
-    color: '#0b5563'
   }
 ];
 

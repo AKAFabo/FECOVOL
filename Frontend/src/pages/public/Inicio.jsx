@@ -1,15 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CanchaPerspectiva, CanchaPlano, Balon } from '../../components/Ilustraciones.jsx';
-import {
-  destacado,
-  partidos,
-  noticiaPrincipal,
-  noticias,
-  cifras,
-  competencias,
-  selecciones
-} from '../../data/portada.js';
+import { Cargando, ErrorCarga } from '../../components/EstadoContenido.jsx';
+import useCarga from '../../hooks/useCarga.js';
+import { obtenerNoticiasPortada } from '../../services/noticias.js';
+import { fechaLarga } from '../../utils/formato.js';
+import { destacado, partidos, cifras, competencias, selecciones } from '../../data/portada.js';
 import './Inicio.css';
 
 function Equipo({ equipo, ganador, jugado }) {
@@ -43,6 +39,74 @@ function TarjetaPartido({ partido }) {
         </p>
       )}
     </li>
+  );
+}
+
+// Imagen de portada de la noticia, o la ilustración de cancha si no tiene.
+function ImagenNoticia({ noticia }) {
+  if (noticia.cover) {
+    return <img src={noticia.cover.url} alt={noticia.cover.alt} loading="lazy" referrerPolicy="no-referrer" />;
+  }
+  return <CanchaPlano />;
+}
+
+// Bloque de noticias: la destacada en grande y las más recientes al lado (GET /api/public/news/portada).
+function NoticiasPortada() {
+  const { estado, datos, error, reintentar } = useCarga((signal) => obtenerNoticiasPortada({ signal }), []);
+
+  if (estado === 'cargando') return <Cargando texto="Cargando noticias…" />;
+  if (estado === 'error') return <ErrorCarga mensaje={error.message} onReintentar={reintentar} />;
+
+  const principal = datos?.featured;
+  const recientes = datos?.recent || [];
+  if (!principal) {
+    return <p className="noticias__vacio">Todavía no hay noticias publicadas.</p>;
+  }
+
+  const fechaPrincipal = fechaLarga(principal.published_at);
+  return (
+    <div className="noticias">
+      <article className="noticia-principal">
+        <Link
+          to={`/noticias/${principal.id}`}
+          className="noticia-principal__imagen"
+          tabIndex={-1}
+          aria-hidden={principal.cover ? undefined : 'true'}
+        >
+          <ImagenNoticia noticia={principal} />
+        </Link>
+        <p className="noticia-principal__meta">
+          {principal.competition && <span className="antetitulo">{principal.competition.name}</span>}
+          {fechaPrincipal && <time dateTime={principal.published_at}>{fechaPrincipal}</time>}
+        </p>
+        <h3 className="noticia-principal__titulo">
+          <Link to={`/noticias/${principal.id}`}>{principal.title}</Link>
+        </h3>
+        {principal.summary && <p className="noticia-principal__resumen">{principal.summary}</p>}
+      </article>
+
+      {recientes.length > 0 && (
+        <ul className="noticias__lista">
+          {recientes.map((n) => {
+            const fecha = fechaLarga(n.published_at);
+            return (
+              <li key={n.id} className="noticia">
+                <span className="noticia__imagen" aria-hidden="true">
+                  {n.cover && <img src={n.cover.url} alt="" loading="lazy" referrerPolicy="no-referrer" />}
+                </span>
+                <div className="noticia__texto">
+                  {n.competition && <span className="antetitulo">{n.competition.name}</span>}
+                  <h3 className="noticia__titulo">
+                    <Link to={`/noticias/${n.id}`}>{n.title}</Link>
+                  </h3>
+                  {fecha && <time className="noticia__fecha" dateTime={n.published_at}>{fecha}</time>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -136,36 +200,7 @@ export default function Inicio() {
             </Link>
           </div>
 
-          <div className="noticias">
-            <article className="noticia-principal">
-              <Link to="/noticias" className="noticia-principal__imagen" tabIndex={-1} aria-hidden="true">
-                <CanchaPlano />
-              </Link>
-              <p className="noticia-principal__meta">
-                <span className="antetitulo">{noticiaPrincipal.categoria}</span>
-                <time>{noticiaPrincipal.fecha}</time>
-              </p>
-              <h3 className="noticia-principal__titulo">
-                <Link to="/noticias">{noticiaPrincipal.titulo}</Link>
-              </h3>
-              <p className="noticia-principal__resumen">{noticiaPrincipal.resumen}</p>
-            </article>
-
-            <ul className="noticias__lista">
-              {noticias.map((n) => (
-                <li key={n.id} className="noticia">
-                  <span className="noticia__imagen" style={{ backgroundColor: n.color }} aria-hidden="true" />
-                  <div className="noticia__texto">
-                    <span className="antetitulo">{n.categoria}</span>
-                    <h3 className="noticia__titulo">
-                      <Link to="/noticias">{n.titulo}</Link>
-                    </h3>
-                    <time className="noticia__fecha">{n.fecha}</time>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <NoticiasPortada />
         </div>
       </section>
 
