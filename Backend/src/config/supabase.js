@@ -1,11 +1,18 @@
+const path = require('path');
+// Cargar .env de forma segura en caso de que este en ../.env o en .env
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config();
+
 const { createClient } = require('@supabase/supabase-js');
 
-const url = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const url = process.env.SUPABASE_URL || process.env.VITA_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITA_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
   throw new Error(
-    'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY. Copie Backend/.env.example a Backend/.env y complete los valores.'
+    'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY (o VITA_SUPABASE_URL / VITA_SUPABASE_SERVICE_ROLE_KEY). Verifique su archivo .env.'
   );
 }
 

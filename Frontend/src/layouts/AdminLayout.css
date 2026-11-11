@@ -81,6 +81,31 @@
   color: #fff;
 }
 
+.admin-sidebar__role-select {
+  width: 100%;
+  background: rgba(14, 59, 107, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+}
+
+.admin-sidebar__role-select:hover {
+  background: #0e3b6b;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.admin-sidebar__role-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
 .admin-sidebar__nav {
   flex: 1;
   padding: 8px 10px;
@@ -131,12 +156,46 @@
 }
 
 .admin-sidebar__link--active .admin-sidebar__icon-placeholder {
-  background: #60a5fa;
+  background: #c8102e;
 }
 
 .admin-sidebar__footer {
   padding: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-sidebar__profile-btn {
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--sobre-oscuro-2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radio-sm);
+  transition: all 0.15s;
+  box-sizing: border-box;
+}
+
+.admin-sidebar__profile-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.admin-sidebar__profile-btn--active {
+  background: rgba(14, 59, 107, 0.85);
+  color: #fff;
+  font-weight: 600;
+  border-color: #0e3b6b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .admin-sidebar__logout {
