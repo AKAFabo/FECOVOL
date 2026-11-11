@@ -8,8 +8,7 @@ import {
   noticias,
   cifras,
   competencias,
-  selecciones,
-  aliados
+  selecciones
 } from '../../data/portada.js';
 import './Inicio.css';
 
@@ -178,7 +177,7 @@ export default function Inicio() {
             <h2 id="titulo-federacion" className="federacion__titulo">El voleibol en Costa Rica</h2>
             <p>
               FECOVOL es el organismo rector del voleibol en el país. Organiza las competencias nacionales de sala y de
-              playa, federa a atletas, cuerpo técnico y árbitros, y representa a Costa Rica ante la FIVB y NORCECA.
+              playa, federa a atletas, cuerpo técnico y árbitros, y dirige las selecciones nacionales.
             </p>
             <p>
               El voleibol se juega entre dos equipos de seis personas separados por una red. Gana el set quien llega
@@ -242,18 +241,6 @@ export default function Inicio() {
                   <Link to="/selecciones" className="enlace-flecha">Ver convocatoria</Link>
                 </div>
               </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* Organismos y aliados */}
-      <section className="aliados" aria-labelledby="titulo-aliados">
-        <div className="contenedor">
-          <h2 id="titulo-aliados" className="aliados__titulo">Organismos y aliados</h2>
-          <ul className="aliados__lista">
-            {aliados.map((a) => (
-              <li key={a} className="aliado">{a}</li>
             ))}
           </ul>
         </div>

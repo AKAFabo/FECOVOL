@@ -1,0 +1,209 @@
+.detalle-asociacion {
+  flex: 1;
+  background: var(--fondo);
+}
+
+.detalle-asociacion__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: #c2d3e7;
+  font-size: 15px;
+}
+
+.detalle-asociacion__interior {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+
+/* Sin datos para la ficha, los equipos ocupan todo el ancho. */
+.detalle-asociacion__interior--sin-ficha {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.detalle-asociacion__interior--sin-ficha .lista-equipos {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* ----- Ficha ----- */
+.ficha {
+  position: sticky;
+  top: 112px;
+  padding: 20px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.ficha__titulo {
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.ficha__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.ficha__fila {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+}
+
+.ficha__fila + .ficha__fila {
+  border-top: 1px solid var(--linea);
+}
+
+.ficha__fila dt {
+  color: var(--texto-mudo);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ficha__fila dd {
+  margin: 0;
+  color: var(--texto);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.ficha__fila a {
+  color: var(--azul);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ----- Equipos ----- */
+.seccion-titulo--chico {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+
+.detalle-asociacion__conteo {
+  padding: 3px 9px;
+  border-radius: var(--radio-pastilla);
+  background: var(--neutro-fondo);
+  color: var(--texto-mudo);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lista-equipos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta-equipo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.tarjeta-equipo__encabezado {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tarjeta-equipo__sigla {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--azul);
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.tarjeta-equipo__nombre {
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-equipo__detalle {
+  color: var(--texto-cuerpo);
+  font-size: 14px;
+}
+
+.tarjeta-equipo__etiqueta {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--texto-mudo);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.tarjeta-equipo__sede {
+  font-size: 14.5px;
+}
+
+.tarjeta-equipo__competencias ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta-equipo__competencias li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.tarjeta-equipo__competencia {
+  color: var(--azul);
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.tarjeta-equipo__competencia:hover {
+  text-decoration: underline;
+}
+
+.tarjeta-equipo__vacio {
+  color: var(--texto-mudo);
+  font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+  .detalle-asociacion__interior { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .ficha { position: static; }
+  .detalle-asociacion__interior--sin-ficha .lista-equipos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .lista-equipos,
+  .detalle-asociacion__interior--sin-ficha .lista-equipos { grid-template-columns: minmax(0, 1fr); }
+  .tarjeta-equipo { padding: 16px; }
+}
