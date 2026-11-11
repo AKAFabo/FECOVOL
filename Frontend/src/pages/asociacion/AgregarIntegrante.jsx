@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Campo, Estado, Modal, OpcionesCatalogo } from '../../components/gestion/Gestion.jsx';
 import { agregarIntegrante, coincidePersona, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
-import { RUTA } from './contexto.js';
+import { useRutas } from './contexto.js';
 
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const rolesActivos = (p) => (p.person_roles || []).filter((r) => r.is_active).map((r) => r.role_type);
@@ -18,6 +18,7 @@ const rolesActivos = (p) => (p.person_roles || []).filter((r) => r.is_active).ma
  * @param {Set<number>} props.numerosUsados
  */
 export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas, yaEnEquipo, numerosUsados, posiciones, onCerrar, onAgregado }) {
+  const RUTA = useRutas();
   const [tipo, setTipo] = useState(tipoInicial);
   const [q, setQ] = useState('');
   const [elegida, setElegida] = useState(null);
@@ -141,7 +142,7 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
       )}
 
       <p style={{ margin: 0, fontSize: 14 }}>
-        ¿No aparece? <Link to={RUTA.nuevaPersona} className="g-enlace">Registrar persona nueva →</Link>
+        ¿No aparece? <Link to={`${RUTA.nuevaPersona}?asociacion=${encodeURIComponent(equipo.association_id || '')}`} className="g-enlace">Registrar persona nueva →</Link>
       </p>
     </Modal>
   );

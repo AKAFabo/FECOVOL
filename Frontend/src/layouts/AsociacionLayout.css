@@ -1,6 +1,6 @@
 /* Entorno del representante: misma estructura que AdminLayout con el acento morado del rol. */
 
-.admin-layout--asociacion { --g-acento: #6f3a9e; --g-acento-oscuro: #5a2d82; }
+.admin-layout.admin-layout--asociacion { --g-acento: #6f3a9e; --g-acento-oscuro: #5a2d82; }
 
 .admin-layout--asociacion .admin-sidebar__badge-fv,
 .admin-layout--asociacion .admin-topbar__avatar { background: var(--g-acento); }

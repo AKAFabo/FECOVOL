@@ -13,6 +13,10 @@
   --g-error-fondo: #fbe9eb;
 }
 
+/* En Administración (FECOVOL) el acento es el azul institucional; el entorno del representante
+   lo cambia a morado en AsociacionLayout.css. */
+.admin-layout { --g-acento: var(--azul); --g-acento-oscuro: var(--azul-oscuro); }
+
 /* ----- Encabezado de página ----- */
 .g-pagina { display: flex; flex-direction: column; gap: 20px; }
 
@@ -160,7 +164,6 @@
 }
 
 .g-columna { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.g-formulario-pagina { max-width: 880px; }
 
 @media (max-width: 1100px) {
   .g-rejilla { grid-template-columns: minmax(0, 1fr); }

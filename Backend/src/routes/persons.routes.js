@@ -73,7 +73,10 @@ router.get('/', asyncHandler(async (req, res) => {
     if (!puedeVerPrivado(scope)) {
       query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
     } else {
-      query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,document_number.ilike.%${q}%`);
+      // Una cédula escrita sin guiones (123456789) también encuentra a la guardada como 1-2345-6789.
+      const digitos = q.replace(/\D/g, '');
+      const cedula = /^\d{9}$/.test(q) ? `,document_number.ilike.%${digitos[0]}-${digitos.slice(1, 5)}-${digitos.slice(5)}%` : '';
+      query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,document_number.ilike.%${q}%${cedula}`);
     }
   }
 
@@ -104,6 +107,38 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   res.json({ data, total: count ?? data.length });
+}));
+
+// GET /api/persons/resumen -> Totales del padrón federativo (solo FECOVOL)
+router.get('/resumen', asyncHandler(async (req, res) => {
+  const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
+  if (!scope.isAdmin) throw new HttpError(403, 'Acceso denegado: El resumen del padrón solo lo consulta FECOVOL.');
+
+  const contarRol = (rol) => supabase
+    .from('person_roles')
+    .select('person_id', { count: 'exact', head: true })
+    .eq('role_type', rol)
+    .eq('is_active', true);
+
+  const [total, verificadas, jugadores, tecnicos, arbitros] = await Promise.all([
+    supabase.from('persons').select('id', { count: 'exact', head: true }),
+    supabase.from('persons').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+    contarRol('JUGADOR'),
+    contarRol('TECNICO'),
+    contarRol('ARBITRO')
+  ]);
+  const err = [total, verificadas, jugadores, tecnicos, arbitros].map((r) => fromSupabase(r.error)).find(Boolean);
+  if (err) throw err;
+
+  res.json({
+    data: {
+      total: total.count || 0,
+      verificadas: verificadas.count || 0,
+      jugadores: jugadores.count || 0,
+      tecnicos: tecnicos.count || 0,
+      arbitros: arbitros.count || 0
+    }
+  });
 }));
 
 // GET /api/persons/:id -> Ficha de persona (verifica ámbito por ID y clasifica visibilidad - RF-SEG-011)
@@ -233,7 +268,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   // Validar pertenencia al ámbito antes de mutar
   const { data: personaActual } = await supabase
     .from('persons')
-    .select('id, association_id, first_name, last_name, is_verified')
+    .select('id, association_id, first_name, last_name, birth_date, sex, is_verified')
     .eq('id', req.params.id)
     .single();
 
@@ -260,6 +295,15 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   // los corrige FECOVOL: si no, la verificación dejaría de corresponder al documento.
   const identidadLibre = scope.isAdmin || !personaActual.is_verified;
 
+  // Corrección oficial (FECOVOL): cambiar nombre, apellidos, fecha de nacimiento o sexo exige un
+  // motivo, que queda en la bitácora junto con el valor anterior.
+  const CAMPOS_IDENTIDAD = ['first_name', 'last_name', 'birth_date', 'sex'];
+  const corregidos = CAMPOS_IDENTIDAD.filter((c) => identidadLibre && b[c] !== undefined && b[c] !== null && String(b[c]) !== String(personaActual[c] ?? ''));
+  const motivo = typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 500) : '';
+  if (scope.isAdmin && corregidos.length && motivo.length < 10) {
+    throw new HttpError(400, 'Indique el motivo de la corrección (al menos 10 caracteres).');
+  }
+
   const { error } = await supabase.rpc('sp_update_person', {
     p_id: req.params.id,
     p_admin_user: req.currentUser,
@@ -278,8 +322,58 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const err = fromSupabase(error, 'Persona');
   if (err) throw err;
 
+  if (scope.isAdmin && corregidos.length) {
+    await supabase.from('audit_logs').insert([{
+      usuario: req.currentUser,
+      accion: 'CORRECCION_OFICIAL',
+      tabla: 'persons',
+      registro_id: req.params.id,
+      registro_viejo: Object.fromEntries(corregidos.map((c) => [c, personaActual[c] ?? null])),
+      registro_nuevo: { ...Object.fromEntries(corregidos.map((c) => [c, b[c]])), motivo }
+    }]);
+  }
+
   const { data } = await supabase.from('persons').select(SELECT_PERSON).eq('id', req.params.id).single();
   res.json({ data });
+}));
+
+// GET /api/persons/:id/historial -> Alta, verificación y correcciones oficiales (solo FECOVOL)
+const ETIQUETAS = { first_name: 'el nombre', last_name: 'los apellidos', birth_date: 'la fecha de nacimiento', sex: 'el sexo' };
+router.get('/:id/historial', asyncHandler(async (req, res) => {
+  const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
+  if (!scope.isAdmin) throw new HttpError(403, 'Acceso denegado: El historial de la persona solo lo consulta FECOVOL.');
+
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('fecha_hora, usuario, accion, registro_viejo, registro_nuevo')
+    .eq('tabla', 'persons')
+    .eq('registro_id', req.params.id)
+    .in('accion', ['INSERT', 'UPDATE', 'CORRECCION_OFICIAL'])
+    .order('fecha_hora', { ascending: false })
+    .limit(100);
+  const err = fromSupabase(error);
+  if (err) throw err;
+
+  const eventos = [];
+  for (const r of data || []) {
+    if (r.accion === 'INSERT') {
+      eventos.push({ fecha: r.fecha_hora, usuario: r.usuario, tipo: 'ALTA', texto: 'Alta en el registro federativo' });
+    } else if (r.accion === 'CORRECCION_OFICIAL') {
+      const campos = Object.keys(r.registro_viejo || {});
+      eventos.push({
+        fecha: r.fecha_hora,
+        usuario: r.usuario,
+        tipo: 'CORRECCION',
+        texto: `Corrigió ${campos.map((c) => ETIQUETAS[c] || c).join(', ')}`,
+        antes: r.registro_viejo,
+        despues: Object.fromEntries(campos.map((c) => [c, r.registro_nuevo?.[c] ?? null])),
+        motivo: r.registro_nuevo?.motivo || null
+      });
+    } else if (r.registro_viejo?.is_verified === false && r.registro_nuevo?.is_verified === true) {
+      eventos.push({ fecha: r.fecha_hora, usuario: r.usuario, tipo: 'VERIFICACION', texto: 'Verificó la identidad contra el documento' });
+    }
+  }
+  res.json({ data: eventos });
 }));
 
 // POST /api/persons/:id/verify -> FECOVOL confirma la identidad contra el documento oficial

@@ -10,6 +10,7 @@ const NAV_ITEMS = [
 
   { to: '/admin/asociaciones', texto: 'Asociaciones y equipos', subruta: '/admin' },
   { to: '/admin/personas', texto: 'Personas federadas', subruta: '/admin' },
+  { to: '/admin/documentos', texto: 'Documentos y licencias', subruta: '/admin' },
   { to: '/admin/competencias', texto: 'Competencias', subruta: '/admin' },
   { to: '/admin/arbitraje', texto: 'Arbitraje', subruta: '/admin' },
   { to: '/admin/incidentes', texto: 'Incidentes y sanciones', subruta: '/admin' },

@@ -63,13 +63,14 @@ test('crear asociacion llama al procedimiento con el usuario de la sesion', asyn
   fake.alResponderRpc('sp_create_association', { data: UUID, error: null });
   fake.alResponderTabla('associations', { data: { id: UUID, name: 'AD Grecia' }, error: null });
 
-  const r = await call('POST', '/api/associations', { name: 'AD Grecia', tax_id: '3-002-1' });
+  const r = await call('POST', '/api/associations', { name: 'AD Grecia', tax_id: '3002123456' });
 
   assert.equal(r.status, 201);
   assert.equal(r.json.data.id, UUID);
   const [llamada] = rpcs();
   assert.equal(llamada.nombre, 'sp_create_association');
   assert.equal(llamada.params.p_admin_user, ADMIN.email);
+  assert.equal(llamada.params.p_tax_id, '3-002-123456');
   assert.equal(llamada.params.p_status, 'AFILIADA');
 });
 
@@ -78,7 +79,7 @@ test('un RAISE EXCEPTION de "ya existe" se convierte en 409', async () => {
     data: null,
     error: { code: 'P0001', message: 'Ya existe una asociacion con la cedula juridica 3-002-1' }
   });
-  const r = await call('POST', '/api/associations', { name: 'X', tax_id: '3-002-1' });
+  const r = await call('POST', '/api/associations', { name: 'X', tax_id: '3-002-123456' });
   assert.equal(r.status, 409);
   assert.match(r.json.error, /Ya existe/);
 });
@@ -326,4 +327,58 @@ test('la cedula se guarda con guiones aunque llegue sin ellos', async () => {
   assert.equal(rpcs()[0].params.p_document_number, '1-1234-5678');
   const mala = await call('POST', '/api/persons', { document_type_code: 'CED', document_number: '12-34', first_name: 'A', last_name: 'B', birth_date: '2004-02-01' }, REPRE);
   assert.equal(mala.status, 400);
+});
+
+test('una correccion oficial de FECOVOL exige motivo y queda en la bitacora', async () => {
+  const persona = { data: { id: UUID, association_id: ASO_PROPIA, first_name: 'Ana', last_name: 'Mora', birth_date: '2002-03-14', sex: 'F', is_verified: true }, error: null };
+  fake.alResponderTabla('persons', persona);
+  const sinMotivo = await call('PATCH', `/api/persons/${UUID}`, { birth_date: '2001-03-14' });
+  assert.equal(sinMotivo.status, 400);
+  assert.equal(rpcs().length, 0);
+
+  fake.alResponderTabla('persons', persona, { data: { id: UUID }, error: null });
+  fake.alResponderRpc('sp_update_person', { data: null, error: null });
+  const r = await call('PATCH', `/api/persons/${UUID}`, { birth_date: '2001-03-14', motivo: 'Error de digitación en el registro original' });
+  assert.equal(r.status, 200);
+  const bitacora = fake.llamadas.find((l) => l.tabla === 'audit_logs' && l.pasos.some((p) => p[0] === 'insert' && p[1][0].accion === 'CORRECCION_OFICIAL'));
+  assert.ok(bitacora, 'debe registrar la corrección');
+  const fila = bitacora.pasos.find((p) => p[0] === 'insert')[1][0];
+  assert.equal(fila.registro_viejo.birth_date, '2002-03-14');
+  assert.equal(fila.registro_nuevo.birth_date, '2001-03-14');
+});
+
+test('el historial de una persona solo lo ve FECOVOL', async () => {
+  const r = await call('GET', `/api/persons/${UUID}/historial`, null, REPRE);
+  assert.equal(r.status, 403);
+  fake.alResponderTabla('audit_logs', { data: [
+    { fecha_hora: '2026-11-01T10:00:00Z', usuario: 'admin@fecovol.cr', accion: 'CORRECCION_OFICIAL', registro_viejo: { last_name: 'Quezada' }, registro_nuevo: { last_name: 'Quesada', motivo: 'Error de digitación' } },
+    { fecha_hora: '2026-10-01T10:00:00Z', usuario: 'rep@grecia.cr', accion: 'INSERT', registro_viejo: null, registro_nuevo: {} }
+  ], error: null });
+  const ok = await call('GET', `/api/persons/${UUID}/historial`);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.data[0].tipo, 'CORRECCION');
+  assert.equal(ok.json.data[0].antes.last_name, 'Quezada');
+  assert.equal(ok.json.data[1].tipo, 'ALTA');
+});
+
+test('FECOVOL ve el representante y los documentos pendientes de cada asociacion', async () => {
+  fake.alResponderTabla('associations', { data: [{ id: ASO_PROPIA, name: 'AD Grecia' }], error: null });
+  fake.alResponderTabla('user_profiles',
+    { data: { id: ADMIN.id, email: ADMIN.email, status: 'ACTIVA', organization_id: null, roles: { name: 'Administrador' }, user_roles: [] }, error: null },
+    { data: [], error: null },
+    { data: [{ organization_id: ASO_PROPIA, full_name: 'Luis Mora', email: 'l@x.cr', roles: { name: 'Representante' } }], error: null });
+  fake.alResponderTabla('v_documentos', { data: [{ owner_association_id: ASO_PROPIA, status: 'EN_REVISION' }, { owner_association_id: ASO_PROPIA, status: 'RECHAZADO' }], error: null });
+  const r = await call('GET', '/api/associations');
+  assert.equal(r.status, 200);
+  assert.equal(r.json.data[0].representantes[0].full_name, 'Luis Mora');
+  assert.equal(r.json.data[0].documentos.en_revision, 1);
+  assert.equal(r.json.data[0].documentos.por_corregir, 1);
+});
+
+test('el resumen del padron solo lo ve FECOVOL', async () => {
+  const r = await call('GET', '/api/persons/resumen', null, REPRE);
+  assert.equal(r.status, 403);
+  const ok = await call('GET', '/api/persons/resumen');
+  assert.equal(ok.status, 200);
+  assert.deepEqual(Object.keys(ok.json.data), ['total', 'verificadas', 'jugadores', 'tecnicos', 'arbitros']);
 });

@@ -47,10 +47,11 @@ export const agregarIntegrante = (equipoId, integrante) => datos(api.post(`/team
 export const darDeBaja = (integranteId) => datos(api.del(`/teams/members/${enc(integranteId)}`));
 
 /* Personas ----------------------------------------------------------------------------------- */
-export function listarPersonas({ q, rol } = {}, opciones) {
+export function listarPersonas({ q, rol, asociacion } = {}, opciones) {
   const p = new URLSearchParams();
   if (q) p.set('q', q);
   if (rol) p.set('role', rol);
+  if (asociacion) p.set('association_id', asociacion);
   const qs = p.toString();
   return pedir(`/persons${qs ? `?${qs}` : ''}`, opciones);
 }

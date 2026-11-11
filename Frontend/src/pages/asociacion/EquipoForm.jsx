@@ -1,12 +1,12 @@
 // Registrar o editar un equipo (Figma 04 · Editar equipo). Categoría, rama y modalidad se eligen
 // al registrar: después no cambian, porque definen en qué competencias puede jugar el equipo.
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
 import { Campo, Encabezado, OpcionesCatalogo, OpcionesSede, Tarjeta } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
-import { actualizarEquipo, crearEquipo, esId, obtenerEquipo, valoresCatalogo } from '../../services/representante.js';
-import { RUTA, useAsociacion } from './contexto.js';
+import { actualizarEquipo, crearEquipo, esId, obtenerAsociacion, obtenerEquipo, valoresCatalogo } from '../../services/representante.js';
+import { useAsociacion, useEsFecovol, useRutas } from './contexto.js';
 
 function inicial(equipo) {
   return {
@@ -34,6 +34,8 @@ function validar(f, nuevo) {
 
 function Formulario({ equipo, catalogos, asociacion }) {
   const navigate = useNavigate();
+  const RUTA = useRutas();
+  const fecovol = useEsFecovol();
   const nuevo = !equipo;
   const [f, setF] = useState(() => inicial(equipo));
   const [errores, setErrores] = useState({});
@@ -55,7 +57,15 @@ function Formulario({ equipo, catalogos, asociacion }) {
     };
     try {
       const guardado = nuevo
-        ? await crearEquipo({ ...comunes, category_code: f.category_code, branch_code: f.branch_code, modality_code: f.modality_code })
+        ? await crearEquipo({
+          ...comunes,
+          category_code: f.category_code,
+          branch_code: f.branch_code,
+          modality_code: f.modality_code,
+          // FECOVOL registra el equipo para la asociación elegida; al representante el backend le
+          // asigna siempre la suya.
+          ...(fecovol ? { association_id: asociacion.id } : {})
+        })
         : await actualizarEquipo(equipo.id, { ...comunes, status: f.status });
       navigate(RUTA.equipo(guardado.id), { replace: true, state: { mensaje: nuevo ? 'Equipo registrado.' : 'Cambios guardados.' } });
     } catch (err) {
@@ -63,13 +73,13 @@ function Formulario({ equipo, catalogos, asociacion }) {
     }
   }
 
-  const volver = nuevo ? RUTA.equipos : RUTA.equipo(equipo.id);
+  const volver = nuevo ? (fecovol ? RUTA.asociacion(asociacion.id) : RUTA.equipos) : RUTA.equipo(equipo.id);
 
   return (
     <form className="g-pagina" onSubmit={guardar} noValidate>
       <Encabezado
         titulo={nuevo ? 'Registrar equipo' : `Editar ${equipo.name}`}
-        bajada={asociacion.name}
+        bajada={asociacion?.name || equipo?.asociacion?.name}
         acciones={(
           <>
             <Link to={volver} className="g-boton">Cancelar</Link>
@@ -82,7 +92,7 @@ function Formulario({ equipo, catalogos, asociacion }) {
 
       {estado.error && <p className="g-aviso g-aviso--error" role="alert">{estado.error}</p>}
 
-      <div className="g-columna g-formulario-pagina">
+      <div className="g-columna">
           <Tarjeta titulo="Datos del equipo">
             <div className="g-tarjeta__cuerpo g-formulario">
               <Campo etiqueta="Nombre del equipo" obligatorio error={errores.name} ancho>
@@ -144,22 +154,35 @@ function Formulario({ equipo, catalogos, asociacion }) {
 export default function EquipoForm() {
   const { id } = useParams();
   const nuevo = !id;
-  const { asociacion } = useAsociacion(nuevo
+  const RUTA = useRutas();
+  const fecovol = useEsFecovol();
+  const [params] = useSearchParams();
+  // FECOVOL registra equipos desde el detalle de una asociación (?asociacion=<id>).
+  const asociacionElegida = fecovol && nuevo ? params.get('asociacion') : null;
+  const { asociacion: propia } = useAsociacion(nuevo
     ? [{ texto: 'Mis equipos', to: RUTA.equipos }, { texto: 'Registrar equipo' }]
     : [{ texto: 'Mis equipos', to: RUTA.equipos }, { texto: 'Editar equipo' }]);
 
   const carga = useCarga(
     (signal) => Promise.all([
       nuevo ? Promise.resolve(null) : obtenerEquipo(id, { signal }),
+      asociacionElegida && esId(asociacionElegida) ? obtenerAsociacion(asociacionElegida, { signal }) : Promise.resolve(null),
       valoresCatalogo('Categorías', { signal }),
       valoresCatalogo('Ramas', { signal }),
       valoresCatalogo('Modalidades', { signal }),
       valoresCatalogo('Sedes', { signal })
-    ]).then(([equipo, categorias, ramas, modalidades, sedes]) => ({ equipo, catalogos: { categorias, ramas, modalidades, sedes } })),
-    [id]
+    ]).then(([equipo, elegida, categorias, ramas, modalidades, sedes]) => ({ equipo, elegida, catalogos: { categorias, ramas, modalidades, sedes } })),
+    [id, asociacionElegida]
   );
 
   if (!nuevo && !esId(id)) return <SinResultados titulo="Equipo no encontrado" texto="El enlace no es válido." />;
+  if (fecovol && nuevo && !esId(asociacionElegida || '')) {
+    return (
+      <SinResultados titulo="Elija la asociación" texto="Registre el equipo desde el detalle de la asociación a la que pertenece.">
+        <Link to={RUTA.asociaciones} className="g-boton">Ver asociaciones</Link>
+      </SinResultados>
+    );
+  }
   if (carga.estado === 'cargando') return <Cargando texto="Cargando…" />;
   if (carga.estado === 'error') {
     if (carga.error.status === 404 || carga.error.status === 403) {
@@ -167,5 +190,5 @@ export default function EquipoForm() {
     }
     return <ErrorCarga mensaje={carga.error.message} onReintentar={carga.reintentar} />;
   }
-  return <Formulario key={id || 'nuevo'} equipo={carga.datos.equipo} catalogos={carga.datos.catalogos} asociacion={asociacion} />;
+  return <Formulario key={id || 'nuevo'} equipo={carga.datos.equipo} catalogos={carga.datos.catalogos} asociacion={carga.datos.elegida || propia} />;
 }

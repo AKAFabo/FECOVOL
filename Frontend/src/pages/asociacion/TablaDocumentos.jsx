@@ -15,8 +15,9 @@ export function titularDocumento(d) {
  * @param {object[]} props.documentos
  * @param {boolean} [props.conTitular]  Muestra la columna "Persona o equipo".
  * @param {(doc: object) => void} [props.onReemplazar]
+ * @param {(doc: object) => void} [props.onRevisar]  FECOVOL: aprobar o rechazar los que están en revisión.
  */
-export default function TablaDocumentos({ documentos, conTitular = true, onReemplazar, vacio = 'No hay documentos.' }) {
+export default function TablaDocumentos({ documentos, conTitular = true, conAsociacion = false, onReemplazar, onRevisar, vacio = 'No hay documentos.' }) {
   const [abriendo, setAbriendo] = useState(null);
   const [error, setError] = useState(null);
 
@@ -59,7 +60,9 @@ export default function TablaDocumentos({ documentos, conTitular = true, onReemp
                   {conTitular && (
                     <th scope="row">
                       {titular.nombre}
-                      <span className="g-tabla__sub">{titular.detalle}</span>
+                      <span className="g-tabla__sub">
+                        {conAsociacion && d.asociacion && d.titular !== 'ASOCIACION' ? `${titular.detalle} · ${d.asociacion.name}` : titular.detalle}
+                      </span>
                     </th>
                   )}
                   <td>
@@ -74,6 +77,11 @@ export default function TablaDocumentos({ documentos, conTitular = true, onReemp
                       {d.tiene_archivo && (
                         <button type="button" className="g-boton g-boton--chico" onClick={() => ver(d)} disabled={abriendo === d.id} aria-label={`Ver ${d.tipo?.value || 'documento'} de ${titular.nombre}`}>
                           {abriendo === d.id ? 'Abriendo…' : 'Ver'}
+                        </button>
+                      )}
+                      {onRevisar && d.status === 'EN_REVISION' && (
+                        <button type="button" className="g-boton g-boton--chico g-boton--primario" onClick={() => onRevisar(d)}>
+                          Revisar<span className="visualmente-oculto"> {d.tipo?.value} de {titular.nombre}</span>
                         </button>
                       )}
                       {onReemplazar && reemplazable && (

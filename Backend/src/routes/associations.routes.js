@@ -89,6 +89,48 @@ async function getDependenciesForAssociations(associationIds) {
   return map;
 }
 
+/**
+ * Datos para la vista de FECOVOL: representantes de cada asociación y estado de sus documentos
+ * (los de la asociación, sus equipos y sus personas).
+ */
+async function resumenParaFecovol(associationIds) {
+  const resumen = Object.fromEntries(associationIds.map((id) => [id, {
+    representantes: [],
+    documentos: { en_revision: 0, por_vencer: 0, por_corregir: 0 }
+  }]));
+  if (!associationIds.length) return resumen;
+
+  const limite = new Date();
+  limite.setDate(limite.getDate() + 30);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const enTreinta = limite.toISOString().slice(0, 10);
+
+  const [{ data: perfiles }, { data: documentos }] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select('organization_id, full_name, email, status, roles:roles!user_profiles_role_id_fkey(name)')
+      .in('organization_id', associationIds),
+    supabase
+      .from('v_documentos')
+      .select('owner_association_id, status, expiry_date')
+      .in('owner_association_id', associationIds)
+  ]);
+
+  for (const p of perfiles || []) {
+    if (p.roles?.name !== 'Representante' || !resumen[p.organization_id]) continue;
+    resumen[p.organization_id].representantes.push({ full_name: p.full_name, email: p.email, status: p.status });
+  }
+  for (const d of documentos || []) {
+    const r = resumen[d.owner_association_id]?.documentos;
+    if (!r) continue;
+    const vencido = d.expiry_date && d.expiry_date < hoy;
+    if (d.status === 'RECHAZADO' || d.status === 'VENCIDO' || vencido) r.por_corregir += 1;
+    else if (d.status === 'EN_REVISION') r.en_revision += 1;
+    else if (d.expiry_date && d.expiry_date <= enTreinta) r.por_vencer += 1;
+  }
+  return resumen;
+}
+
 // GET /api/associations?status=AFILIADA&province=Cartago&q=cartago
 router.get('/', asyncHandler(async (req, res) => {
   const { status, province, q } = req.query;
@@ -122,6 +164,11 @@ router.get('/', asyncHandler(async (req, res) => {
         dependencies: deps
       };
     });
+
+    if (scope.isAdmin) {
+      const extra = await resumenParaFecovol(ids);
+      enrichedData = enrichedData.map((a) => ({ ...a, ...extra[a.id] }));
+    }
   }
 
   res.json({ data: enrichedData });
@@ -154,7 +201,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
   // Solo los cargos vigentes: los terminados quedan en la base (y en la bitácora) como historial.
   const junta = (data.association_board_members || []).filter((m) => !m.end_date);
 
-  res.json({ data: { ...data, association_board_members: junta, total_equipos: equipos || 0, total_personas: personas || 0 } });
+  const extra = (scope.isAdmin || esPropia) ? (await resumenParaFecovol([req.params.id]))[req.params.id] : {};
+
+  res.json({ data: { ...data, ...extra, association_board_members: junta, total_equipos: equipos || 0, total_personas: personas || 0 } });
 }));
 
 // POST /api/associations -> Crear / Afiliar asociación (función exclusiva de FECOVOL)
@@ -178,11 +227,16 @@ router.post('/', asyncHandler(async (req, res) => {
 
   if (!name || !tax_id) throw new HttpError(400, 'name y tax_id son obligatorios');
 
+  // La cédula jurídica se guarda como 3-101-123456, con o sin guiones al escribirla.
+  const digitosCedula = String(tax_id).replace(/\D/g, '');
+  if (digitosCedula.length !== 10) throw new HttpError(400, 'La cédula jurídica debe tener 10 dígitos (por ejemplo 3-002-123456).');
+  const cedulaJuridica = `${digitosCedula[0]}-${digitosCedula.slice(1, 4)}-${digitosCedula.slice(4)}`;
+
   // Todo pasa por el procedimiento: valida duplicados y deja la operación en la bitácora. Si
   // falla, se informa el error (antes se insertaba directo en la tabla, sin bitácora ni validación).
   const { data: newId, error } = await supabase.rpc('sp_create_association', {
     p_name: name.trim(),
-    p_tax_id: tax_id.trim(),
+    p_tax_id: cedulaJuridica,
     p_province: province || null,
     p_canton: canton || null,
     p_email: email || null,

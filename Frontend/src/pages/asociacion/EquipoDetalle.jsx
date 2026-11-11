@@ -10,7 +10,7 @@ import {
 import AgregarIntegrante from './AgregarIntegrante.jsx';
 import SubirDocumento from './SubirDocumento.jsx';
 import TablaDocumentos from './TablaDocumentos.jsx';
-import { RUTA, useAsociacion } from './contexto.js';
+import { useAsociacion, useEsFecovol, useRutas } from './contexto.js';
 
 const PESTANAS = [
   { valor: 'nomina', texto: 'Nómina' },
@@ -77,6 +77,8 @@ function CeldaDocumentos({ estado }) {
 }
 
 function Detalle({ datos, recargar, mostrar }) {
+  const RUTA = useRutas();
+  const fecovol = useEsFecovol();
   const { equipo, nomina, personas, documentos, posiciones, tipos } = datos;
   const [params, setParams] = useSearchParams();
   const pestana = PESTANAS.some((p) => p.valor === params.get('vista')) ? params.get('vista') : 'nomina';
@@ -146,6 +148,9 @@ function Detalle({ datos, recargar, mostrar }) {
     <div className="g-pagina">
       <Encabezado
         titulo={equipo.name}
+        bajada={fecovol && equipo.asociacion
+          ? <Link className="g-enlace" to={RUTA.asociacion(equipo.asociacion.id)}>{equipo.asociacion.name}</Link>
+          : null}
         acciones={(
           <>
             <Link to={RUTA.editarEquipo(equipo.id)} className="g-boton">Editar equipo</Link>
@@ -284,24 +289,27 @@ export default function EquipoDetalle() {
   const [mensaje, mostrar] = useMensaje();
   const valido = esId(id);
 
+  const RUTA = useRutas();
+  const fecovol = useEsFecovol();
+
+  // Primero el equipo: personas y documentos se piden de su asociación (para FECOVOL, que ve todas).
   const carga = useCarga(
     (signal) => (valido
-      ? Promise.all([
-        obtenerEquipo(id, { signal }),
+      ? obtenerEquipo(id, { signal }).then((equipo) => Promise.all([
         nominaEquipo(id, { signal }),
-        listarPersonas({}, { signal }),
-        listarDocumentos({}, { signal }),
+        listarPersonas({ asociacion: equipo.association_id }, { signal }),
+        listarDocumentos({ association_id: equipo.association_id }, { signal }),
         valoresCatalogo('Posiciones', { signal }),
         valoresCatalogo('Tipos de documento', { signal })
-      ]).then(([equipo, nomina, personas, documentos, posiciones, tipos]) => ({
+      ]).then(([nomina, personas, documentos, posiciones, tipos]) => ({
         equipo, nomina, personas: personas.data, documentos, posiciones, tipos
-      }))
+      })))
       : Promise.resolve(null)),
     [id, valido]
   );
 
   const nombre = carga.estado === 'listo' ? carga.datos.equipo.name : 'Equipo';
-  useAsociacion([{ texto: 'Mis equipos', to: RUTA.equipos }, { texto: nombre }]);
+  useAsociacion([{ texto: fecovol ? 'Asociaciones y equipos' : 'Mis equipos', to: RUTA.equipos }, { texto: nombre }]);
 
   useEffect(() => {
     if (location.state?.mensaje) mostrar(location.state.mensaje);
@@ -312,8 +320,8 @@ export default function EquipoDetalle() {
   if (carga.estado === 'error') {
     if (carga.error.status === 404 || carga.error.status === 403) {
       return (
-        <SinResultados titulo="Equipo no encontrado" texto="El equipo no existe o no pertenece a su asociación.">
-          <Link to={RUTA.equipos} className="g-boton">Ver mis equipos</Link>
+        <SinResultados titulo="Equipo no encontrado" texto={fecovol ? 'El equipo no existe.' : 'El equipo no existe o no pertenece a su asociación.'}>
+          <Link to={RUTA.equipos} className="g-boton">{fecovol ? 'Ver asociaciones y equipos' : 'Ver mis equipos'}</Link>
         </SinResultados>
       );
     }

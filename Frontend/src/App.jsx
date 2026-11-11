@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layout público (portal web)
@@ -19,6 +20,19 @@ import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx'
 import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
+
+// Gestión federativa (Estudiante 3): asociaciones, equipos, personas y documentos. Se cargan al
+// abrirlas para no agrandar el resto de la aplicación.
+import GestionFederativa from './pages/admin/federativo/GestionFederativa.jsx';
+const AsociacionesFecovol = lazy(() => import('./pages/admin/federativo/Asociaciones.jsx'));
+const AfiliarAsociacion = lazy(() => import('./pages/admin/federativo/AfiliarAsociacion.jsx'));
+const AsociacionDetalleFecovol = lazy(() => import('./pages/admin/federativo/AsociacionDetalle.jsx'));
+const PersonasFecovol = lazy(() => import('./pages/admin/federativo/Personas.jsx'));
+const PersonaFichaFecovol = lazy(() => import('./pages/admin/federativo/PersonaFicha.jsx'));
+const DocumentosFecovol = lazy(() => import('./pages/admin/federativo/Documentos.jsx'));
+const EquipoDetalle = lazy(() => import('./pages/asociacion/EquipoDetalle.jsx'));
+const EquipoForm = lazy(() => import('./pages/asociacion/EquipoForm.jsx'));
+const PersonaForm = lazy(() => import('./pages/asociacion/PersonaForm.jsx'));
 
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
@@ -87,6 +101,18 @@ export default function App() {
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="perfil" element={<Perfil />} />
+          <Route element={<GestionFederativa />}>
+            <Route path="asociaciones" element={<AsociacionesFecovol />} />
+            <Route path="asociaciones/afiliar" element={<AfiliarAsociacion />} />
+            <Route path="asociaciones/:id" element={<AsociacionDetalleFecovol />} />
+            <Route path="equipos/nuevo" element={<EquipoForm />} />
+            <Route path="equipos/:id" element={<EquipoDetalle />} />
+            <Route path="equipos/:id/editar" element={<EquipoForm />} />
+            <Route path="personas" element={<PersonasFecovol />} />
+            <Route path="personas/nueva" element={<PersonaForm />} />
+            <Route path="personas/:id" element={<PersonaFichaFecovol />} />
+            <Route path="documentos" element={<DocumentosFecovol />} />
+          </Route>
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>
       </Route>
