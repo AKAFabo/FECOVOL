@@ -3,7 +3,8 @@
 // Queda fuera a propósito (RF-DIV-004 y sección 5.2 del ERS):
 // - cédula jurídica, dirección, correo y teléfono de la asociación;
 // - junta directiva (nombres y contactos de personas);
-// - integrantes de los equipos.
+// - integrantes de los equipos (de los equipos inscritos en una competencia se publican solo
+//   nombre, número y posición, en competitionsDto.js).
 // Si FECOVOL autoriza publicar alguno de esos datos, se agrega aquí y en su prueba, y en ningún
 // otro lugar.
 
@@ -71,7 +72,7 @@ function aEquipo(fila, competencias = []) {
     modality: catalogo(fila.modalidad),
     home_venue: texto(fila.home_venue),
     competitions: competencias
-      .filter((c) => c && c.id)
+      .filter((c) => c?.id)
       .map((c) => ({ id: c.id, name: texto(c.name), status: c.status }))
   };
 }

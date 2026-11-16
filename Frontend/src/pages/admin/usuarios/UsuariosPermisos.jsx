@@ -71,7 +71,7 @@ export default function UsuariosPermisos() {
       setAsociaciones(asocs);
 
       // 1. Intentar cargar perfiles vía Backend API (service_role para evitar filtrado por RLS)
-      let profiles = null;
+      let profiles = null; // Todo: solucionar error en esta declaración 
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';

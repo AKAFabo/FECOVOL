@@ -14,6 +14,8 @@ const catalogsRoutes = require('./routes/catalogs.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const matchesRoutes = require('./routes/matches.routes');
 const publicRoutes = require('./routes/public.routes');
+const inscriptionsRoutes = require('./routes/inscriptions.routes');
+const reportsRoutes = require('./routes/reports.routes');
 const usersRoutes = require('./routes/users.routes');
 const newsRoutes = require('./routes/news.routes');
 const rolesRoutes = require('./routes/roles.routes');
@@ -27,13 +29,19 @@ app.use(cors());
 // El cuerpo de una noticia puede traer imagenes incrustadas por el editor.
 app.use('/api/news', express.json({ limit: '25mb' }));
 app.use(express.json());
+
+// Portal público: solo lectura y sin sesión (ver routes/public.routes.js). Va antes de
+// resolveScope y currentUser porque no usa el ámbito del usuario: así no se consulta la base
+// para resolver un usuario que el portal no necesita.
+app.use('/api/public', publicRoutes);
+
 app.use(resolveScope);
 app.use(currentUser);
 
 app.get('/', (req, res) => {
   res.json({
     message: 'API del Sistema de Informacion FECOVOL',
-    modulo: 'Asociaciones y Arbitraje',
+    modulo: 'Competencias y Resultados',
     endpoints: [
       '/api/associations',
       '/api/teams',
@@ -41,18 +49,20 @@ app.get('/', (req, res) => {
       '/api/documents',
       '/api/referee-assignments',
       '/api/catalogs',
+      '/api/competitions',
+      '/api/matches',
+      '/api/inscriptions',
+      '/api/reports',
       '/api/users',
       '/api/news',
       '/api/roles',
       '/api/parameters',
       '/api/audit',
-      '/api/referees'
+      '/api/referees',
+      '/api/public'
     ]
   });
 });
-
-// Portal público: solo lectura, sin sesión (ver routes/public.routes.js).
-app.use('/api/public', publicRoutes);
 
 app.use('/api/associations', associationsRoutes);
 app.use('/api/teams', teamsRoutes);
@@ -62,6 +72,8 @@ app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/competitions', competitionsRoutes);
 app.use('/api/matches', matchesRoutes);
+app.use('/api/inscriptions', inscriptionsRoutes);
+app.use('/api/reports', reportsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/roles', rolesRoutes);

@@ -1,141 +1,174 @@
-import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import CabeceraSeccion from '../../components/CabeceraSeccion.jsx';
-import { Cargando, ErrorCarga, SinResultados } from '../../components/EstadoContenido.jsx';
-import { CanchaPlano } from '../../components/Ilustraciones.jsx';
-import useCarga from '../../hooks/useCarga.js';
-import { estadoCompetencia, listarCompetencias } from '../../services/competencias.js';
-import { isoValida, rangoFechas } from '../../utils/formato.js';
-import './CompetenciasPublicas.css';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import '../../App.css'; 
+import '../../pages/public/Inicio.css'; 
 
-// Filtros de la lista. El valor viaja en la URL (?estado=en-curso) para que se pueda compartir el
-// enlace; cualquier otro valor se ignora y se muestran todas.
-const FILTROS = [
-  { valor: 'todas', texto: 'Todas' },
-  { valor: 'en-curso', texto: 'En curso' },
-  { valor: 'inscripciones', texto: 'Inscripciones abiertas' },
-  { valor: 'finalizadas', texto: 'Finalizadas' }
-];
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
-// Primero lo que está pasando, luego lo que viene y al final el historial.
-const ORDEN_GRUPO = { 'en-curso': 0, inscripciones: 1, finalizadas: 2, otras: 3 };
-
-function TarjetaCompetencia({ competencia }) {
-  const estado = estadoCompetencia(competencia.status);
-  const detalle = [competencia.category, competencia.branch, competencia.modality].filter(Boolean).join(' · ');
-
-  return (
-    <li className={`tarjeta-competencia${estado.grupo === 'finalizadas' ? ' tarjeta-competencia--finalizada' : ''}`}>
-      <div className="tarjeta-competencia__imagen" aria-hidden="true">
-        <CanchaPlano />
-      </div>
-      <div className="tarjeta-competencia__cuerpo">
-        <span className={`pastilla pastilla--${estado.tono}`}>{estado.texto}</span>
-        <h2 className="tarjeta-competencia__nombre">
-          {/* El enlace cubre toda la tarjeta (ver ::after en el CSS). */}
-          <Link to={`/competencias/${competencia.id}`} className="tarjeta-competencia__enlace">
-            {competencia.name}
-          </Link>
-        </h2>
-        {detalle && <p className="tarjeta-competencia__detalle">{detalle}</p>}
-        <p className="tarjeta-competencia__fechas">
-          <time dateTime={isoValida(competencia.start_date)}>
-            {rangoFechas(competencia.start_date, competencia.end_date)}
-          </time>
-        </p>
-        <span className="enlace-flecha tarjeta-competencia__accion" aria-hidden="true">
-          Posiciones, calendario y resultados
-        </span>
-      </div>
-    </li>
-  );
+// Formatea una fecha ISO a formato dd-mmm-yyyy
+function formatearFecha(fechaStr) {
+  if (!fechaStr) return '';
+  const [year, month, day] = fechaStr.split('-');
+  return `${parseInt(day, 10)}-${MESES[parseInt(month, 10) - 1]}-${year}`;
 }
 
 export default function CompetenciasPublicas() {
-  const [params, setParams] = useSearchParams();
-  const pedido = params.get('estado');
-  const filtro = FILTROS.some((f) => f.valor === pedido) ? pedido : 'todas';
+  // Declara los estados principales
+  const [competencias, setCompetencias] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
-  const { estado, datos, error, reintentar } = useCarga((signal) => listarCompetencias({ signal }), []);
+  // Declara los estados para los filtros
+  const [filtroTemporada, setFiltroTemporada] = useState('todas');
+  const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
 
-  const ordenadas = useMemo(
-    () =>
-      [...(datos || [])].sort(
-        (a, b) =>
-          ORDEN_GRUPO[estadoCompetencia(a.status).grupo] - ORDEN_GRUPO[estadoCompetencia(b.status).grupo] ||
-          (b.start_date || '').localeCompare(a.start_date || '')
-      ),
-    [datos]
-  );
-
-  const conteo = useMemo(() => {
-    const c = { todas: ordenadas.length };
-    for (const comp of ordenadas) {
-      const g = estadoCompetencia(comp.status).grupo;
-      c[g] = (c[g] || 0) + 1;
+  // Carga las competencias al montar el componente
+  useEffect(() => {
+    async function cargar() {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+        // Obtén todas las competencias
+        const res = await fetch(`${backendUrl}/api/competitions`);
+        const json = await res.json();
+        setCompetencias(json.data || []);
+      } catch (err) {
+        console.error('Error cargando competencias públicas', err);
+      } finally {
+        setCargando(false);
+      }
     }
-    return c;
-  }, [ordenadas]);
+    cargar();
+  }, []);
 
-  const visibles = filtro === 'todas' ? ordenadas : ordenadas.filter((c) => estadoCompetencia(c.status).grupo === filtro);
+  // Limpia todos los filtros a sus valores por defecto
+  const limpiarFiltros = () => {
+    setFiltroTemporada('todas');
+    setFiltroCategoria('todas');
+    setFiltroEstado('todos');
+  };
 
-  function elegir(valor) {
-    const siguiente = new URLSearchParams(params);
-    if (valor === 'todas') siguiente.delete('estado');
-    else siguiente.set('estado', valor);
-    setParams(siguiente, { replace: true });
+  // Extrae opciones únicas para los filtros basadas en los datos cargados
+  const temporadasDisponibles = [...new Set(competencias.map(c => c.season))].sort().reverse();
+  const categoriasDisponibles = [...new Set(competencias.map(c => c.categoria?.value).filter(Boolean))];
+
+  // Filtra las competencias según los criterios seleccionados
+  const competenciasFiltradas = competencias.filter(c => {
+    const matchTemporada = filtroTemporada === 'todas' || c.season === filtroTemporada;
+    const matchCategoria = filtroCategoria === 'todas' || c.categoria?.value === filtroCategoria;
+    const matchEstado = filtroEstado === 'todos' || c.status === filtroEstado;
+    return matchTemporada && matchCategoria && matchEstado;
+  });
+
+  // Muestra el indicador de carga
+  if (cargando) {
+    return <div className="contenedor" style={{ padding: '80px 0', textAlign: 'center' }}>Cargando competencias...</div>;
   }
 
   return (
-    <>
-      <CabeceraSeccion
-        antetitulo="Competencias"
-        titulo="Competencias oficiales"
-        bajada="Tablas de posiciones, calendario y resultados de las competencias que organiza FECOVOL."
-      />
-
-      <section className="bloque competencias-publicas" aria-labelledby="titulo-listado">
-        <div className="contenedor">
-          <h2 id="titulo-listado" className="visualmente-oculto">Listado de competencias</h2>
-
-          <div className="filtros" role="group" aria-label="Filtrar competencias por estado">
-            {FILTROS.map((f) => (
-              <button
-                key={f.valor}
-                type="button"
-                className={`filtro${filtro === f.valor ? ' filtro--activo' : ''}`}
-                aria-pressed={filtro === f.valor}
-                onClick={() => elegir(f.valor)}
-              >
-                {f.texto}
-                {estado === 'listo' && <span className="filtro__conteo">{conteo[f.valor] || 0}</span>}
-              </button>
-            ))}
-          </div>
-
-          {estado === 'cargando' && <Cargando texto="Cargando competencias…" />}
-          {estado === 'error' && <ErrorCarga mensaje={error.message} onReintentar={reintentar} />}
-          {estado === 'listo' && visibles.length === 0 && (
-            <SinResultados
-              titulo={filtro === 'todas' ? 'Todavía no hay competencias publicadas' : 'No hay competencias con este estado'}
-              texto="Cuando la Federación publique una competencia, aparecerá aquí."
-            >
-              {filtro !== 'todas' && (
-                <button type="button" className="boton boton--primario boton--chico" onClick={() => elegir('todas')}>
-                  Ver todas
-                </button>
-              )}
-            </SinResultados>
-          )}
-          {estado === 'listo' && visibles.length > 0 && (
-            <ul className="lista-competencias">
-              {visibles.map((c) => (
-                <TarjetaCompetencia key={c.id} competencia={c} />
-              ))}
-            </ul>
-          )}
+    <div className="contenedor" style={{ padding: '48px 0', minHeight: '70vh' }}>
+      
+      {/* Renderiza el encabezado de la sección */}
+      <div className="seccion-encabezado" style={{ marginBottom: '24px' }}>
+        <div>
+          <h1 className="seccion-titulo">Competencias Oficiales</h1>
+          <p style={{ color: 'var(--texto-mudo)', marginTop: '8px' }}>Consulta calendarios, resultados y tablas de posiciones de todos los torneos.</p>
         </div>
-      </section>
-    </>
+      </div>
+
+      {/* Renderiza la barra de filtros */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        background: 'var(--campo)', 
+        padding: '20px', 
+        borderRadius: 'var(--radio)', 
+        marginBottom: '32px', 
+        flexWrap: 'wrap',
+        alignItems: 'flex-end'
+      }}>
+        <div className="campo" style={{ width: '200px', marginBottom: 0 }}>
+          <label className="campo__etiqueta">Temporada</label>
+          <select className="admin-select" style={{ width: '100%' }} value={filtroTemporada} onChange={(e) => setFiltroTemporada(e.target.value)}>
+            <option value="todas">Todas las temporadas</option>
+            {temporadasDisponibles.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="campo" style={{ width: '200px', marginBottom: 0 }}>
+          <label className="campo__etiqueta">Categoría</label>
+          <select className="admin-select" style={{ width: '100%' }} value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)}>
+            <option value="todas">Todas las categorías</option>
+            {categoriasDisponibles.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="campo" style={{ width: '200px', marginBottom: 0 }}>
+          <label className="campo__etiqueta">Estado</label>
+          <select className="admin-select" style={{ width: '100%' }} value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
+            <option value="todos">Todos los estados</option>
+            <option value="EN_CURSO">En Curso</option>
+            <option value="INSCRIPCIONES">Inscripciones</option>
+            <option value="FINALIZADA">Finalizadas</option>
+          </select>
+        </div>
+
+        {/* Botón para limpiar los filtros */}
+        <div style={{ marginLeft: 'auto' }}>
+          <button 
+            type="button" 
+            className="admin-btn admin-btn--secondary" 
+            onClick={limpiarFiltros}
+            disabled={filtroTemporada === 'todas' && filtroCategoria === 'todas' && filtroEstado === 'todos'}
+            style={{ height: '38px' }}
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      </div>
+
+      {/* Renderiza la cuadrícula de tarjetas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+        
+        {/* Mapea y renderiza cada competencia pública */}
+        {competenciasFiltradas.map((comp) => (
+          <div key={comp.id} style={{ background: '#fff', border: '1px solid var(--linea)', borderRadius: 'var(--radio)', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+            <span className="antetitulo" style={{ color: comp.status === 'EN_CURSO' ? 'var(--rojo)' : 'var(--texto-mudo)', marginBottom: '8px' }}>
+              {comp.status.replace('_', ' ')}
+            </span>
+            <h2 style={{ fontSize: '1.3rem', margin: '0 0 12px 0', fontFamily: 'var(--fuente-titulo)', color: 'var(--texto)' }}>
+              {comp.name}
+            </h2>
+            
+            <p style={{ color: 'var(--texto-mudo)', fontSize: '0.9rem', marginBottom: '8px' }}>
+              {comp.categoria?.value} · {comp.rama?.value} · {comp.modalidad?.value}
+            </p>
+            <p style={{ color: 'var(--texto-mudo)', fontSize: '0.85rem', marginBottom: '24px' }}>
+              Del {formatearFecha(comp.start_date)} al {formatearFecha(comp.end_date)}
+            </p>
+            
+            <div style={{ marginTop: 'auto' }}>
+              <Link 
+                to={`/competencias/${comp.id}`} 
+                className="boton boton--primario boton--chico"
+                style={{ width: '100%', display: 'block', textAlign: 'center' }}
+              >
+                Ver detalles del torneo
+              </Link>
+            </div>
+          </div>
+        ))}
+
+        {/* Muestra un mensaje si no hay competencias */}
+        {competenciasFiltradas.length === 0 && (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--texto-mudo)' }}>
+            No hay competencias disponibles con los filtros seleccionados.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

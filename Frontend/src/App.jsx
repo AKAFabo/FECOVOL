@@ -24,22 +24,38 @@ import ProgramarCurso from './pages/admin/arbitraje/ProgramarCurso.jsx';
 import AcreditarArbitro from './pages/admin/arbitraje/AcreditarArbitro.jsx';
 import FichaArbitro from './pages/admin/arbitraje/FichaArbitro.jsx';
 
-// --- NUEVOS IMPORTS PARA EL MÓDULO DE COMPETENCIAS ---
-import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
-import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
-import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
-
-// Asociaciones afiliadas (portal público)
-import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
-import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
-
-// Noticias (portal público)
-import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
-import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
 import AsociacionPanel from './pages/asociacion/AsociacionPanel.jsx';
+
+// MÓDULO DE COMPETENCIAS (Estudiante 2)
 import PersonalPanel from './pages/personal/PersonalPanel.jsx';
+import CompetenciaDetalle from './pages/personal/CompetenciaDetalle.jsx';
+import Inscripciones from './pages/personal/Inscripciones.jsx';
+import CalendarioPartidos from './pages/personal/CalendarioPartidos.jsx';
+import Resultados from './pages/personal/Resultados.jsx';
+import ResultadoDetalle from './pages/personal/ResultadoDetalle.jsx';
+import Reportes from './pages/personal/Reportes.jsx';
+import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
+import CompetenciaDetallePublica from './pages/public/CompetenciaDetallePublica.jsx';
+import EquipoCompetenciaPublica from './pages/public/EquipoCompetenciaPublica.jsx';
+
+// Layout del Personal de Competencias
+import PersonalLayout from './layouts/PersonalLayout.jsx';
+
+// Asociaciones afiliadas (portal público) - Estudiante 4
+import AsociacionesPublicas from './pages/public/AsociacionesPublicas.jsx';
+import AsociacionDetallePublica from './pages/public/AsociacionDetallePublica.jsx';
+
+// Noticias (portal público) - Estudiante 4
+import NoticiasPublicas from './pages/public/NoticiasPublicas.jsx';
+import NoticiaDetallePublica from './pages/public/NoticiaDetallePublica.jsx';
+
+// Selecciones nacionales (portal público) - Estudiante 4
+import SeleccionesPublicas from './pages/public/SeleccionesPublicas.jsx';
+
+// La Federación (portal público) - Estudiante 4
+import LaFederacion from './pages/public/LaFederacion.jsx';
 
 export default function App() {
   return (
@@ -49,12 +65,13 @@ export default function App() {
         <Route index element={<Inicio />} />
         <Route path="competencias" element={<CompetenciasPublicas />} />
         <Route path="competencias/:id" element={<CompetenciaDetallePublica />} />
-        <Route path="selecciones/*"  element={<EnConstruccion titulo="Selecciones nacionales" />} />
+        <Route path="competencias/:id/equipos/:equipoId" element={<EquipoCompetenciaPublica />} />
+        <Route path="selecciones" element={<SeleccionesPublicas />} />
         <Route path="asociaciones" element={<AsociacionesPublicas />} />
         <Route path="asociaciones/:id" element={<AsociacionDetallePublica />} />
         <Route path="noticias" element={<NoticiasPublicas />} />
         <Route path="noticias/:id" element={<NoticiaDetallePublica />} />
-        <Route path="federacion/*"   element={<EnConstruccion titulo="La Federación" />} />
+        <Route path="federacion" element={<LaFederacion />} />
         <Route path="buscar"         element={<EnConstruccion titulo="Buscar" />} />
         <Route path="ingresar"       element={<Ingresar />} />
         <Route path="restablecer-contrasena" element={<Ingresar />} />
@@ -71,7 +88,6 @@ export default function App() {
           <Route path="parametros" element={<ParametrosSistema />} />
           <Route path="auditoria" element={<AuditoriaRespaldos />} />
           <Route path="noticias" element={<NoticiasComunicados />} />
-          {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="arbitraje" element={<Arbitraje />} />
@@ -88,6 +104,16 @@ export default function App() {
       {/* ── Entorno de Personal Técnico de Competencias (/personal) ── */}
       <Route element={<RutaProtegida subruta="/personal" rolesPermitidos={['Personal', 'Administrador']} />}>
         <Route path="/personal/*" element={<PersonalPanel />} />
+        <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
+        <Route path="/personal" element={<PersonalLayout />}>
+          <Route index element={<PersonalPanel />} />
+          <Route path="inscripciones" element={<Inscripciones />} />
+          <Route path="calendario" element={<CalendarioPartidos />} />
+          <Route path="resultados" element={<Resultados />} />
+          <Route path="resultados/:matchId" element={<ResultadoDetalle />} />
+          <Route path="reportes" element={<Reportes />} />
+          <Route path="competencia/:id" element={<CompetenciaDetalle />} />
+        </Route>
       </Route>
 
       {/* ── Dashboards temporales para los demás roles ────────────── */}
