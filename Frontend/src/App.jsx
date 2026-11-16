@@ -19,6 +19,10 @@ import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx'
 import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
+import Arbitraje from './pages/admin/arbitraje/Arbitraje.jsx';
+import ProgramarCurso from './pages/admin/arbitraje/ProgramarCurso.jsx';
+import AcreditarArbitro from './pages/admin/arbitraje/AcreditarArbitro.jsx';
+import FichaArbitro from './pages/admin/arbitraje/FichaArbitro.jsx';
 
 // --- NUEVOS IMPORTS PARA EL MÓDULO DE COMPETENCIAS ---
 import CompetenciasPublicas from './pages/public/CompetenciasPublicas.jsx';
@@ -70,6 +74,12 @@ export default function App() {
           {/* Keys distintas para que al pasar de editar a redactar el formulario se reinicie */}
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
+          <Route path="arbitraje" element={<Arbitraje />} />
+          <Route path="arbitraje/cursos/programar" element={<ProgramarCurso />} />
+          {/* Keys distintas para que al pasar de acreditar a editar el formulario se reinicie */}
+          <Route path="arbitraje/acreditar" element={<AcreditarArbitro key="nuevo" />} />
+          <Route path="arbitraje/:id/editar" element={<AcreditarArbitro key="editar" modo="editar" />} />
+          <Route path="arbitraje/:id" element={<FichaArbitro />} />
           <Route path="perfil" element={<Perfil />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>

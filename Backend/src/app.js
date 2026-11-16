@@ -19,6 +19,7 @@ const newsRoutes = require('./routes/news.routes');
 const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
 const auditRoutes = require('./routes/audit.routes');
+const refereesRoutes = require('./routes/referees.routes');
 
 const app = express();
 
@@ -44,7 +45,8 @@ app.get('/', (req, res) => {
       '/api/news',
       '/api/roles',
       '/api/parameters',
-      '/api/audit'
+      '/api/audit',
+      '/api/referees'
     ]
   });
 });
@@ -65,6 +67,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/referees', refereesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
