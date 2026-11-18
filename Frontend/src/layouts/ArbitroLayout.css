@@ -1,0 +1,93 @@
+/* Entorno del cuerpo arbitral: estructura de AdminLayout con el acento turquesa del rol. En el
+   teléfono la barra lateral se oculta y la navegación pasa a una barra inferior (Figma 05 móvil). */
+
+.admin-layout.admin-layout--arbitro { --g-acento: #17677f; --g-acento-oscuro: #0f4f63; --g-acento-suave: #e3f0f4; }
+
+.admin-layout--arbitro .admin-sidebar__badge-fv,
+.admin-layout--arbitro .admin-topbar__avatar { background: var(--g-acento); }
+
+.admin-layout--arbitro .admin-sidebar__role-box {
+  background: rgba(23, 103, 127, 0.25);
+  border-left-color: #5fb3cb;
+}
+
+.admin-layout--arbitro .admin-sidebar__role-label { color: #b7dfeb; }
+.admin-layout--arbitro .admin-sidebar__link--active .admin-sidebar__icon-placeholder { background: #7cc6dc; }
+
+.admin-sidebar__brand-text .arbitro-marca {
+  margin: 0;
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.admin-layout--arbitro .admin-main { min-width: 0; }
+.arbitro-contenido { padding: 28px; }
+
+.arbitro-marca-movil { display: flex; align-items: center; gap: 10px; }
+.arbitro-marca-movil .admin-sidebar__badge-fv { display: none; width: 32px; height: 32px; font-size: 0.8rem; }
+.arbitro-salir-movil { display: none; }
+
+.arbitro-sin {
+  max-width: 620px;
+  margin: 48px auto;
+  padding: 32px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  text-align: center;
+}
+
+.arbitro-sin h1 { margin: 0 0 10px; font-family: var(--fuente-titulo); font-size: 22px; }
+.arbitro-sin p { margin: 0 0 18px; color: var(--texto-mudo); line-height: 1.5; }
+
+/* Barra inferior (solo teléfono) */
+.arbitro-barra { display: none; }
+
+@media (max-width: 760px) {
+  .admin-layout--arbitro .admin-sidebar { display: none; }
+  .admin-layout--arbitro .admin-topbar { gap: 10px; padding-right: 16px; padding-left: 16px; background: #0b2238; border-bottom: 0; }
+  .admin-layout--arbitro .admin-topbar__season,
+  .admin-layout--arbitro .admin-topbar__avatar { display: none; }
+  .admin-layout--arbitro .admin-topbar__breadcrumb { color: #fff; font-weight: 700; }
+  .admin-layout--arbitro .admin-topbar__user-name { color: #fff; }
+  .admin-layout--arbitro .admin-topbar__user-role { color: #9fb3cc; }
+  .arbitro-marca-movil .admin-sidebar__badge-fv { display: inline-flex; }
+  .arbitro-salir-movil { display: inline-flex; }
+  .arbitro-contenido { padding: 20px 16px calc(84px + env(safe-area-inset-bottom)); }
+
+  .arbitro-barra {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: block;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--borde);
+    background: var(--superficie);
+  }
+
+  .arbitro-barra ul { display: flex; margin: 0; padding: 0; list-style: none; }
+  .arbitro-barra li { flex: 1; }
+
+  .arbitro-barra__enlace {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 60px;
+    padding: 10px 6px 8px;
+    color: var(--texto-tenue);
+    font-weight: 700;
+    font-size: 12.5px;
+    text-decoration: none;
+  }
+
+  .arbitro-barra__enlace .admin-sidebar__icon-placeholder { width: 18px; height: 18px; border-radius: 5px; background: #a9b6c3; }
+  .arbitro-barra__enlace--active { color: var(--azul); }
+  .arbitro-barra__enlace--active .admin-sidebar__icon-placeholder { background: var(--azul); }
+  .arbitro-barra__enlace:focus-visible { outline: none; box-shadow: inset var(--sombra-foco); }
+}

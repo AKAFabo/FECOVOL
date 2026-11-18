@@ -11,6 +11,8 @@ const teamsRoutes = require('./routes/teams.routes');
 const personsRoutes = require('./routes/persons.routes');
 const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
+const refereesRoutes = require('./routes/referees.routes');
+const refereeSelfRoutes = require('./routes/referees.me.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const matchesRoutes = require('./routes/matches.routes');
@@ -47,6 +49,7 @@ app.get('/', (req, res) => {
       '/api/persons',
       '/api/documents',
       '/api/referee-assignments',
+      '/api/referees',
       '/api/catalogs',
       '/api/competitions',
       '/api/matches',
@@ -66,6 +69,9 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/persons', personsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/referee-assignments', refereeAssignmentsRoutes);
+// El entorno del propio árbitro va antes que las rutas de FECOVOL del mismo prefijo.
+app.use('/api/referees/me', refereeSelfRoutes);
+app.use('/api/referees', refereesRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/competitions', competitionsRoutes);
 app.use('/api/matches', matchesRoutes);
@@ -82,4 +88,4 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-module.exports = app;
+module.exports = app;

@@ -12,7 +12,7 @@ function crearFake() {
     const registro = { tipo: 'from', tabla, pasos: [] };
     llamadas.push(registro);
     const b = {};
-    for (const m of ['select', 'eq', 'in', 'is', 'not', 'ilike', 'or', 'order', 'limit', 'lte', 'gte', 'insert', 'upsert', 'update', 'delete', 'single', 'maybeSingle', 'range']) {
+    for (const m of ['select', 'eq', 'neq', 'in', 'is', 'not', 'ilike', 'or', 'order', 'limit', 'lte', 'gte', 'insert', 'upsert', 'update', 'delete', 'single', 'maybeSingle', 'range']) {
       b[m] = (...args) => {
         registro.pasos.push([m, ...args]);
         return b;
@@ -72,6 +72,16 @@ function crearFake() {
       }
     },
     auth: {
+      // Invitaciones: registra el correo y devuelve un usuario nuevo (o el error configurado).
+      admin: {
+        errorInvitacion: null,
+        async inviteUserByEmail(correo, opciones) {
+          llamadas.push({ tipo: 'invitacion', correo, opciones });
+          return this.errorInvitacion
+            ? { data: null, error: this.errorInvitacion }
+            : { data: { user: { id: '99999999-9999-4999-8999-999999999999', email: correo } }, error: null };
+        }
+      },
       async getUser(token) {
         const user = sesiones[token];
         return user
@@ -92,6 +102,7 @@ function crearFake() {
       for (const k of Object.keys(sesiones)) delete sesiones[k];
       for (const k of Object.keys(perfiles)) delete perfiles[k];
       this.storage.fallarSubida = false;
+      this.auth.admin.errorInvitacion = null;
     },
     from: builder,
     rpc(nombre, params) {
