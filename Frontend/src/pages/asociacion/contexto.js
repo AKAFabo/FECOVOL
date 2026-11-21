@@ -14,6 +14,10 @@ export const RUTA = {
   persona: (id) => `/asociacion/personas/${id}`,
   nuevaPersona: '/asociacion/personas/nueva',
   documentos: '/asociacion/documentos',
+  inscripciones: '/asociacion/inscripciones',
+  participacion: (competenciaId, equipoId) => `/asociacion/inscripciones/${competenciaId}/equipos/${equipoId}`,
+  calendario: '/asociacion/calendario',
+  reportes: '/asociacion/reportes',
   miAsociacion: '/asociacion/mi-asociacion'
 };
 
