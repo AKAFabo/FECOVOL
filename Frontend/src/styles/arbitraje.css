@@ -1,0 +1,203 @@
+/* Pantallas de arbitraje (Administración, Personal de competencias y cuerpo arbitral).
+   Complementa gestion.css; prefijo arb-. */
+
+.arb-texto-ok { color: var(--ok); }
+.arb-texto-aviso { color: var(--aviso); }
+.arb-texto-error { color: var(--g-error); }
+.g-datos dd.arb-cifra-ok { color: var(--ok); }
+.g-datos dd.arb-cifra-aviso { color: var(--aviso); }
+p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
+
+.arb-aviso-naranja { border-color: var(--aviso); background: var(--aviso-fondo); color: var(--aviso); }
+.arb-aviso-naranja .g-aviso__titulo { color: var(--aviso); }
+
+.arb-paginas { display: flex; align-items: center; gap: 12px; }
+.arb-paginas .g-enlace:disabled { color: var(--texto-tenue); text-decoration: none; cursor: default; }
+
+.arb-enlace-fila { color: inherit; text-decoration: none; }
+.arb-enlace-fila:hover { color: var(--azul); text-decoration: underline; }
+.arb-enlace-fila:focus-visible { outline: none; box-shadow: var(--sombra-foco); border-radius: 2px; }
+
+.arb-margen { margin: 14px 20px 0; }
+.arb-borde-arriba { border-top: 1px solid var(--linea); }
+.arb-texto-largo { margin: 0; white-space: pre-line; line-height: 1.55; color: var(--texto-suave); }
+.arb-nota { color: var(--texto-mudo); font-size: 13px; }
+
+.arb-etiqueta {
+  padding: 3px 10px;
+  border-radius: var(--radio-pastilla);
+  background: var(--campo);
+  color: var(--texto-mudo);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ----- Acreditar ----- */
+.arb-persona-elegida {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: #fafbfc;
+}
+
+.arb-persona-elegida__nombre { margin: 0; font-weight: 700; }
+.arb-persona-elegida--chica { align-items: center; min-height: 40px; padding: 8px 12px; }
+.arb-datos-planos { margin-top: 10px; }
+.arb-datos-planos .g-datos__fila { padding-right: 0; padding-left: 0; }
+
+.arb-requisitos { display: flex; flex-direction: column; border-top: 1px solid var(--linea); }
+
+.arb-requisito {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+.arb-requisito__texto { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; min-width: 0; }
+.arb-requisito__titulo { font-weight: 700; font-size: 14.5px; color: var(--texto); }
+.arb-requisito__acciones { display: flex; align-items: center; gap: 10px; }
+
+/* ----- Programar curso ----- */
+.arb-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0;
+  border: 0;
+}
+
+.arb-opcion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+}
+
+.arb-opcion input { margin-top: 3px; accent-color: var(--azul); }
+.arb-opcion:focus-within { box-shadow: var(--sombra-foco); }
+.arb-opcion--elegida { border: 2px solid var(--azul); background: #eaf0f7; padding: 11px 13px; }
+.arb-opcion__titulo { display: block; font-weight: 700; color: var(--texto); }
+.arb-opcion__detalle { display: block; margin-top: 4px; color: var(--texto-mudo); font-size: 12.5px; line-height: 1.4; }
+
+.arb-interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.arb-interruptor__etiqueta { font-weight: 700; font-size: 14px; color: var(--texto); cursor: pointer; }
+
+.arb-interruptor__control {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  border: 0;
+  border-radius: 13px;
+  background: #b8c3cf;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.arb-interruptor__control::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.arb-interruptor__control[aria-checked='true'] { background: var(--ok); }
+.arb-interruptor__control[aria-checked='true']::after { transform: translateX(18px); }
+.arb-interruptor__control:focus-visible { outline: none; box-shadow: var(--sombra-foco); }
+
+/* ----- Curso: notas ----- */
+.arb-nota-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.arb-nota-editor__control { width: 72px; min-height: 32px; padding: 4px 8px; }
+
+/* ----- Designaciones ----- */
+.arb-tabla-alta { max-height: 420px; overflow-y: auto; }
+.g-tabla tbody tr.arb-fila-elegida td, .g-tabla tbody tr.arb-fila-elegida th { background: #eef4fa; }
+
+.arb-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--avatar);
+  color: var(--azul);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.arb-avatar--vacio { background: var(--campo); }
+.arb-avatar--grande { width: 64px; height: 64px; background: #cfe3ea; font-size: 20px; color: #0f4f63; }
+
+.arb-puesto { justify-content: flex-start; }
+.arb-puesto__texto { flex: 1; }
+.arb-puesto--elegido { background: #f2f7fb; box-shadow: inset 3px 0 0 var(--g-acento); }
+
+.arb-buscador { padding-bottom: 0; }
+.arb-disponibles { max-height: 560px; overflow-y: auto; }
+.arb-disponible { align-items: flex-start; justify-content: flex-start; }
+.arb-disponible .g-lista__acciones { flex-direction: column; align-items: flex-end; gap: 6px; }
+.arb-nota-fila { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; }
+
+/* ----- Cuerpo arbitral ----- */
+.arb-acciones-fila { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.g-tabla__accion .arb-acciones-fila { flex-wrap: nowrap; }
+.arb-fecha-destacada { color: var(--azul); font-weight: 700; }
+
+.arb-solo-movil { display: none; }
+
+.arb-tarjeta-partido { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-bottom: 1px solid var(--linea); }
+.arb-tarjeta-partido:last-child { border-bottom: 0; }
+.arb-tarjeta-partido__cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.arb-tarjeta-partido__titulo { margin: 2px 0 0; font-family: var(--fuente-titulo); font-weight: 700; font-size: 17px; color: var(--texto); }
+.arb-tarjeta-partido .arb-acciones-fila { justify-content: flex-start; margin-top: 8px; }
+
+.arb-tarjeta-hoy { border-color: var(--g-acento); }
+
+.arb-ficha-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
+.arb-ficha-cabecera__texto { flex: 1 1 320px; min-width: 0; }
+
+.arb-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+
+.arb-dato { padding: 12px 20px; border-bottom: 1px solid var(--linea); }
+.arb-dato dt { display: flex; align-items: center; gap: 8px; color: var(--texto-mudo); font-size: 12.5px; }
+.arb-dato dd { margin: 4px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+
+.arb-dato__tipo {
+  padding: 1px 7px;
+  border-radius: var(--radio-pastilla);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.arb-dato__tipo--oficial { background: var(--neutro-fondo); color: var(--neutro); }
+.arb-dato__tipo--editable { background: var(--ok-fondo); color: var(--ok); }
+
+@media (max-width: 760px) {
+  .arb-solo-escritorio { display: none; }
+  .arb-solo-movil { display: block; }
+  .arb-datos { grid-template-columns: minmax(0, 1fr); }
+  .arb-tabla-alta, .arb-disponibles { max-height: none; }
+  .admin-layout--arbitro .g-cifra__valor { font-size: 24px; }
+}

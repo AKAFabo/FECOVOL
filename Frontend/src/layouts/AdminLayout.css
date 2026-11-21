@@ -8,6 +8,11 @@
 
 /* Sidebar */
 .admin-sidebar {
+  /* Fija: solo se desplaza el contenido; el menú y "Cerrar sesión" siempre quedan a la vista. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
   width: 260px;
   background-color: #0b2238;
   color: #fff;

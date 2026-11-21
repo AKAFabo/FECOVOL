@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layout público (portal web)
@@ -19,6 +20,28 @@ import NoticiasComunicados from './pages/admin/noticias/NoticiasComunicados.jsx'
 import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
+
+// Gestión federativa (Estudiante 3): asociaciones, equipos, personas y documentos. Se cargan al
+// abrirlas para no agrandar el resto de la aplicación.
+import GestionFederativa from './pages/admin/federativo/GestionFederativa.jsx';
+const AsociacionesFecovol = lazy(() => import('./pages/admin/federativo/Asociaciones.jsx'));
+const AfiliarAsociacion = lazy(() => import('./pages/admin/federativo/AfiliarAsociacion.jsx'));
+const AsociacionDetalleFecovol = lazy(() => import('./pages/admin/federativo/AsociacionDetalle.jsx'));
+const PersonasFecovol = lazy(() => import('./pages/admin/federativo/Personas.jsx'));
+const PersonaFichaFecovol = lazy(() => import('./pages/admin/federativo/PersonaFicha.jsx'));
+const DocumentosFecovol = lazy(() => import('./pages/admin/federativo/Documentos.jsx'));
+const EquipoDetalle = lazy(() => import('./pages/asociacion/EquipoDetalle.jsx'));
+const EquipoForm = lazy(() => import('./pages/asociacion/EquipoForm.jsx'));
+const PersonaForm = lazy(() => import('./pages/asociacion/PersonaForm.jsx'));
+
+// Arbitraje (Estudiante 3): cuerpo arbitral, acreditaciones, cursos y designaciones.
+const Arbitraje = lazy(() => import('./pages/admin/arbitraje/Arbitraje.jsx'));
+const AcreditarArbitro = lazy(() => import('./pages/admin/arbitraje/AcreditarArbitro.jsx'));
+const FichaArbitro = lazy(() => import('./pages/admin/arbitraje/FichaArbitro.jsx'));
+const CursosArbitraje = lazy(() => import('./pages/admin/arbitraje/Cursos.jsx'));
+const CursoArbitraje = lazy(() => import('./pages/admin/arbitraje/CursoDetalle.jsx'));
+const ProgramarCurso = lazy(() => import('./pages/admin/arbitraje/ProgramarCurso.jsx'));
+const Designaciones = lazy(() => import('./pages/admin/arbitraje/Designaciones.jsx'));
 
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
@@ -87,6 +110,25 @@ export default function App() {
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="perfil" element={<Perfil />} />
+          <Route element={<GestionFederativa />}>
+            <Route path="asociaciones" element={<AsociacionesFecovol />} />
+            <Route path="asociaciones/afiliar" element={<AfiliarAsociacion />} />
+            <Route path="asociaciones/:id" element={<AsociacionDetalleFecovol />} />
+            <Route path="equipos/nuevo" element={<EquipoForm />} />
+            <Route path="equipos/:id" element={<EquipoDetalle />} />
+            <Route path="equipos/:id/editar" element={<EquipoForm />} />
+            <Route path="personas" element={<PersonasFecovol />} />
+            <Route path="personas/nueva" element={<PersonaForm />} />
+            <Route path="personas/:id" element={<PersonaFichaFecovol />} />
+            <Route path="documentos" element={<DocumentosFecovol />} />
+            <Route path="arbitraje" element={<Arbitraje />} />
+            <Route path="arbitraje/acreditar" element={<AcreditarArbitro />} />
+            <Route path="arbitraje/cursos" element={<CursosArbitraje />} />
+            <Route path="arbitraje/cursos/nuevo" element={<ProgramarCurso />} />
+            <Route path="arbitraje/cursos/:id" element={<CursoArbitraje />} />
+            <Route path="arbitraje/designaciones" element={<Designaciones />} />
+            <Route path="arbitraje/:id" element={<FichaArbitro />} />
+          </Route>
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>
       </Route>
@@ -102,6 +144,7 @@ export default function App() {
           <Route path="resultados" element={<Resultados />} />
           <Route path="resultados/:matchId" element={<ResultadoDetalle />} />
           <Route path="reportes" element={<Reportes />} />
+          <Route path="designaciones" element={<Suspense fallback={null}><Designaciones /></Suspense>} />
           <Route path="competencia/:id" element={<CompetenciaDetalle />} />
         </Route>
       </Route>
@@ -118,4 +161,4 @@ export default function App() {
       <Route path="/arbitros/*" element={<Navigate to="/arbitro" replace />} />
     </Routes>
   );
-}
+}

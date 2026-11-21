@@ -4,9 +4,11 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
+const { puedeVerPrivado, exigirGestion, esDeOtraAsociacion } = require('../utils/ambito');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
+router.param('boardId', validateUuidParams);
 
 const SELECT_BASE =
   'id, name, short_name, tax_id, province, canton, address, email, phone, website, home_venue, founded_date, affiliation_date, status, created_at, updated_at';
@@ -87,6 +89,48 @@ async function getDependenciesForAssociations(associationIds) {
   return map;
 }
 
+/**
+ * Datos para la vista de FECOVOL: representantes de cada asociación y estado de sus documentos
+ * (los de la asociación, sus equipos y sus personas).
+ */
+async function resumenParaFecovol(associationIds) {
+  const resumen = Object.fromEntries(associationIds.map((id) => [id, {
+    representantes: [],
+    documentos: { en_revision: 0, por_vencer: 0, por_corregir: 0 }
+  }]));
+  if (!associationIds.length) return resumen;
+
+  const limite = new Date();
+  limite.setDate(limite.getDate() + 30);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const enTreinta = limite.toISOString().slice(0, 10);
+
+  const [{ data: perfiles }, { data: documentos }] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select('organization_id, full_name, email, status, roles:roles!user_profiles_role_id_fkey(name)')
+      .in('organization_id', associationIds),
+    supabase
+      .from('v_documentos')
+      .select('owner_association_id, status, expiry_date')
+      .in('owner_association_id', associationIds)
+  ]);
+
+  for (const p of perfiles || []) {
+    if (p.roles?.name !== 'Representante' || !resumen[p.organization_id]) continue;
+    resumen[p.organization_id].representantes.push({ full_name: p.full_name, email: p.email, status: p.status });
+  }
+  for (const d of documentos || []) {
+    const r = resumen[d.owner_association_id]?.documentos;
+    if (!r) continue;
+    const vencido = d.expiry_date && d.expiry_date < hoy;
+    if (d.status === 'RECHAZADO' || d.status === 'VENCIDO' || vencido) r.por_corregir += 1;
+    else if (d.status === 'EN_REVISION') r.en_revision += 1;
+    else if (d.expiry_date && d.expiry_date <= enTreinta) r.por_vencer += 1;
+  }
+  return resumen;
+}
+
 // GET /api/associations?status=AFILIADA&province=Cartago&q=cartago
 router.get('/', asyncHandler(async (req, res) => {
   const { status, province, q } = req.query;
@@ -120,6 +164,11 @@ router.get('/', asyncHandler(async (req, res) => {
         dependencies: deps
       };
     });
+
+    if (scope.isAdmin) {
+      const extra = await resumenParaFecovol(ids);
+      enrichedData = enrichedData.map((a) => ({ ...a, ...extra[a.id] }));
+    }
   }
 
   res.json({ data: enrichedData });
@@ -132,8 +181,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
   // Clasificación de visibilidad: Juntas directivas con teléfonos personales solo para administradores y la propia asociación
   const selectQuery = (scope.isAdmin || esPropia)
-    ? `${SELECT_BASE}, association_board_members(id, position, full_name, email, phone, start_date)`
-    : `${SELECT_PUBLIC}, association_board_members(id, position, full_name, start_date)`;
+    ? `${SELECT_BASE}, association_board_members(id, position, full_name, email, phone, start_date, end_date)`
+    : `${SELECT_PUBLIC}, association_board_members(id, position, full_name, start_date, end_date)`;
 
   const { data, error } = await supabase
     .from('associations')
@@ -149,7 +198,12 @@ router.get('/:id', asyncHandler(async (req, res) => {
     supabase.from('persons').select('id', { count: 'exact', head: true }).eq('association_id', req.params.id)
   ]);
 
-  res.json({ data: { ...data, total_equipos: equipos || 0, total_personas: personas || 0 } });
+  // Solo los cargos vigentes: los terminados quedan en la base (y en la bitácora) como historial.
+  const junta = (data.association_board_members || []).filter((m) => !m.end_date);
+
+  const extra = (scope.isAdmin || esPropia) ? (await resumenParaFecovol([req.params.id]))[req.params.id] : {};
+
+  res.json({ data: { ...data, ...extra, association_board_members: junta, total_equipos: equipos || 0, total_personas: personas || 0 } });
 }));
 
 // POST /api/associations -> Crear / Afiliar asociación (función exclusiva de FECOVOL)
@@ -173,10 +227,16 @@ router.post('/', asyncHandler(async (req, res) => {
 
   if (!name || !tax_id) throw new HttpError(400, 'name y tax_id son obligatorios');
 
-  let newId = null;
-  const { data: id, error } = await supabase.rpc('sp_create_association', {
+  // La cédula jurídica se guarda como 3-101-123456, con o sin guiones al escribirla.
+  const digitosCedula = String(tax_id).replace(/\D/g, '');
+  if (digitosCedula.length !== 10) throw new HttpError(400, 'La cédula jurídica debe tener 10 dígitos (por ejemplo 3-002-123456).');
+  const cedulaJuridica = `${digitosCedula[0]}-${digitosCedula.slice(1, 4)}-${digitosCedula.slice(4)}`;
+
+  // Todo pasa por el procedimiento: valida duplicados y deja la operación en la bitácora. Si
+  // falla, se informa el error (antes se insertaba directo en la tabla, sin bitácora ni validación).
+  const { data: newId, error } = await supabase.rpc('sp_create_association', {
     p_name: name.trim(),
-    p_tax_id: tax_id.trim(),
+    p_tax_id: cedulaJuridica,
     p_province: province || null,
     p_canton: canton || null,
     p_email: email || null,
@@ -189,32 +249,8 @@ router.post('/', asyncHandler(async (req, res) => {
     p_status: status || 'AFILIADA'
   });
 
-  if (error) {
-    // Fallback: inserción directa en public.associations
-    const { data: insData, error: insErr } = await supabase
-      .from('associations')
-      .insert({
-        name: name.trim(),
-        tax_id: tax_id.trim(),
-        short_name: short_name?.trim() || null,
-        province: province || null,
-        canton: canton?.trim() || null,
-        address: address?.trim() || null,
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        home_venue: home_venue?.trim() || null,
-        founded_date: founded_date || null,
-        status: status || 'AFILIADA'
-      })
-      .select('id')
-      .single();
-
-    const err = fromSupabase(insErr, 'Asociación');
-    if (err) throw err;
-    newId = insData.id;
-  } else {
-    newId = id;
-  }
+  const errCrear = fromSupabase(error, 'Asociación');
+  if (errCrear) throw errCrear;
 
   const { data } = await supabase.from('associations').select(SELECT_BASE).eq('id', newId).single();
   res.status(201).json({ data });
@@ -224,9 +260,7 @@ router.post('/', asyncHandler(async (req, res) => {
 router.patch('/:id', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación para modificar datos de la asociación.');
-  }
+  exigirGestion(scope, 'modificar datos de la asociación');
 
   // Si es Representante de Asociación, solo puede modificar su propia asociación
   if (scope.isAssociation && req.params.id !== scope.organizationId) {
@@ -245,8 +279,11 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
   const b = req.body;
 
-  // Un representante de asociación no puede cambiar el estado de afiliación oficial (solo FECOVOL)
+  // Un representante de asociación no puede cambiar el estado de afiliación oficial, el nombre
+  // legal ni la cédula jurídica: esos datos los define FECOVOL. (La cédula jurídica no se
+  // modifica por esta vía para nadie: identifica a la asociación ante el registro oficial.)
   const nuevoStatus = scope.isAdmin ? (b.status ?? null) : null;
+  const nuevoNombre = scope.isAdmin ? (b.name ?? null) : null;
 
   // Validación de suspensión / inactivación con dependencias (RF-AUD-002)
   if (scope.isAdmin && (b.status === 'SUSPENDIDA' || b.status === 'INACTIVA') && b.confirm_deactivation !== true) {
@@ -265,7 +302,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const { error } = await supabase.rpc('sp_update_association', {
     p_id: req.params.id,
     p_admin_user: req.currentUser,
-    p_name: b.name ?? null,
+    p_name: nuevoNombre,
     p_short_name: b.short_name ?? null,
     p_province: b.province ?? null,
     p_canton: b.canton ?? null,
@@ -277,31 +314,8 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     p_status: nuevoStatus
   });
 
-  if (error) {
-    // Fallback: actualización directa en public.associations
-    const updateObj = {
-      ...(b.name !== undefined && { name: b.name.trim() }),
-      ...(b.short_name !== undefined && { short_name: b.short_name?.trim() || null }),
-      ...(b.tax_id !== undefined && { tax_id: b.tax_id.trim() }),
-      ...(b.province !== undefined && { province: b.province || null }),
-      ...(b.canton !== undefined && { canton: b.canton?.trim() || null }),
-      ...(b.address !== undefined && { address: b.address?.trim() || null }),
-      ...(b.email !== undefined && { email: b.email?.trim() || null }),
-      ...(b.phone !== undefined && { phone: b.phone?.trim() || null }),
-      ...(b.website !== undefined && { website: b.website?.trim() || null }),
-      ...(b.home_venue !== undefined && { home_venue: b.home_venue?.trim() || null }),
-      ...(nuevoStatus && { status: nuevoStatus }),
-      updated_at: new Date().toISOString()
-    };
-
-    const { error: updErr } = await supabase
-      .from('associations')
-      .update(updateObj)
-      .eq('id', req.params.id);
-
-    const err = fromSupabase(updErr, 'Asociación');
-    if (err) throw err;
-  }
+  const errActualizar = fromSupabase(error, 'Asociación');
+  if (errActualizar) throw errActualizar;
 
   const { data } = await supabase.from('associations').select(SELECT_BASE).eq('id', req.params.id).single();
   res.json({ data });
@@ -369,7 +383,7 @@ router.get('/:id/persons', asyncHandler(async (req, res) => {
   }
 
   // Clasificación de visibilidad: Oculta cédula y fecha de nacimiento a usuarios públicos
-  const cols = scope.isPublic
+  const cols = !puedeVerPrivado(scope)
     ? 'id, first_name, last_name, is_verified, status, person_roles(role_type)'
     : 'id, first_name, last_name, document_number, birth_date, is_verified, status, person_roles(role_type)';
 
@@ -394,9 +408,7 @@ router.get('/:id/persons', asyncHandler(async (req, res) => {
 router.post('/:id/board', asyncHandler(async (req, res) => {
   const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
 
-  if (scope.isPublic) {
-    throw new HttpError(401, 'Acceso denegado: Se requiere autenticación.');
-  }
+  exigirGestion(scope, 'modificar la junta directiva');
 
   if (scope.isAssociation && req.params.id !== scope.organizationId) {
     await logDeniedAttempt({
@@ -429,6 +441,66 @@ router.post('/:id/board', asyncHandler(async (req, res) => {
   if (err) throw err;
 
   res.status(201).json({ data: { id, association_id: req.params.id, position, full_name, email, phone, start_date } });
+}));
+
+// Carga un cargo de junta directiva y verifica que el usuario pueda modificarlo.
+async function cargoGestionable(req, accion) {
+  const scope = req.userScope || { type: 'PUBLIC', isPublic: true };
+  exigirGestion(scope, accion);
+
+  const { data: cargo } = await supabase
+    .from('association_board_members')
+    .select('id, association_id, end_date')
+    .eq('id', req.params.boardId)
+    .maybeSingle();
+  if (!cargo || cargo.end_date) throw new HttpError(404, 'El cargo no existe o ya no está vigente.');
+
+  if (scope.isAssociation && cargo.association_id !== scope.organizationId) {
+    await logDeniedAttempt({
+      usuario: scope.userEmail,
+      accion: 'ACCESO_DENEGADO',
+      tabla: 'association_board_members',
+      registroId: cargo.id,
+      motivo: `Intento de modificar la junta directiva de otra asociación (${cargo.association_id})`,
+      endpoint: `${req.method} /api/associations/board/${cargo.id}`,
+      ip: getClientIp(req),
+      datosIntentados: req.body
+    });
+    throw new HttpError(403, 'Acceso denegado: No está autorizado para modificar la junta directiva de otra asociación.');
+  }
+  return cargo;
+}
+
+const textoOpcional = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined);
+
+// PATCH /api/associations/board/:boardId -> Editar un cargo vigente
+router.patch('/board/:boardId', asyncHandler(async (req, res) => {
+  const cargo = await cargoGestionable(req, 'modificar la junta directiva');
+  const b = req.body || {};
+  const email = textoOpcional(b.email, 120);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'El correo no es válido.');
+
+  const { error } = await supabase.rpc('sp_update_board_member', {
+    p_id: cargo.id,
+    p_admin_user: req.currentUser,
+    p_position: textoOpcional(b.position, 80) ?? null,
+    p_full_name: textoOpcional(b.full_name, 150) ?? null,
+    p_email: email ?? null,
+    p_phone: textoOpcional(b.phone, 30) ?? null
+  });
+  const err = fromSupabase(error, 'Cargo');
+  if (err) throw err;
+
+  res.json({ data: { id: cargo.id } });
+}));
+
+// DELETE /api/associations/board/:boardId -> Da por terminado el cargo (no lo borra)
+router.delete('/board/:boardId', asyncHandler(async (req, res) => {
+  const cargo = await cargoGestionable(req, 'modificar la junta directiva');
+  const { error } = await supabase.rpc('sp_end_board_member', { p_id: cargo.id, p_admin_user: req.currentUser });
+  const err = fromSupabase(error, 'Cargo');
+  if (err) throw err;
+  res.json({ data: { id: cargo.id, terminado: true } });
 }));
 
 module.exports = router;

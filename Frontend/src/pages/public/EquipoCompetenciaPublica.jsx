@@ -136,18 +136,23 @@ function UltimosResultados({ partidos, equipoId }) {
           </thead>
           <tbody>
             {lista.map((p) => {
-              const gano = (p.home?.id === equipoId) === (p.home_sets > p.away_sets);
+              const conMarcador = p.home_sets !== null && p.away_sets !== null;
+              const gano = conMarcador && (p.home?.id === equipoId) === (p.home_sets > p.away_sets);
               return (
                 <tr key={p.id}>
                   <td><time dateTime={isoValida(p.date)}>{fechaDiaMesCorto(p.date) || '—'}</time></td>
                   <th scope="row" className="tabla-datos__nombre">{p.home?.name} vs {p.away?.name}</th>
                   <td>
-                    <span className={`marcador-equipo ${gano ? 'marcador-equipo--gano' : ''}`}>
-                      {p.home_sets}-{p.away_sets}
-                    </span>
-                    <span className="visualmente-oculto">{gano ? ' (ganado)' : ' (perdido)'}</span>
+                    {conMarcador ? (
+                      <>
+                        <span className={`marcador-equipo ${gano ? 'marcador-equipo--gano' : ''}`}>
+                          {p.home_sets}-{p.away_sets}
+                        </span>
+                        <span className="visualmente-oculto">{gano ? ' (ganado)' : ' (perdido)'}</span>
+                      </>
+                    ) : '—'}
                   </td>
-                  <td className="tabla-datos__sets">{p.sets.map((s) => `${s.home}-${s.away}`).join('  ')}</td>
+                  <td className="tabla-datos__sets">{p.special_result || p.sets.map((s) => `${s.home}-${s.away}`).join('  ')}</td>
                 </tr>
               );
             })}

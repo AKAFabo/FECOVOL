@@ -15,6 +15,10 @@ import '@fontsource/source-sans-3/latin-700.css';
 import './index.css';
 import './App.css';
 import App from './App.jsx';
+import { instalarSesionEnBackend } from './services/sesionBackend.js';
+
+// Antes de montar la app: las llamadas a la API privada del backend llevan el token de sesión.
+instalarSesionEnBackend();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

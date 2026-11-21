@@ -25,11 +25,13 @@ function FilaPartido({ partido: p }) {
           <EscudoEquipo equipo={p.home} />
         </span>
         <span className="fila-calendario__centro">
-          {cerrado ? (
+          {cerrado && p.home_sets !== null && p.away_sets !== null ? (
             <>
               <span className="visualmente-oculto">Resultado: {local} {p.home_sets}, {visita} {p.away_sets}</span>
               <span aria-hidden="true" className="fila-calendario__marcador">{p.home_sets} – {p.away_sets}</span>
             </>
+          ) : cerrado ? (
+            <span className="fila-calendario__vs">{p.special_result || 'Final'}</span>
           ) : (
             <span className="fila-calendario__vs">vs</span>
           )}

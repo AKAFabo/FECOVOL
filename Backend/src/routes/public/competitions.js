@@ -37,8 +37,9 @@ const SELECT_COMPETENCIA = `
 const SELECT_EQUIPO_CORTO = 'id, name, short_name, primary_color';
 
 const SELECT_PARTIDO = `
-  id, match_number, matchday, venue, scheduled_date, scheduled_time, status,
-  home_sets_won, away_sets_won,
+  id, match_number, matchday, scheduled_date, scheduled_time, status,
+  home_sets_won, away_sets_won, result_type,
+  sede:catalog_values!fk_matches_venue(value),
   local:teams!matches_home_team_id_fkey(${SELECT_EQUIPO_CORTO}),
   visitante:teams!matches_away_team_id_fkey(${SELECT_EQUIPO_CORTO})
 `;
@@ -55,7 +56,7 @@ const SELECT_EQUIPO_DETALLE = `
   modalidad:catalog_values!teams_modality_value_id_fkey(value)
 `;
 
-const SELECT_VISTA = 'competition_id, team_id, matches_played, matches_won, matches_lost, sets_won, sets_lost, total_points';
+const SELECT_VISTA = 'competition_id, team_id, matches_played, matches_won, matches_lost, sets_won, sets_lost, total_points, ratio_sets, ratio_puntos';
 
 router.param('id', validateUuidParams);
 router.param('teamId', validateUuidParams);

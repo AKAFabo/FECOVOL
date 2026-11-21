@@ -108,8 +108,10 @@ router.get('/:nameOrId', asyncHandler(async (req, res) => {
 
 // POST /api/parameters -> Registrar nuevo parámetro (RF-AUD-001)
 router.post('/', authorize(['Administrador']), asyncHandler(async (req, res) => {
-  const { name, value, description, category, data_type, is_active, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { name, value, description, category, data_type, is_active } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (!name || !name.trim() || value === undefined || value === null) {
     throw new HttpError(400, 'El nombre/clave y el valor del parámetro son obligatorios.');
@@ -163,8 +165,10 @@ router.post('/', authorize(['Administrador']), asyncHandler(async (req, res) => 
 
 // PUT /api/parameters/:id -> Actualizar valor y metadatos de un parámetro (RF-AUD-001)
 router.put('/:id', authorize(['Administrador']), asyncHandler(async (req, res) => {
-  const { value, description, category, is_active, admin_email } = req.body;
-  const usuario = req.authorizedUser?.email || admin_email || req.header('x-user-email') || 'Administrador';
+  const { value, description, category, is_active } = req.body;
+  // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
+  const admin_email = req.authorizedUser?.email || req.currentUser;
+  const usuario = req.authorizedUser?.email || req.currentUser;
 
   if (value === undefined || value === null) {
     throw new HttpError(400, 'El valor del parámetro es obligatorio.');

@@ -161,7 +161,7 @@ test('los partidos traen sets solo si terminaron', async () => {
   fake.alResponderTabla('matches', {
     data: [
       {
-        id: M1, match_number: 1, matchday: 1, venue: 'Gimnasio Nacional', scheduled_date: '2026-09-12',
+        id: M1, match_number: 1, matchday: 1, sede: { value: 'Gimnasio Nacional' }, scheduled_date: '2026-09-12',
         scheduled_time: '19:00:00', status: 'FINALIZADO', home_sets_won: 3, away_sets_won: 1,
         local: { id: EQ_B, name: 'CD Sarchí', short_name: 'SAR' },
         visitante: { id: EQ_A, name: 'AD Turrialba', short_name: 'TUR' }
@@ -685,4 +685,28 @@ test('un error al contar devuelve 503 genérico', async () => {
   const r = await get('/api/public/federation');
   assert.equal(r.status, 503);
   assert.doesNotMatch(JSON.stringify(r.json), /permission|persons/);
+});
+
+test('el empate en puntos se resuelve por cociente de sets, como en el módulo de competencias', () => {
+  const inscritos = [{ equipo: { id: EQ_A, name: 'A' } }, { equipo: { id: EQ_B, name: 'B' } }];
+  const vista = [
+    { team_id: EQ_A, matches_played: 2, matches_won: 1, matches_lost: 1, sets_won: 4, sets_lost: 3, total_points: 3, ratio_sets: 1.33, ratio_puntos: 1.1 },
+    { team_id: EQ_B, matches_played: 2, matches_won: 1, matches_lost: 1, sets_won: 3, sets_lost: 1, total_points: 3, ratio_sets: 3, ratio_puntos: 1.2 }
+  ];
+  const tabla = armarPosiciones(inscritos, vista);
+  assert.equal(tabla[0].team.id, EQ_B);
+  assert.equal(tabla[0].ratio_sets, undefined, 'los cocientes no se publican');
+});
+
+test('un resultado especial se publica con su texto y uno suspendido no tiene marcador', () => {
+  const base = { id: 'p', match_number: 1, matchday: 1, status: 'FINALIZADO', local: null, visitante: null };
+  const noPresento = aPartido({ ...base, home_sets_won: 0, away_sets_won: 3, result_type: 'NO_PRESENTADO_LOCAL' });
+  assert.equal(noPresento.special_result, 'No presentación del local');
+  assert.equal(noPresento.away_sets, 3);
+  const suspendido = aPartido({ ...base, home_sets_won: null, away_sets_won: null, result_type: 'SUSPENDIDO_DEFINITIVO' });
+  assert.equal(suspendido.special_result, 'Suspendido definitivamente');
+  assert.equal(suspendido.home_sets, null);
+  const normal = aPartido({ ...base, home_sets_won: 3, away_sets_won: 1, result_type: 'NORMAL', sede: { value: 'Gimnasio Nacional' } });
+  assert.equal(normal.special_result, null);
+  assert.equal(normal.venue, 'Gimnasio Nacional', 'la sede sale del catálogo');
 });

@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/personal/inscripciones', texto: 'Inscripciones' },
   { to: '/personal/calendario', texto: 'Calendario y partidos' },
   { to: '/personal/resultados', texto: 'Resultados' },
+  { to: '/personal/designaciones', texto: 'Designaciones arbitrales' },
   { to: '/personal/reportes', texto: 'Reportes' },
 ];
 
@@ -275,4 +276,4 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
       )}
     </div>
   );
-}
+}

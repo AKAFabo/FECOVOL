@@ -21,7 +21,9 @@ const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
  *    - Cualquier intento de acceder por ID directo a datos de otra asociación es bloqueado con HTTP 403 y auditado en la bitácora.
  */
 async function resolveScope(req, res, next) {
-  const callerEmail = req.header('x-user-email') || req.body?.admin_email || req.query?.admin_email;
+  // Identidad verificada por middleware/authenticate.js (token de Supabase). El encabezado
+  // x-user-email y admin_email ya no se aceptan: los escribe el cliente y se podían falsificar.
+  const callerEmail = req.auth?.email;
   const ip = getClientIp(req);
   const endpoint = `${req.method} ${req.baseUrl || ''}${req.path || ''}`;
 
