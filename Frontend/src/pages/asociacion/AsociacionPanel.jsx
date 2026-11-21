@@ -15,6 +15,10 @@ const PersonaForm = lazy(() => import('./PersonaForm.jsx'));
 const PersonaFicha = lazy(() => import('./PersonaFicha.jsx'));
 const Documentos = lazy(() => import('./Documentos.jsx'));
 const MiAsociacion = lazy(() => import('./MiAsociacion.jsx'));
+const Inscripciones = lazy(() => import('./Inscripciones.jsx'));
+const ParticipacionEquipo = lazy(() => import('./ParticipacionEquipo.jsx'));
+const Calendario = lazy(() => import('./Calendario.jsx'));
+const Reportes = lazy(() => import('./Reportes.jsx'));
 
 const pagina = (Componente) => (
   <Suspense fallback={<Cargando texto="Cargando…" />}>
@@ -35,6 +39,10 @@ export default function AsociacionPanel() {
         <Route path="personas/nueva" element={pagina(PersonaForm)} />
         <Route path="personas/:id" element={pagina(PersonaFicha)} />
         <Route path="documentos" element={pagina(Documentos)} />
+        <Route path="inscripciones" element={pagina(Inscripciones)} />
+        <Route path="inscripciones/:competenciaId/equipos/:equipoId" element={pagina(ParticipacionEquipo)} />
+        <Route path="calendario" element={pagina(Calendario)} />
+        <Route path="reportes" element={pagina(Reportes)} />
         <Route path="mi-asociacion" element={pagina(MiAsociacion)} />
         <Route path="*" element={<Navigate to="/asociacion" replace />} />
       </Route>

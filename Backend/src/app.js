@@ -13,6 +13,8 @@ const documentsRoutes = require('./routes/documents.routes');
 const refereeAssignmentsRoutes = require('./routes/refereeAssignments.routes');
 const refereesRoutes = require('./routes/referees.routes');
 const refereeSelfRoutes = require('./routes/referees.me.routes');
+const participacionRoutes = require('./routes/participacion.routes');
+const reportesAsociacionRoutes = require('./routes/reportesAsociacion.routes');
 const catalogsRoutes = require('./routes/catalogs.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const matchesRoutes = require('./routes/matches.routes');
@@ -50,6 +52,8 @@ app.get('/', (req, res) => {
       '/api/documents',
       '/api/referee-assignments',
       '/api/referees',
+      '/api/participacion',
+      '/api/reportes-asociacion',
       '/api/catalogs',
       '/api/competitions',
       '/api/matches',
@@ -72,6 +76,9 @@ app.use('/api/referee-assignments', refereeAssignmentsRoutes);
 // El entorno del propio árbitro va antes que las rutas de FECOVOL del mismo prefijo.
 app.use('/api/referees/me', refereeSelfRoutes);
 app.use('/api/referees', refereesRoutes);
+// Participación en competencias y reportes de la asociación (RF-ASO-007 y RF-ASO-008).
+app.use('/api/participacion', participacionRoutes);
+app.use('/api/reportes-asociacion', reportesAsociacionRoutes);
 app.use('/api/catalogs', catalogsRoutes);
 app.use('/api/competitions', competitionsRoutes);
 app.use('/api/matches', matchesRoutes);
