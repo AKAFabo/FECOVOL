@@ -29,12 +29,18 @@ function crearFake() {
     return b;
   }
 
-  // Los middlewares buscan el perfil con .eq('email', correo) o .eq('id', id).
+  // Los middlewares buscan el perfil con .eq('id', id) o .eq('email', correo); la vinculación de
+  // árbitros, con .ilike('email', correo) (sin distinguir mayúsculas).
   function perfilSegun(pasos) {
     const porCorreo = pasos.find((p) => p[0] === 'eq' && p[1] === 'email');
+    const porCorreoSinMayus = pasos.find((p) => p[0] === 'ilike' && p[1] === 'email');
     const porId = pasos.find((p) => p[0] === 'eq' && p[1] === 'id');
     let perfil = null;
     if (porCorreo) perfil = perfiles[porCorreo[2]] || null;
+    else if (porCorreoSinMayus) {
+      const buscado = String(porCorreoSinMayus[2]).replace(/\\(.)/g, '$1').toLowerCase();
+      perfil = Object.values(perfiles).find((x) => String(x.email).toLowerCase() === buscado) || null;
+    }
     else if (porId) perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
     else return null;
     return { data: perfil, error: null };

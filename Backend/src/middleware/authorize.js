@@ -49,7 +49,8 @@ function authorize(options = {}) {
       const { data: profile, error: errProfile } = await supabase
         .from('user_profiles')
         .select('id, email, status, role_id, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
-        .eq('email', emailLimpio)
+        // Por el id verificado de la cuenta (ver scopeOrganization.js); el correo solo como respaldo.
+        .eq(req.auth?.userId ? 'id' : 'email', req.auth?.userId || emailLimpio)
         .maybeSingle();
 
       if (errProfile || !profile) {
