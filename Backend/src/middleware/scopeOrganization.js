@@ -51,7 +51,9 @@ async function resolveScope(req, res, next) {
         roles:roles!user_profiles_role_id_fkey(id, name),
         user_roles(roles(id, name))
       `)
-      .eq('email', emailLimpio)
+      // El perfil comparte el id de la cuenta de Supabase Auth: se busca por ese id verificado y
+      // no por el correo, que puede haberse guardado con otras mayúsculas.
+      .eq(req.auth?.userId ? 'id' : 'email', req.auth?.userId || emailLimpio)
       .maybeSingle();
 
     // Si el correo provisto no existe en la base de datos

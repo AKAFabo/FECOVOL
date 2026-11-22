@@ -244,6 +244,19 @@ test('la lista de disponibles marca vencidos, conflicto de interés y otra desig
   assert.equal('persona_status' in ana, false);
 });
 
+test('un perfil guardado con mayúsculas en el correo igual se reconoce por el id de la cuenta', async () => {
+  // El perfil se creó como "Turnos+Per@…"; Supabase Auth entrega el correo en minúsculas.
+  const MIXTO = { token: 'token-mixto-0000000000000', id: '00000000-0000-4000-8000-0000000000d9', email: 'Turnos+Per@FECOVOL.cr', status: 'ACTIVA', organization_id: null, roles: { name: 'Personal' } };
+  const { token, ...perfil } = MIXTO;
+  fake.conSesion(token, perfil);
+  fake.alResponderTabla('matches', { data: [], error: null });
+
+  const r = await call('GET', '/api/referee-assignments/partidos', null, MIXTO);
+
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.data, []);
+});
+
 test('el resumen calcula la cobertura de los próximos partidos', async () => {
   fake.alResponderTabla('v_cuerpo_arbitral', { data: [{ estado: 'AL_DIA' }, { estado: 'AL_DIA' }, { estado: 'POR_VENCER' }, { estado: 'VENCIDA' }], error: null });
   const oficial = (status) => ({ status });

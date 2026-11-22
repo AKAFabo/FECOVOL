@@ -28,7 +28,9 @@ router.post('/record-denied-attempt', asyncHandler(async (req, res) => {
 
 // POST /api/users/invite -> Invita un usuario por correo usando Supabase Auth Admin
 router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resourceTable: 'auth.users' }), asyncHandler(async (req, res) => {
-  const { email, full_name, role_id, role_ids, organization_id, status } = req.body;
+  const { full_name, role_id, role_ids, organization_id, status } = req.body;
+  // El correo se guarda en minúsculas: así coincide con el que entrega Supabase Auth.
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   // Quién ejecuta la acción sale del token verificado, nunca del cuerpo de la solicitud.
   const admin_email = req.authorizedUser?.email || req.currentUser;
 

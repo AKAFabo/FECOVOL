@@ -248,7 +248,7 @@ async function darAcceso(personId, adminUser) {
   if (!correo) return { estado: 'SIN_CORREO' };
 
   try {
-    const { data: perfil } = await supabase.from('user_profiles').select('id').eq('email', correo).maybeSingle();
+    const { data: perfil } = await supabase.from('user_profiles').select('id').ilike('email', correo.replace(/[\\%_]/g, '\\$&')).maybeSingle();
     let userId = perfil?.id;
     let estado = 'VINCULADA';
 
