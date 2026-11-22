@@ -4,7 +4,7 @@ import { Cargando, ErrorCarga } from '../../components/EstadoContenido.jsx';
 import { Cifras, Encabezado, Estado, Tarjeta } from '../../components/gestion/Gestion.jsx';
 import useCarga from '../../hooks/useCarga.js';
 import { estadoDocumento, listarDocumentos, listarEquipos, listarPersonas, nombrePersona, ESTADOS_EQUIPO } from '../../services/representante.js';
-import { fechaDiaMesCorto } from '../../utils/formato.js';
+import { fechaCorta, fechaDiaMesCorto } from '../../utils/formato.js';
 import { RUTA, useAsociacion } from './contexto.js';
 
 const PRIORIDAD = { rechazado: 0, vencido: 1, 'por-vencer': 2, revision: 3 };
@@ -25,7 +25,7 @@ function pendientes(documentos, equipos) {
     const tipo = d.tipo?.value || 'Documento';
     const textos = {
       rechazado: { titulo: `Corregir: ${tipo} de ${titular}`, detalle: d.notes ? `Motivo: ${d.notes}` : 'Revise el motivo y cargue el documento corregido', etiqueta: 'Urgente', tono: 'error', accion: 'Reemplazar' },
-      vencido: { titulo: `Vencido: ${tipo} de ${titular}`, detalle: d.expiry_date ? `Venció el ${fechaDiaMesCorto(d.expiry_date)}` : 'Cargue uno vigente', etiqueta: 'Urgente', tono: 'error', accion: 'Renovar' },
+      vencido: { titulo: `Vencido: ${tipo} de ${titular}`, detalle: d.expiry_date ? `Venció el ${fechaCorta(d.expiry_date)}` : 'Cargue uno vigente', etiqueta: 'Urgente', tono: 'error', accion: 'Renovar' },
       'por-vencer': { titulo: `Por vencer: ${tipo} de ${titular}`, detalle: `Vence el ${fechaDiaMesCorto(d.expiry_date)}: se puede renovar desde ahora`, etiqueta: 'Por vencer', tono: 'aviso', accion: 'Renovar' },
       revision: { titulo: `En revisión: ${tipo} de ${titular}`, detalle: 'FECOVOL lo está revisando; no necesita hacer nada', etiqueta: 'En revisión', tono: 'neutro', accion: null }
     }[estado.clave];

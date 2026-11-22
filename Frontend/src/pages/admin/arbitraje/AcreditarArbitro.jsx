@@ -228,7 +228,12 @@ export default function AcreditarArbitro() {
                 obligatorio
                 ancho
                 error={errores.course_enrollment_id}
-                ayuda={p && cursosAprobados.length === 0 ? 'La persona no tiene cursos aprobados. Inscríbala en un curso y registre su nota en Cursos.' : undefined}
+                ayuda={p && cursosAprobados.length === 0 ? (
+                  <>
+                    La persona no tiene cursos aprobados. Inscríbala en un curso de formación, registre su nota
+                    y vuelva aquí: <Link to={RUTA.cursos}>ir a Cursos</Link>.
+                  </>
+                ) : undefined}
               >
                 {(a) => (
                   <select {...a} className="g-control" value={f.course_enrollment_id} onChange={cambiar('course_enrollment_id')} disabled={!p || !cursosAprobados.length}>
