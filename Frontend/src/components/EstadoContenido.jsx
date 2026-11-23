@@ -15,7 +15,7 @@ export function Cargando({ texto = 'Cargando…' }) {
 export function ErrorCarga({ mensaje, onReintentar }) {
   return (
     <div className="estado-contenido estado-contenido--error" role="alert">
-      <p className="estado-contenido__titulo">No se pudo cargar esta sección</p>
+      <p className="estado-contenido__titulo">Aún no tienes datos registrados</p>
       <p className="estado-contenido__texto">{mensaje}</p>
       {onReintentar && (
         <button type="button" className="boton boton--primario boton--chico" onClick={onReintentar}>

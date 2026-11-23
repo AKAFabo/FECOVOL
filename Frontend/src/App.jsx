@@ -145,8 +145,6 @@ export default function App() {
 
       {/* ── Entorno de Personal Técnico de Competencias (/personal) ── */}
       <Route element={<RutaProtegida subruta="/personal" rolesPermitidos={['Personal', 'Administrador']} />}>
-        <Route path="/personal/*" element={<PersonalPanel />} />
-        <Route path="/personal/competencia/:id" element={<CompetenciaDetalle />} />
         <Route path="/personal" element={<PersonalLayout />}>
           <Route index element={<PersonalPanel />} />
           <Route path="inscripciones" element={<Inscripciones />} />
@@ -156,6 +154,7 @@ export default function App() {
           <Route path="reportes" element={<Reportes />} />
           <Route path="designaciones" element={<Suspense fallback={null}><Designaciones /></Suspense>} />
           <Route path="competencia/:id" element={<CompetenciaDetalle />} />
+          <Route path="perfil" element={<Perfil />} />
         </Route>
       </Route>
 

@@ -22,8 +22,14 @@ function crearFake() {
       const cola = respuestasTabla[tabla];
       let r = cola && cola.length ? cola.shift() : null;
       if (!r && tabla === 'user_profiles') r = perfilSegun(registro.pasos);
-      if (!r && tabla === 'user_roles') r = { data: [], error: null };
-      r = r || { data: [], error: null, count: 0 };
+      if (!r && tabla === 'user_roles') {
+        const pideSingle = registro.pasos.some((p) => p[0] === 'single' || p[0] === 'maybeSingle');
+        r = pideSingle ? { data: null, error: null } : { data: [], error: null };
+      }
+      if (!r) {
+        const pideSingle = registro.pasos.some((p) => p[0] === 'single' || p[0] === 'maybeSingle');
+        r = pideSingle ? { data: {}, error: null, count: 1 } : { data: [], error: null, count: 0 };
+      }
       return Promise.resolve(r).then(resolve, reject);
     };
     return b;
@@ -36,13 +42,17 @@ function crearFake() {
     const porCorreoSinMayus = pasos.find((p) => p[0] === 'ilike' && p[1] === 'email');
     const porId = pasos.find((p) => p[0] === 'eq' && p[1] === 'id');
     let perfil = null;
-    if (porCorreo) perfil = perfiles[porCorreo[2]] || null;
-    else if (porCorreoSinMayus) {
-      const buscado = String(porCorreoSinMayus[2]).replace(/\\(.)/g, '$1').toLowerCase();
-      perfil = Object.values(perfiles).find((x) => String(x.email).toLowerCase() === buscado) || null;
+    if (porCorreo) {
+      const buscado = String(porCorreo[2] || '').toLowerCase();
+      perfil = perfiles[porCorreo[2]] || perfiles[buscado] || Object.values(perfiles).find((x) => String(x.email || '').toLowerCase() === buscado) || null;
+    } else if (porCorreoSinMayus) {
+      const buscado = String(porCorreoSinMayus[2] || '').replace(/\\(.)/g, '$1').toLowerCase();
+      perfil = Object.values(perfiles).find((x) => String(x.email || '').toLowerCase() === buscado) || null;
+    } else if (porId) {
+      perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
+    } else {
+      return null;
     }
-    else if (porId) perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
-    else return null;
     return { data: perfil, error: null };
   }
 

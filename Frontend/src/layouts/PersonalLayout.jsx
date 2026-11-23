@@ -3,7 +3,10 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './AdminLayout.css';
 import '../pages/admin/AdminCommon.css';
 import { supabase } from '../supabaseClient.js';
+import { api } from '../services/apiInterna.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
+import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
+import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
 
 // Define el menú lateral para el personal de competencias
 const NAV_ITEMS = [
@@ -83,6 +86,16 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
           listaRoles = [{ id: profile.role_id, name: profile.roles.name }];
         }
 
+        // Si el usuario es Administrador, tiene acceso a alternar entre cualquiera de los roles del sistema
+        if (rol === 'Administrador' && listaRoles.length <= 1) {
+          try {
+            const { data: todosRoles } = await supabase.from('roles').select('id, name');
+            if (todosRoles && todosRoles.length > 0) {
+              listaRoles = todosRoles;
+            }
+          } catch (eRoles) {}
+        }
+
         setRolesDisponibles(listaRoles);
         setUsuarioActual({
           id: user.id, email: user.email || '', roleId: profile?.role_id,
@@ -104,22 +117,19 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
     return location.pathname === itemTo || location.pathname.startsWith(itemTo + '/');
   };
 
-  // Cambia el rol activo y redirige al entorno correspondiente
+  // Cambia la vista de rol y redirige al entorno correspondiente (sin modificar la base de datos)
   const handleCambiarRolActivo = async (nuevoRoleId) => {
-    if (!usuarioActual.id || nuevoRoleId === usuarioActual.roleId) return;
+    if (!usuarioActual.id) return;
     const rolObj = rolesDisponibles.find(r => r.id === nuevoRoleId);
     if (!rolObj) return;
 
     setCambiandoRol(true);
     try {
       sessionStorage.setItem('fecovol_role_switched_locally', 'true');
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-      await fetch(`${backendUrl}/api/users/switch-active-role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: usuarioActual.id, role_id: nuevoRoleId }),
-      });
-      setUsuarioActual(prev => ({ ...prev, roleId: nuevoRoleId, rol: rolObj.name }));
+      sessionStorage.setItem('fecovol_active_role_id', nuevoRoleId);
+      sessionStorage.setItem('fecovol_active_role_name', rolObj.name);
+
+      setUsuarioActual(prev => ({ ...prev, rol: rolObj.name }));
       navigate(RUTA_POR_ROL[rolObj.name] || '/personal');
     } catch (err) {
       console.error('Error al cambiar de rol:', err);
@@ -155,8 +165,10 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
     }
   };
 
+  const esPerfil = location.pathname === '/personal/perfil';
+
   return (
-    <div className="admin-layout">
+    <div className="admin-layout admin-layout--personal">
       {/* Sidebar con acentos en verde para el rol de Personal */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar__brand">
@@ -169,33 +181,13 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
           </div>
         </div>
 
-        <div className="admin-sidebar__role-box" style={{ background: 'rgba(27, 107, 49, 0.15)', borderLeftColor: '#1b6b31' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-            <span className="admin-sidebar__role-label" style={{ color: '#86efac' }}>Rol</span>
-            {rolesDisponibles.length > 1 && (
-              <span style={{ fontSize: '0.62rem', color: '#86efac', opacity: 0.85, fontWeight: 700 }}>
-                {rolesDisponibles.length} roles
-              </span>
-            )}
-          </div>
-          {rolesDisponibles.length > 1 ? (
-            <select
-              className="admin-sidebar__role-select"
-              value={usuarioActual.roleId || ''}
-              onChange={(e) => handleCambiarRolActivo(e.target.value)}
-              disabled={cambiandoRol}
-              style={{ background: 'rgba(27, 107, 49, 0.95)' }}
-            >
-              {rolesDisponibles.map((r) => (
-                <option key={r.id} value={r.id} style={{ color: '#0f172a', background: '#fff' }}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="admin-sidebar__role-title">{usuarioActual.rol}</span>
-          )}
-        </div>
+        <SidebarRoleBox
+          rolesDisponibles={rolesDisponibles}
+          usuarioActual={usuarioActual}
+          cambiandoRol={cambiandoRol}
+          onCambiarRol={handleCambiarRolActivo}
+          rolEntornoActual="Personal"
+        />
 
         <nav className="admin-sidebar__nav">
           <ul>
@@ -217,23 +209,17 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
           </ul>
         </nav>
 
-        <div className="admin-sidebar__footer">
-          <button type="button" className="admin-sidebar__logout" onClick={() => setMostrarModalLogout(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
+        <SidebarFooter
+          rutaPerfil="/personal/perfil"
+          onCerrarSesion={() => setMostrarModalLogout(true)}
+        />
       </aside>
 
       {/* Contenido principal */}
       <div className="admin-main">
         <header className="admin-topbar">
           <div className="admin-topbar__breadcrumb">
-            <span>{breadcrumb}</span>
+            <span>{esPerfil ? 'Mi perfil y seguridad' : breadcrumb}</span>
           </div>
           <div className="admin-topbar__right">
             <span className="admin-topbar__season">Temporada 2026</span>
@@ -252,28 +238,13 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
         </main>
       </div>
 
-      {/* Modal de cierre de sesión */}
-      {mostrarModalLogout && (
-        <div className="admin-modal-overlay" onClick={() => !cerrandoSesion && setMostrarModalLogout(false)}>
-          <div className="admin-modal" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
-            <div className="admin-modal__header">
-              <h2 className="admin-modal__title">Confirmar cierre de sesión</h2>
-              <button type="button" className="admin-modal__close" onClick={() => !cerrandoSesion && setMostrarModalLogout(false)} disabled={cerrandoSesion}>✕</button>
-            </div>
-            <div className="admin-modal__body">
-              <p style={{ margin: 0, color: 'var(--texto-mudo)', fontSize: '0.9rem' }}>
-                ¿Está seguro de que desea salir? Podría perder cambios sin guardar.
-              </p>
-            </div>
-            <div className="admin-modal__footer">
-              <button type="button" className="admin-btn admin-btn--secondary" onClick={() => setMostrarModalLogout(false)} disabled={cerrandoSesion}>Cancelar</button>
-              <button type="button" className="admin-btn admin-btn--danger" onClick={handleConfirmarCerrarSesion} disabled={cerrandoSesion}>
-                {cerrandoSesion ? 'Cerrando sesión…' : 'Sí, cerrar sesión'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal de confirmación de cierre de sesión normalizado */}
+      <ModalConfirmarLogout
+        abierto={mostrarModalLogout}
+        cerrando={cerrandoSesion}
+        onConfirmar={handleConfirmarCerrarSesion}
+        onCancelar={() => setMostrarModalLogout(false)}
+      />
     </div>
   );
 }

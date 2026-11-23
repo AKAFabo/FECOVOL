@@ -382,3 +382,45 @@ test('el resumen del padron solo lo ve FECOVOL', async () => {
   assert.equal(ok.status, 200);
   assert.deepEqual(Object.keys(ok.json.data), ['total', 'verificadas', 'jugadores', 'tecnicos', 'arbitros']);
 });
+
+test('un usuario con rol de administrador siempre tiene scope.isAdmin = true', async () => {
+  // 1. Administrador estándar (sin organización)
+  fake.alResponderTabla('associations', { data: [{ id: ASO_PROPIA, name: 'AD Grecia' }], error: null });
+  fake.alResponderTabla('user_profiles', { data: [], error: null });
+  fake.alResponderTabla('v_documentos', { data: [], error: null });
+  const r1 = await call('GET', '/api/associations', null, ADMIN);
+  assert.equal(r1.status, 200);
+
+  // 2. Administrador con asociación vinculada (organization_id no nulo)
+  const ADMIN_CON_ASO = {
+    token: 'token-admin-aso-9999999999999',
+    id: '99999999-9999-4999-8999-9999999999a9',
+    email: 'admin.aso@fecovol.cr',
+    status: 'ACTIVA',
+    organization_id: ASO_PROPIA,
+    roles: { name: 'Administrador' }
+  };
+  fake.conSesion(ADMIN_CON_ASO.token, ADMIN_CON_ASO);
+  fake.alResponderTabla('associations', { data: [{ id: ASO_PROPIA, name: 'AD Grecia' }], error: null });
+  fake.alResponderTabla('user_profiles', { data: [], error: null });
+  fake.alResponderTabla('v_documentos', { data: [], error: null });
+  const r2 = await call('GET', '/api/associations', null, ADMIN_CON_ASO);
+  assert.equal(r2.status, 200);
+
+  // 3. Administrador cuyo rol activo en perfil es Representante pero tiene Administrador en user_roles
+  const ADMIN_MULTI_ROL = {
+    token: 'token-admin-multi-8888888888888',
+    id: '88888888-8888-4888-8888-8888888888a8',
+    email: 'admin.multi@fecovol.cr',
+    status: 'ACTIVA',
+    organization_id: ASO_PROPIA,
+    roles: { name: 'Representante' }
+  };
+  fake.conSesion(ADMIN_MULTI_ROL.token, ADMIN_MULTI_ROL);
+  fake.alResponderTabla('user_roles', { data: [{ role_id: 'rol-admin-uuid', roles: { id: 'rol-admin-uuid', name: 'Administrador' } }], error: null });
+  fake.alResponderTabla('associations', { data: [{ id: ASO_PROPIA, name: 'AD Grecia' }], error: null });
+  fake.alResponderTabla('user_profiles', { data: [], error: null });
+  fake.alResponderTabla('v_documentos', { data: [], error: null });
+  const r3 = await call('GET', '/api/associations', null, ADMIN_MULTI_ROL);
+  assert.equal(r3.status, 200);
+});

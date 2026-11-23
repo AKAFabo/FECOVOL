@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Cargando } from '../../components/EstadoContenido.jsx';
 import AsociacionLayout from '../../layouts/AsociacionLayout.jsx';
 import Panel from './Panel.jsx';
+import Perfil from '../admin/perfil/Perfil.jsx';
 
 // Las pantallas se cargan al abrirlas: el portal público no descarga el código del entorno.
 const MisEquipos = lazy(() => import('./MisEquipos.jsx'));
@@ -44,6 +45,7 @@ export default function AsociacionPanel() {
         <Route path="calendario" element={pagina(Calendario)} />
         <Route path="reportes" element={pagina(Reportes)} />
         <Route path="mi-asociacion" element={pagina(MiAsociacion)} />
+        <Route path="perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/asociacion" replace />} />
       </Route>
     </Routes>

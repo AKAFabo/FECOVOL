@@ -231,13 +231,20 @@ function FormularioLogin({ onRecuperar, onContrasenaPendiente, correoInicial = '
       try {
         const { data: userRoles } = await supabase
           .from('user_roles')
-          .select('role_id, roles(id, name)')
+          .select('role_id')
           .eq('user_id', data.user.id);
 
         if (userRoles && userRoles.length > 0) {
-          // Priorizar Administrador si lo posee, o el primer rol registrado en la tabla muchos a muchos
-          const adminRole = userRoles.find(r => r.roles?.name === 'Administrador');
-          rol = adminRole ? 'Administrador' : (userRoles[0].roles?.name || rol);
+          const uRoleIds = userRoles.map(ur => ur.role_id);
+          const { data: rList } = await supabase
+            .from('roles')
+            .select('id, name')
+            .in('id', uRoleIds);
+
+          if (rList && rList.length > 0) {
+            const adminRole = rList.find(r => r.name === 'Administrador');
+            rol = adminRole ? 'Administrador' : (rList[0].name || rol);
+          }
         }
       } catch (e) {}
 

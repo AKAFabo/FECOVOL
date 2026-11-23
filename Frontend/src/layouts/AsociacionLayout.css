@@ -11,6 +11,28 @@
 }
 
 .admin-layout--asociacion .admin-sidebar__role-label { color: #d9c3ee; }
+.admin-layout--asociacion .admin-sidebar__role-count {
+  color: #d9c3ee;
+  font-size: 0.62rem;
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.admin-layout--asociacion .admin-sidebar__role-select {
+  background: rgba(111, 58, 158, 0.95);
+  border-color: rgba(169, 123, 209, 0.4);
+}
+
+.admin-layout--asociacion .admin-sidebar__role-select:hover:not(:disabled) {
+  background: #6f3a9e;
+  border-color: #a97bd1;
+}
+
+.admin-layout--asociacion .admin-sidebar__profile-btn--active {
+  background: rgba(111, 58, 158, 0.85);
+  border-color: #a97bd1;
+}
+
 .admin-layout--asociacion .admin-sidebar__link--active .admin-sidebar__icon-placeholder { background: #b98ae0; }
 
 .admin-sidebar__brand-text .asociacion-marca {

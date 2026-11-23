@@ -5,15 +5,18 @@
 // contexto del Outlet, la asociación que administra. Si la cuenta no tiene asociación asignada,
 // no muestra ninguna pantalla de gestión.
 import { useCallback, useMemo, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Cargando, ErrorCarga } from '../components/EstadoContenido.jsx';
-import { Modal } from '../components/gestion/Gestion.jsx';
 import useCarga from '../hooks/useCarga.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
+import { useRolActivo } from '../hooks/useRolActivo.js';
 import { api } from '../services/apiInterna.js';
 import { miPerfil } from '../services/representante.js';
 import { supabase } from '../supabaseClient.js';
+import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
+import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
 import './AdminLayout.css';
+import '../pages/admin/AdminCommon.css';
 import './AsociacionLayout.css';
 
 const NAV = [
@@ -48,13 +51,21 @@ function SinAsociacion({ perfil }) {
 
 export default function AsociacionLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const perfil = useCarga((signal) => miPerfil({ signal }), []);
   const [migas, setMigas] = useState([]);
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
 
-  const p = perfil.datos;
-  useVigenciaSesion({ userId: p?.id, roleId: p?.role_id, status: p?.status, userEmail: p?.email, userName: p?.full_name });
+  const {
+    usuarioActual,
+    rolesDisponibles,
+    cambiandoRol,
+    cambiarRolActivo
+  } = useRolActivo('Representante de asociación');
+
+  const p = perfil.datos || usuarioActual;
+  useVigenciaSesion({ userId: p?.id, roleId: p?.role_id || usuarioActual?.roleId, status: p?.status, userEmail: p?.email, userName: p?.full_name || p?.nombre });
 
   const ponerMigas = useCallback((items) => setMigas(items), []);
   const contexto = useMemo(() => ({
@@ -67,18 +78,21 @@ export default function AsociacionLayout() {
   async function cerrarSesion() {
     setSaliendo(true);
     try {
-      // Con el token todavía vigente, para que la bitácora registre quién salió.
-      await api.post('/users/logout-audit', { razon: 'Cierre de sesión voluntario' }).catch(() => {});
+      await api.post('/users/logout-audit', { razon: 'Cierre de sesión manual voluntario' }).catch(() => {});
     } finally {
       await supabase.auth.signOut();
+      setConfirmarSalida(false);
+      setSaliendo(false);
       navigate('/ingresar', { replace: true });
     }
   }
 
   const nombreAsociacion = p?.organizacion?.short_name || p?.organizacion?.name || 'Asociación';
+  const esPerfil = location.pathname === '/asociacion/perfil';
 
   let contenido;
-  if (perfil.estado === 'cargando') contenido = <Cargando texto="Cargando su asociación…" />;
+  if (esPerfil) contenido = <Outlet context={contexto} />;
+  else if (perfil.estado === 'cargando') contenido = <Cargando texto="Cargando su asociación…" />;
   else if (perfil.estado === 'error') contenido = <ErrorCarga mensaje={perfil.error.message} onReintentar={perfil.reintentar} />;
   else if (!p?.organizacion) contenido = <SinAsociacion perfil={p} />;
   else contenido = <Outlet context={contexto} />;
@@ -96,10 +110,13 @@ export default function AsociacionLayout() {
           </div>
         </div>
 
-        <div className="admin-sidebar__role-box">
-          <span className="admin-sidebar__role-label">Rol</span>
-          <span className="admin-sidebar__role-title">Representante de asociación</span>
-        </div>
+        <SidebarRoleBox
+          rolesDisponibles={rolesDisponibles}
+          usuarioActual={usuarioActual}
+          cambiandoRol={cambiandoRol}
+          onCambiarRol={cambiarRolActivo}
+          rolEntornoActual="Representante"
+        />
 
         <nav className="admin-sidebar__nav" aria-label="Secciones de la asociación">
           <ul>
@@ -118,17 +135,18 @@ export default function AsociacionLayout() {
           </ul>
         </nav>
 
-        <div className="admin-sidebar__footer">
-          <button type="button" className="admin-sidebar__logout" onClick={() => setConfirmarSalida(true)}>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
+        <SidebarFooter
+          rutaPerfil="/asociacion/perfil"
+          onCerrarSesion={() => setConfirmarSalida(true)}
+        />
       </aside>
 
       <div className="admin-main">
         <header className="admin-topbar">
           <nav className="admin-topbar__breadcrumb asociacion-migas" aria-label="Ruta">
-            {migas.length === 0 ? <span>Asociación</span> : (
+            {esPerfil ? (
+              <span>Mi perfil y seguridad</span>
+            ) : migas.length === 0 ? <span>Asociación</span> : (
               <ol>
                 {migas.map((m, i) => (
                   <li key={`${m.texto}-${i}`}>
@@ -141,9 +159,9 @@ export default function AsociacionLayout() {
           <div className="admin-topbar__right">
             <span className="admin-topbar__season">Temporada {new Date().getFullYear()}</span>
             <div className="admin-topbar__user">
-              <div className="admin-topbar__avatar" aria-hidden="true">{iniciales(p?.full_name || p?.email)}</div>
+              <div className="admin-topbar__avatar" aria-hidden="true">{iniciales(p?.full_name || p?.email || usuarioActual?.nombre)}</div>
               <div className="admin-topbar__user-info">
-                <span className="admin-topbar__user-name">{p?.full_name || p?.email || ''}</span>
+                <span className="admin-topbar__user-name">{p?.full_name || p?.email || usuarioActual?.nombre || ''}</span>
                 <span className="admin-topbar__user-role">Representante · {nombreAsociacion}</span>
               </div>
             </div>
@@ -153,25 +171,13 @@ export default function AsociacionLayout() {
         <main className="admin-content asociacion-contenido">{contenido}</main>
       </div>
 
-      {confirmarSalida && (
-        <Modal
-          titulo="¿Cerrar sesión?"
-          bajada="Los cambios que no haya guardado se perderán."
-          onCerrar={() => setConfirmarSalida(false)}
-          ocupado={saliendo}
-          ancho="440px"
-          pie={(
-            <>
-              <button type="button" className="g-boton" onClick={() => setConfirmarSalida(false)} disabled={saliendo}>Cancelar</button>
-              <button type="button" className="g-boton g-boton--primario" onClick={cerrarSesion} disabled={saliendo} data-autofoco>
-                {saliendo ? 'Cerrando…' : 'Cerrar sesión'}
-              </button>
-            </>
-          )}
-        >
-          <p style={{ margin: 0 }}>Para volver a entrar necesitará su correo y contraseña.</p>
-        </Modal>
-      )}
+      {/* Modal de confirmación de cierre de sesión normalizado */}
+      <ModalConfirmarLogout
+        abierto={confirmarSalida}
+        cerrando={saliendo}
+        onConfirmar={cerrarSesion}
+        onCancelar={() => setConfirmarSalida(false)}
+      />
     </div>
   );
 }
