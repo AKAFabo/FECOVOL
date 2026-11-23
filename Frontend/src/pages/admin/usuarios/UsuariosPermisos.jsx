@@ -73,10 +73,14 @@ export default function UsuariosPermisos() {
       // 1. Intentar cargar perfiles vía Backend API (service_role para evitar filtrado por RLS)
       let profiles = null; // Todo: solucionar error en esta declaración 
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
         const resUsers = await fetch(`${backendUrl}/api/users`, {
-          headers: { 'x-user-email': currentUser?.email || '' }
+          headers: {
+            'x-user-email': currentUser?.email || '',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+          }
         });
         if (resUsers.ok) {
           const resJson = await resUsers.json();
@@ -216,13 +220,15 @@ export default function UsuariosPermisos() {
 
     setGuardando(true);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
       const respuesta = await fetch(`${backendUrl}/api/users/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-email': currentUser?.email || ''
+          'x-user-email': currentUser?.email || '',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
         },
         body: JSON.stringify({
           email: nuevoUsuario.email,
@@ -277,13 +283,15 @@ export default function UsuariosPermisos() {
     setEnviandoEnlace(true);
     setMensajeFeedbackModal(null);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
       const res = await fetch(`${backendUrl}/api/users/resend-password-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-email': currentUser?.email || ''
+          'x-user-email': currentUser?.email || '',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
         },
         body: JSON.stringify({
           user_id: usuarioEditando.id,
@@ -373,12 +381,15 @@ export default function UsuariosPermisos() {
       // Intentar actualizar vía Backend API (service_role)
       let actualizado = false;
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
         const resUpdate = await fetch(`${backendUrl}/api/users/${usuarioEditando.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-email': currentUser?.email || ''
+            'x-user-email': currentUser?.email || '',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
           },
           body: JSON.stringify({
             full_name: usuarioEditando.nombre,

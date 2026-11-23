@@ -3,7 +3,10 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './AdminLayout.css';
 import '../pages/admin/AdminCommon.css';
 import { supabase } from '../supabaseClient.js';
+import { api } from '../services/apiInterna.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
+import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
+import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
 
 const NAV_ITEMS = [
   { to: '/admin/panel', texto: 'Panel general', subruta: '/admin' },
@@ -87,6 +90,16 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
             listaRoles = [{ id: profile.role_id, name: profile.roles.name }];
           }
 
+          // Si el usuario es Administrador, tiene acceso a alternar entre cualquiera de los roles del sistema
+          if (rol === 'Administrador' && listaRoles.length <= 1) {
+            try {
+              const { data: todosRoles } = await supabase.from('roles').select('id, name');
+              if (todosRoles && todosRoles.length > 0) {
+                listaRoles = todosRoles;
+              }
+            } catch (eRoles) {}
+          }
+
           setRolesDisponibles(listaRoles);
 
           setUsuarioActual({
@@ -151,36 +164,24 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
   const tienePermisoRuta = !rutaActualItem || navItemsVisibles.some(it => it.to === rutaActualItem.to);
 
   // Cambiar visualización/rol activo desde el dropdown del sidebar (RF-SEG-006)
+  // NO modifica la base de datos: un usuario.role_id mantiene el rol de mayor prioridad
   const handleCambiarRolActivo = async (nuevoRoleId) => {
-    if (!usuarioActual.id || nuevoRoleId === usuarioActual.roleId) return;
+    if (!usuarioActual.id) return;
     const rolObj = rolesDisponibles.find(r => r.id === nuevoRoleId);
     if (!rolObj) return;
 
     setCambiandoRol(true);
     try {
-      // 1. Notificar a useVigenciaSesion que el cambio de rol fue voluntario por el usuario
       sessionStorage.setItem('fecovol_role_switched_locally', 'true');
-
-      // 2. Actualizar rol activo en el backend / base de datos
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-      await fetch(`${backendUrl}/api/users/switch-active-role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: usuarioActual.id,
-          role_id: nuevoRoleId
-        })
-      });
+      sessionStorage.setItem('fecovol_active_role_id', nuevoRoleId);
+      sessionStorage.setItem('fecovol_active_role_name', rolObj.name);
 
       setUsuarioActual(prev => ({
         ...prev,
-        roleId: nuevoRoleId,
         rol: rolObj.name
       }));
 
-      await cargarPermisosDeRol(nuevoRoleId, rolObj.name);
-
-      // 3. Redirigir a la vista correspondiente al nuevo rol
+      // Redirigir a la vista correspondiente al nuevo rol
       const RUTA_POR_ROL = {
         'Administrador': '/admin/panel',
         'Personal':      '/personal',
@@ -264,33 +265,13 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           </div>
         </div>
 
-        <div className="admin-sidebar__role-box">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-            <span className="admin-sidebar__role-label">Rol</span>
-            {rolesDisponibles.length > 1 && (
-              <span style={{ fontSize: '0.62rem', color: '#fca5a5', opacity: 0.85, fontWeight: 700 }}>
-                {rolesDisponibles.length} roles
-              </span>
-            )}
-          </div>
-          {rolesDisponibles.length > 1 ? (
-            <select
-              className="admin-sidebar__role-select"
-              value={usuarioActual.roleId || ''}
-              onChange={(e) => handleCambiarRolActivo(e.target.value)}
-              disabled={cambiandoRol}
-              aria-label="Cambiar visualización de rol"
-            >
-              {rolesDisponibles.map((r) => (
-                <option key={r.id} value={r.id} style={{ color: '#0f172a', background: '#fff' }}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="admin-sidebar__role-title">{usuarioActual.rol}</span>
-          )}
-        </div>
+        <SidebarRoleBox
+          rolesDisponibles={rolesDisponibles}
+          usuarioActual={usuarioActual}
+          cambiandoRol={cambiandoRol}
+          onCambiarRol={handleCambiarRolActivo}
+          rolEntornoActual="Administrador"
+        />
 
         <nav className="admin-sidebar__nav">
           <ul>
@@ -310,29 +291,10 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           </ul>
         </nav>
 
-        <div className="admin-sidebar__footer">
-          <NavLink
-            to="/admin/perfil"
-            className={({ isActive }) =>
-              `admin-sidebar__profile-btn ${isActive ? 'admin-sidebar__profile-btn--active' : ''}`
-            }
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span>Mi perfil y seguridad</span>
-          </NavLink>
-
-          <button type="button" className="admin-sidebar__logout" onClick={() => setMostrarModalLogout(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
+        <SidebarFooter
+          rutaPerfil="/admin/perfil"
+          onCerrarSesion={() => setMostrarModalLogout(true)}
+        />
       </aside>
 
       {/* Main Container */}
@@ -379,80 +341,12 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
       </div>
 
       {/* Modal de confirmación de cierre de sesión con advertencia de cambios sin guardar (RF-SEG-002) */}
-      {mostrarModalLogout && (
-        <div 
-          className="admin-modal-overlay" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-labelledby="modal-logout-titulo"
-          onClick={() => !cerrandoSesion && setMostrarModalLogout(false)}
-        >
-          <div 
-            className="admin-modal" 
-            style={{ maxWidth: '440px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal__header">
-              <h2 id="modal-logout-titulo" className="admin-modal__title">Confirmar cierre de sesión</h2>
-              <button 
-                type="button" 
-                className="admin-modal__close" 
-                onClick={() => !cerrandoSesion && setMostrarModalLogout(false)}
-                disabled={cerrandoSesion}
-                aria-label="Cerrar modal"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="admin-modal__body">
-              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                <div style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '50%',
-                  background: '#fef3c7',
-                  color: '#b45309',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  fontSize: '1.3rem'
-                }}>
-                  ⚠️
-                </div>
-                <div>
-                  <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.98rem' }}>
-                    ¿Está seguro de que desea salir?
-                  </p>
-                  <p style={{ margin: 0, color: 'var(--texto-mudo)', fontSize: '0.85rem', lineHeight: '1.45' }}>
-                    Podría tener cambios o información sin guardar en la pantalla actual. Si continúa, cualquier modificación no guardada se perderá.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="admin-modal__footer">
-              <button
-                type="button"
-                className="admin-btn admin-btn--secondary"
-                onClick={() => setMostrarModalLogout(false)}
-                disabled={cerrandoSesion}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="admin-btn admin-btn--danger"
-                onClick={handleConfirmarCerrarSesion}
-                disabled={cerrandoSesion}
-              >
-                {cerrandoSesion ? 'Cerrando sesión…' : 'Sí, cerrar sesión'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalConfirmarLogout
+        abierto={mostrarModalLogout}
+        cerrando={cerrandoSesion}
+        onConfirmar={handleConfirmarCerrarSesion}
+        onCancelar={() => setMostrarModalLogout(false)}
+      />
     </div>
   );
 }

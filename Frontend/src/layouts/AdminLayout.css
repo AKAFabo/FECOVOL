@@ -80,6 +80,13 @@
   margin-bottom: 2px;
 }
 
+.admin-sidebar__role-count {
+  font-size: 0.62rem;
+  color: #fca5a5;
+  opacity: 0.85;
+  font-weight: 700;
+}
+
 .admin-sidebar__role-title {
   font-size: 0.85rem;
   font-weight: 600;
@@ -101,7 +108,7 @@
   margin-top: 4px;
 }
 
-.admin-sidebar__role-select:hover {
+.admin-sidebar__role-select:hover:not(:disabled) {
   background: #0e3b6b;
   border-color: rgba(255, 255, 255, 0.45);
 }
@@ -109,6 +116,11 @@
 .admin-sidebar__role-select:focus {
   border-color: #38bdf8;
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
+.admin-sidebar__role-select:disabled {
+  opacity: 0.88;
+  cursor: default;
 }
 
 .admin-sidebar__nav {
@@ -312,4 +324,39 @@
   flex: 1;
   padding: 28px 32px 48px;
   overflow-y: auto;
+}
+
+/* ── Tema Personal de Competencias ── */
+.admin-layout--personal .admin-sidebar__badge-fv,
+.admin-layout--personal .admin-topbar__avatar {
+  background: #1b6b31;
+}
+
+.admin-layout--personal .admin-sidebar__role-box {
+  background: rgba(27, 107, 49, 0.18);
+  border-left-color: #1b6b31;
+}
+
+.admin-layout--personal .admin-sidebar__role-label,
+.admin-layout--personal .admin-sidebar__role-count {
+  color: #86efac;
+}
+
+.admin-layout--personal .admin-sidebar__role-select {
+  background: rgba(27, 107, 49, 0.95);
+  border-color: rgba(134, 239, 172, 0.35);
+}
+
+.admin-layout--personal .admin-sidebar__role-select:hover:not(:disabled) {
+  background: #1b6b31;
+  border-color: #86efac;
+}
+
+.admin-layout--personal .admin-sidebar__link--active .admin-sidebar__icon-placeholder {
+  background: #1b6b31;
+}
+
+.admin-layout--personal .admin-sidebar__profile-btn--active {
+  background: rgba(27, 107, 49, 0.85);
+  border-color: #1b6b31;
 }

@@ -62,8 +62,9 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
         // 2. Obtener perfil, rol y asociación vinculada
         const { data: profile, error } = await supabase
           .from('user_profiles')
-          .select('status, roles!user_profiles_role_id_fkey(name)')
           .select(`
+            id,
+            role_id,
             status,
             full_name,
             organization_id,
@@ -166,24 +167,41 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
         // 6. Validar roles y permisos por subruta (RF-SEG-005, RF-SEG-006)
         let todosLosRoles = [];
         let roleIds = [];
+        if (profile.role_id) {
+          roleIds.push(profile.role_id);
+        }
+        const rolPrincipal = (Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name)?.trim();
+        if (rolPrincipal) {
+          todosLosRoles.push(rolPrincipal);
+        }
+
         try {
           const { data: userRoles } = await supabase
             .from('user_roles')
-            .select('role_id, roles(name)')
+            .select('role_id')
             .eq('user_id', session.user.id);
 
           if (userRoles && userRoles.length > 0) {
-            todosLosRoles = userRoles.map(ur => ur.roles?.name?.trim()).filter(Boolean);
-            roleIds = userRoles.map(ur => ur.role_id).filter(Boolean);
+            userRoles.forEach(ur => {
+              if (ur.role_id && !roleIds.includes(ur.role_id)) roleIds.push(ur.role_id);
+            });
           }
         } catch (e) {}
 
-        if (todosLosRoles.length === 0) {
-          const rolFallback = (Array.isArray(profile.roles) ? profile.roles[0]?.name : profile.roles?.name)?.trim();
-          if (rolFallback) todosLosRoles = [rolFallback];
-        }
-        if (profile.role_id && !roleIds.includes(profile.role_id)) {
-          roleIds.push(profile.role_id);
+        if (roleIds.length > 0) {
+          try {
+            const { data: rolesData } = await supabase
+              .from('roles')
+              .select('id, name')
+              .in('id', roleIds);
+
+            if (rolesData) {
+              rolesData.forEach(r => {
+                const n = r.name?.trim();
+                if (n && !todosLosRoles.includes(n)) todosLosRoles.push(n);
+              });
+            }
+          } catch (_) {}
         }
 
         const rolUsuario = todosLosRoles[0] || 'Sin rol';

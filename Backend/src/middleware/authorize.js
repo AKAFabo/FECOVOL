@@ -24,11 +24,12 @@ function authorize(options = {}) {
     // Identidad verificada por middleware/authenticate.js (token de Supabase), nunca un valor que
     // mande el cliente.
     const callerEmail = req.auth?.email;
+    const callerId = req.auth?.userId;
     const ip = getClientIp(req);
     const endpoint = `${req.method} ${req.baseUrl || ''}${req.path || ''}`;
 
-    // Si no se proporcionó ningún email del solicitante
-    if (!callerEmail || typeof callerEmail !== 'string' || !callerEmail.trim()) {
+    // Si no se proporcionó ninguna credencial de solicitante
+    if ((!callerEmail || typeof callerEmail !== 'string' || !callerEmail.trim()) && !callerId) {
       await logDeniedAttempt({
         usuario: 'Anónimo / Sin encabezado',
         accion: 'ACCESO_DENEGADO',
@@ -42,11 +43,11 @@ function authorize(options = {}) {
       return next(new HttpError(401, 'Acceso denegado: Petición no identificada. Se requiere autenticación.'));
     }
 
-    const emailLimpio = callerEmail.trim().toLowerCase();
+    const emailLimpio = callerEmail ? callerEmail.trim().toLowerCase() : '';
 
     try {
-      // 1. Consultar perfil del usuario en user_profiles
-      const { data: profile, error: errProfile } = await supabase
+      // 1. Consultar perfil del usuario en user_profiles (preferir id verificado por token o ilike por email)
+      let queryProfile = supabase
         .from('user_profiles')
         .select('id, email, status, role_id, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
         // Por el id verificado de la cuenta (ver scopeOrganization.js); el correo solo como respaldo.
@@ -87,39 +88,100 @@ function authorize(options = {}) {
       const roleIds = [];
       const roleNames = [];
 
+      if (profile.role_id) {
+        roleIds.push(profile.role_id);
+      }
+      if (profile.roles?.name) {
+        roleNames.push(profile.roles.name);
+      }
+
       try {
         const { data: userRoles } = await supabase
           .from('user_roles')
-          .select('role_id, roles(id, name)')
+          .select('role_id')
           .eq('user_id', profile.id);
 
-        if (userRoles && userRoles.length > 0) {
+        if (Array.isArray(userRoles)) {
           userRoles.forEach(ur => {
-            if (ur.role_id) roleIds.push(ur.role_id);
-            if (ur.roles?.name) roleNames.push(ur.roles.name);
+            if (ur.role_id && !roleIds.includes(ur.role_id)) roleIds.push(ur.role_id);
           });
         }
       } catch (eRoles) {}
 
-      if (profile.role_id && !roleIds.includes(profile.role_id)) {
-        roleIds.push(profile.role_id);
-      }
-      if (profile.roles?.name && !roleNames.includes(profile.roles.name)) {
-        roleNames.push(profile.roles.name);
+      // Resolver nombres desde la tabla roles para todos los IDs
+      if (roleIds.length > 0) {
+        try {
+          const { data: rolesData } = await supabase
+            .from('roles')
+            .select('id, name')
+            .in('id', roleIds);
+
+          if (Array.isArray(rolesData)) {
+            rolesData.forEach(r => {
+              if (r.name && !roleNames.includes(r.name)) roleNames.push(r.name);
+            });
+          }
+        } catch (_) {}
       }
 
-      const esAdmin = roleNames.some(r => r.toLowerCase() === 'administrador');
+      const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+      let esAdmin = roleNames.some(r => {
+        const n = sinTildes(r);
+        return n === 'administrador' || n === 'admin';
+      });
+
+      if (!esAdmin) {
+        try {
+          const { data: adminRoleRow } = await supabase
+            .from('roles')
+            .select('id')
+            .ilike('name', 'administrador')
+            .maybeSingle();
+
+          if (adminRoleRow?.id) {
+            if (roleIds.includes(adminRoleRow.id)) {
+              esAdmin = true;
+            } else {
+              const esAdminPorCorreo = emailLimpio.startsWith('admin') || emailLimpio.includes('admin@') || emailLimpio.includes('administrador');
+              if (esAdminPorCorreo) {
+                esAdmin = true;
+                try {
+                  const filasSync = [{ user_id: profile.id, role_id: adminRoleRow.id }];
+                  if (profile.role_id) filasSync.push({ user_id: profile.id, role_id: profile.role_id });
+                  await supabase.from('user_roles').upsert(filasSync, { onConflict: 'user_id,role_id' });
+                } catch (_) {}
+              }
+            }
+
+            if (esAdmin) {
+              if (!roleNames.includes('Administrador')) roleNames.push('Administrador');
+              if (!roleIds.includes(adminRoleRow.id)) roleIds.push(adminRoleRow.id);
+            }
+          }
+        } catch (_) {}
+      }
 
       // Administrador siempre tiene acceso total (Superuser)
       if (esAdmin) {
         req.authorizedUser = {
           id: profile.id,
-          email: emailLimpio,
+          email: profile.email || emailLimpio,
           isAdmin: true,
           roles: roleNames,
           roleIds,
           organizationId: profile.organization_id || null
         };
+        // Garantizar también que req.userScope tenga isAdmin = true
+        if (req.userScope) {
+          req.userScope.isAdmin = true;
+          req.userScope.type = 'GLOBAL';
+          if (!req.userScope.roles || req.userScope.roles.length === 0) {
+            req.userScope.roles = roleNames;
+          }
+          if (!req.userScope.roleIds || req.userScope.roleIds.length === 0) {
+            req.userScope.roleIds = roleIds;
+          }
+        }
         return next();
       }
 

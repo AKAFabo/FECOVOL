@@ -15,7 +15,10 @@ const DIAS_AVISO = 30;
 const DESIGNACION_VIGENTE = ['PROPUESTA', 'CONFIRMADA'];
 
 const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const tieneRol = (scope, rol) => (scope?.roles || []).some((r) => sinTildes(r) === rol);
+const tieneRol = (scope, rol) => (scope?.roles || []).some((r) => {
+  const norm = sinTildes(r);
+  return norm === rol || (rol === 'administrador' && (norm === 'admin' || norm.includes('administrad')));
+});
 
 function esFecha(texto) {
   if (typeof texto !== 'string' || !FECHA.test(texto)) return false;

@@ -12,6 +12,28 @@
 }
 
 .admin-layout--arbitro .admin-sidebar__role-label { color: #b7dfeb; }
+.admin-layout--arbitro .admin-sidebar__role-count {
+  color: #b7dfeb;
+  font-size: 0.62rem;
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.admin-layout--arbitro .admin-sidebar__role-select {
+  background: rgba(23, 103, 127, 0.95);
+  border-color: rgba(95, 179, 203, 0.4);
+}
+
+.admin-layout--arbitro .admin-sidebar__role-select:hover:not(:disabled) {
+  background: #17677f;
+  border-color: #5fb3cb;
+}
+
+.admin-layout--arbitro .admin-sidebar__profile-btn--active {
+  background: rgba(23, 103, 127, 0.85);
+  border-color: #5fb3cb;
+}
+
 .admin-layout--arbitro .admin-sidebar__link--active .admin-sidebar__icon-placeholder { background: #7cc6dc; }
 
 .admin-sidebar__brand-text .arbitro-marca {

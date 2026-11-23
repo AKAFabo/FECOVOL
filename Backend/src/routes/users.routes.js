@@ -5,6 +5,7 @@ const { HttpError, fromSupabase } = require('../utils/httpError');
 const authorize = require('../middleware/authorize');
 const { requireSession } = require('../middleware/authenticate');
 const { logDeniedAttempt, logFailedLogin, logSystemProcess, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
+const { obtenerRolMayorPrioridad, asegurarRolMayorPrioridadUsuario } = require('../utils/rolesPrioridad');
 
 const router = express.Router();
 
@@ -71,7 +72,8 @@ router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resour
   const userId = inviteData.user.id;
 
   // 2. Crear o actualizar el perfil en public.user_profiles
-  const primaryRoleId = roleIds[0] || null;
+  // El role_id debe ser el rol de mayor prioridad asignado (administrador -> representante -> personal -> arbitro)
+  const primaryRoleId = await obtenerRolMayorPrioridad(roleIds, supabase);
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .upsert({
@@ -554,7 +556,7 @@ router.post('/establish-password', requireSession, asyncHandler(async (req, res)
   // 1. Verificar que el usuario exista y tenga contraseña pendiente
   const { data: profile, error: errProfile } = await supabase
     .from('user_profiles')
-    .select('id, email, status, organization_id, roles(name)')
+    .select('id, email, status, organization_id, roles:roles!user_profiles_role_id_fkey(name)')
     .eq('id', req.auth.userId)
     .maybeSingle();
 
@@ -623,6 +625,45 @@ router.get('/me', requireSession, asyncHandler(async (req, res) => {
     organizacion = aso || null;
   }
 
+  // Consultar todos los roles asignados en user_roles (sin join nested que cause fallos en PostgREST)
+  let listaRoles = [];
+  try {
+    const { data: ur } = await supabase
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', profile.id);
+
+    const allIds = [profile.role_id, ...(ur || []).map(r => r.role_id)].filter(Boolean);
+    if (allIds.length > 0) {
+      const { data: rData } = await supabase
+        .from('roles')
+        .select('id, name')
+        .in('id', allIds);
+      if (rData && rData.length > 0) {
+        listaRoles = rData;
+      }
+
+      // El usuario.role_id debe contener el rol con mayor prioridad en todo momento
+      const mayorPrioId = await obtenerRolMayorPrioridad(allIds, supabase);
+      if (mayorPrioId && mayorPrioId !== profile.role_id) {
+        try {
+          await supabase
+            .from('user_profiles')
+            .update({ role_id: mayorPrioId, updated_at: new Date().toISOString() })
+            .eq('id', profile.id);
+          profile.role_id = mayorPrioId;
+          const rolElegido = rData?.find(r => r.id === mayorPrioId);
+          if (rolElegido) {
+            profile.roles = { name: rolElegido.name };
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (e) {}
+  if (listaRoles.length === 0 && profile.role_id && profile.roles) {
+    listaRoles = [{ id: profile.role_id, name: profile.roles.name }];
+  }
+
   res.set('Cache-Control', 'no-store');
   res.json({
     data: {
@@ -632,6 +673,7 @@ router.get('/me', requireSession, asyncHandler(async (req, res) => {
       status: profile.status,
       role_id: profile.role_id,
       rol: profile.roles?.name || null,
+      roles: listaRoles,
       organizacion
     }
   });
@@ -718,12 +760,12 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
     .eq('id', id)
     .single();
 
-  // Consultar roles asignados previamente en user_roles
+  // Consultar roles asignados previamente en user_roles (sin join para evitar errores de ambigüedad)
   let rolesPreviosIds = [];
   try {
     const { data: prevRoles } = await supabase
       .from('user_roles')
-      .select('role_id, roles(name)')
+      .select('role_id')
       .eq('user_id', id);
     if (prevRoles && prevRoles.length > 0) {
       rolesPreviosIds = prevRoles.map(r => r.role_id);
@@ -739,7 +781,12 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
   if (Array.isArray(role_ids)) {
     nuevosRoleIds = role_ids;
   } else if (role_id) {
-    nuevosRoleIds = [role_id];
+    // Si no se envió array role_ids, preservar los roles previos existentes y agregar role_id
+    if (rolesPreviosIds.length > 0) {
+      nuevosRoleIds = rolesPreviosIds.includes(role_id) ? rolesPreviosIds : [...rolesPreviosIds, role_id];
+    } else {
+      nuevosRoleIds = [role_id];
+    }
   }
 
   const nuevoEstado = status !== undefined ? status : usuarioPrevio?.status;
@@ -808,7 +855,8 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
   if (organization_id !== undefined) updatePayload.organization_id = organization_id || null;
   if (status !== undefined) updatePayload.status = status;
   if (nuevosRoleIds !== null && nuevosRoleIds.length > 0) {
-    updatePayload.role_id = nuevosRoleIds[0];
+    // Un usuario.role_id debe contener el rol con mayor prioridad en todo momento
+    updatePayload.role_id = await obtenerRolMayorPrioridad(nuevosRoleIds, supabase);
   } else if (nuevosRoleIds !== null && nuevosRoleIds.length === 0) {
     updatePayload.role_id = null;
   }
@@ -825,7 +873,7 @@ router.put('/:id', authorize({ requiredPermission: '/admin/usuarios', resourceTa
       last_login,
       role_id,
       organization_id,
-      roles ( id, name )
+      roles:roles!user_profiles_role_id_fkey ( id, name )
     `)
     .single();
 
@@ -976,6 +1024,42 @@ router.post('/switch-active-role', requireSession, asyncHandler(async (req, res)
     tieneRol = true;
   }
 
+  // Si el usuario tiene el rol Administrador, puede alternar hacia cualquier rol del sistema
+  if (!tieneRol) {
+    const { data: adminProf } = await supabase
+      .from('user_profiles')
+      .select('roles:roles!user_profiles_role_id_fkey(name)')
+      .eq('id', user_id)
+      .maybeSingle();
+
+    if (adminProf?.roles?.name === 'Administrador') {
+      tieneRol = true;
+    } else {
+      const { data: adminRoleData } = await supabase
+        .from('roles')
+        .select('id')
+        .ilike('name', 'administrador')
+        .maybeSingle();
+
+      if (adminRoleData?.id) {
+        if (profile.role_id === adminRoleData.id) {
+          tieneRol = true;
+        } else {
+          const { data: adminUr } = await supabase
+            .from('user_roles')
+            .select('role_id')
+            .eq('user_id', user_id)
+            .eq('role_id', adminRoleData.id)
+            .maybeSingle();
+
+          if (adminUr) {
+            tieneRol = true;
+          }
+        }
+      }
+    }
+  }
+
   if (!tieneRol) {
     await logDeniedAttempt({
       usuario: profile.email || user_id,
@@ -991,23 +1075,22 @@ router.post('/switch-active-role', requireSession, asyncHandler(async (req, res)
     throw new HttpError(403, 'No tiene asignado el rol solicitado');
   }
 
-  // 2. Actualizar role_id activo en user_profiles
-  const { data: updated, error } = await supabase
-    .from('user_profiles')
-    .update({ role_id, updated_at: new Date().toISOString() })
-    .eq('id', user_id)
-    .select('id, role_id, roles(id, name)')
-    .single();
+  // 2. NO se modifica la base de datos al cambiar de vista de rol (RF-SEG-006).
+  // Únicamente se revisa si ese usuario y ese rol tienen relación en user_roles.
+  // El usuario.role_id debe contener el rol con mayor prioridad en todo momento.
+  await asegurarRolMayorPrioridadUsuario(user_id, supabase);
 
-  if (error) {
-    throw fromSupabase(error) || new HttpError(500, 'Error al cambiar rol activo');
-  }
+  const { data: targetRole } = await supabase
+    .from('roles')
+    .select('id, name')
+    .eq('id', role_id)
+    .maybeSingle();
 
   res.json({
     success: true,
-    message: 'Rol activo actualizado',
-    active_role: updated.roles?.name,
-    role_id: updated.role_id
+    message: 'Vista de rol permitida',
+    active_role: targetRole?.name || 'Usuario',
+    role_id
   });
 }));
 

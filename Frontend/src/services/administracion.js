@@ -42,6 +42,9 @@ export const corregirPersona = (id, cambios) => datos(api.patch(`/persons/${enc(
 export const revisarDocumento = (id, estado, notas) => datos(api.patch(`/documents/${enc(id)}/review`, { status: estado, notes: notas || undefined }));
 export const vencerDocumentos = () => datos(api.post('/documents/expire'));
 
+/* Resumen Ejecutivo del Panel de Administración (RF-ADM-001) ---------------- */
+export const obtenerResumenAdmin = (opciones) => datos(api.get('/reports/admin-dashboard', opciones));
+
 export const ESTADOS_ASOCIACION = {
   AFILIADA: { texto: 'Afiliada', tono: 'ok' },
   PROVISIONAL: { texto: 'Afiliación provisional', tono: 'aviso' },

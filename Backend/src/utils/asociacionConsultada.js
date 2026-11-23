@@ -31,17 +31,17 @@ async function asociacionConsultada(req, tabla) {
 
   if (scope.isPublic) throw new HttpError(401, 'Se requiere iniciar sesión.');
 
+  if (scope.isAdmin) {
+    if (!UUID.test(pedida || '')) throw new HttpError(400, 'Indique la asociación (association_id).');
+    return pedida;
+  }
+
   if (scope.isAssociation) {
     if (pedida && pedida !== scope.organizationId) {
       await denegar(req, `Intento de consultar la información de otra asociación (${String(pedida).slice(0, 60)})`, tabla);
       throw new HttpError(403, 'Acceso denegado: solo puede consultar la información de su asociación.');
     }
     return scope.organizationId;
-  }
-
-  if (scope.isAdmin) {
-    if (!UUID.test(pedida || '')) throw new HttpError(400, 'Indique la asociación (association_id).');
-    return pedida;
   }
 
   await denegar(req, 'Intento de consultar información de una asociación sin ser su representante ni FECOVOL', tabla);

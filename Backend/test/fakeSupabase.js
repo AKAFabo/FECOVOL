@@ -29,6 +29,7 @@ function crearFake() {
     return b;
   }
 
+<<<<<<< Updated upstream
   // Los middlewares buscan el perfil con .eq('id', id) o .eq('email', correo); la vinculación de
   // árbitros, con .ilike('email', correo) (sin distinguir mayúsculas).
   function perfilSegun(pasos) {
@@ -43,6 +44,21 @@ function crearFake() {
     }
     else if (porId) perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
     else return null;
+=======
+  // Los middlewares buscan el perfil con .eq('email', correo), .ilike('email', correo) o .eq('id', id).
+  function perfilSegun(pasos) {
+    const porCorreo = pasos.find((p) => (p[0] === 'eq' || p[0] === 'ilike') && p[1] === 'email');
+    const porId = pasos.find((p) => p[0] === 'eq' && p[1] === 'id');
+    let perfil = null;
+    if (porCorreo) {
+      const buscado = String(porCorreo[2] || '').toLowerCase();
+      perfil = perfiles[buscado] || Object.values(perfiles).find((x) => String(x.email || '').toLowerCase() === buscado) || null;
+    } else if (porId) {
+      perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
+    } else {
+      return null;
+    }
+>>>>>>> Stashed changes
     return { data: perfil, error: null };
   }
 
