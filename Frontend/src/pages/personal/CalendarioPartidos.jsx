@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
-import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -55,7 +54,7 @@ const ESTILOS_SHAKE = `
   }
 `;
 
-export default function CalendarioPartidos() {
+export default function CalendarioPartidos({ basePath = '/personal' }) {
   const navigate = useNavigate();
 
   // Declara los estados principales
@@ -469,9 +468,8 @@ export default function CalendarioPartidos() {
                               style={{ padding: '2px 6px', fontSize: '0.7rem' }}
                               onClick={() => abrirEditarJornada(p.matchday)}
                               title="Editar fecha de la jornada completa"
-                              aria-label="Editar fecha de la jornada completa"
                             >
-                              <Icono nombre="lapiz" tam={13} />
+                              ✎
                             </button>
                           </div>
                         </td>
@@ -482,7 +480,7 @@ export default function CalendarioPartidos() {
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                             <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => abrirEditarPartido(p)}>Hora / Sede</button>
-                            <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`/personal/resultados/${p.id}`)}>Resultado</button>
+                            <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>Resultado</button>
                           </div>
                         </td>
                       </tr>
@@ -514,7 +512,7 @@ export default function CalendarioPartidos() {
                               onClick={() => abrirEditarJornada(jornadaDeLista)}
                               title="Editar fecha de la jornada completa"
                             >
-                              <Icono nombre="lapiz" tam={13} /> Editar fecha
+                              ✎ Editar fecha
                             </button>
                           )}
                         </div>
@@ -532,7 +530,7 @@ export default function CalendarioPartidos() {
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                               <span className={`badge-status ${getBadgeClass(p.status)}`}>{p.status}</span>
                               <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={() => abrirEditarPartido(p)}>Hora / Sede</button>
-                              <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={() => navigate(`/personal/resultados/${p.id}`)}>Resultado</button>
+                              <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>Resultado</button>
                             </div>
                           </div>
                         ))}

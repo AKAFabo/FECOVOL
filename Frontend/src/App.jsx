@@ -123,6 +123,16 @@ export default function App() {
           <Route path="incidentes/faltas" element={<CatalogoFaltas />} />
           <Route path="incidentes/abrir" element={<AbrirExpediente />} />
           <Route path="incidentes/:id" element={<Expediente />} />
+
+          {/* Competencias globales del Administrador: reusa los componentes del módulo personal. */}
+          <Route path="competencias" element={<PersonalPanel basePath="/admin/competencias" />} />
+          <Route path="competencias/inscripciones" element={<Inscripciones basePath="/admin/competencias" />} />
+          <Route path="competencias/calendario" element={<CalendarioPartidos basePath="/admin/competencias" />} />
+          <Route path="competencias/resultados" element={<Resultados basePath="/admin/competencias" />} />
+          <Route path="competencias/resultados/:matchId" element={<ResultadoDetalle basePath="/admin/competencias" />} />
+          <Route path="competencias/reportes" element={<Reportes basePath="/admin/competencias" />} />
+          <Route path="competencias/competencia/:id" element={<CompetenciaDetalle basePath="/admin/competencias" />} />
+
           <Route element={<GestionFederativa />}>
             <Route path="asociaciones" element={<AsociacionesFecovol />} />
             <Route path="asociaciones/afiliar" element={<AfiliarAsociacion />} />

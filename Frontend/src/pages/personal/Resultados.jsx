@@ -12,7 +12,7 @@ function formatearFecha(fechaStr) {
   return `${parseInt(day, 10)}-${MESES[parseInt(month, 10) - 1]}-${year}`;
 }
 
-export default function Resultados() {
+export default function Resultados({ basePath = '/personal' }) {
   const navigate = useNavigate();
 
   // Declara los estados principales
@@ -150,7 +150,7 @@ export default function Resultados() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`/personal/resultados/${p.id}`)}>
+                      <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>
                         {p.status === 'FINALIZADO' ? 'Ver / Editar' : 'Registrar'}
                       </button>
                     </td>

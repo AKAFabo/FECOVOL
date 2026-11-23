@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
-import Icono from '../../components/Icono.jsx';
 
 const ESTILOS_SHAKE = `
   @keyframes shake {
@@ -331,11 +330,11 @@ export default function Inscripciones() {
                   <p className="admin-side-card__subtitle">Verifica que cada equipo cumpla con estos puntos antes de aprobar</p>
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--texto-suave)' }}>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={13} /> Nómina con al menos {metricas?.min_roster ?? 12} integrantes</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={13} /> Categoría acorde a la competencia</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={13} /> Nómina aprobada por FECOVOL</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={13} /> Aval de la asociación</li>
-                  <li style={{ padding: '8px 0' }}><Icono nombre="check" tam={13} /> Cuota de inscripción pagada</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}>✓ Nómina con al menos {metricas?.min_roster ?? 12} integrantes</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}>✓ Categoría acorde a la competencia</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}>✓ Nómina aprobada por FECOVOL</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}>✓ Aval de la asociación</li>
+                  <li style={{ padding: '8px 0' }}>✓ Cuota de inscripción pagada</li>
                 </ul>
               </div>
 

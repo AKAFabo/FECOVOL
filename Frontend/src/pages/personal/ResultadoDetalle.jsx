@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
-import '../../styles/gestion.css';
-import CierreArbitral from '../../components/CierreArbitral.jsx';
-import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -45,7 +42,7 @@ const RESULTADOS_ESPECIALES = {
   SUSPENDIDO_DEFINITIVO:        { label: 'Suspendido definitivamente' }
 };
 
-export default function ResultadoDetalle() {
+export default function ResultadoDetalle({ basePath = '/personal' }) {
   const { matchId } = useParams();
   const navigate = useNavigate();
 
@@ -393,8 +390,8 @@ export default function ResultadoDetalle() {
       });
       if (!resFin.ok) throw new Error((await resFin.json()).error);
 
-      // 3. Navega de vuelta
-      navigate('/personal/resultados');
+      // 3. Navega de vuelta al listado de resultados del entorno actual.
+      navigate(`${basePath}/resultados`);
     } catch (err) {
       setErrorGuardar(err.message);
       setShakeKeyGuardar(prev => prev + 1);
@@ -486,20 +483,18 @@ export default function ResultadoDetalle() {
 
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
-          <span style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/personal/resultados')}>
-            ← Volver a resultados
-          </span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(`${basePath}/resultados`)}>
+          ← Volver a resultados
+        </span>
           <h1 style={{ marginTop: '8px' }}>Registrar resultado</h1>
           <p className="admin-page-header__subtitle">
             {competencia?.name} · Jornada {partido.matchday} · Partido #{partido.match_number}
           </p>
         </div>
         <div className="admin-page-header__actions">
-          <button type="button" className="admin-btn admin-btn--secondary" onClick={() => navigate('/personal/resultados')}>Volver al calendario</button>
+          <button type="button" className="admin-btn admin-btn--secondary" onClick={() => navigate(`${basePath}/resultados`)}>Volver al calendario</button>
         </div>
       </div>
-
-      <CierreArbitral matchId={matchId} onCambio={cargarTodo} />
 
       {esFinalizado && !esEspecial && (
         <div className="admin-banner" style={{ marginBottom: '16px', background: '#fff7ed', borderColor: '#f97316', color: '#9a3412' }}>
@@ -722,7 +717,7 @@ export default function ResultadoDetalle() {
               {checklist.map(item => (
                 <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
                   <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>
-                    {item.passed ? <Icono nombre="correcto" tam={18} titulo="Cumple" style={{ color: 'var(--ok)' }} /> : (item.warning ? <Icono nombre="alerta" tam={18} titulo="Advertencia" style={{ color: 'var(--aviso)' }} /> : <Icono nombre="error" tam={18} titulo="No cumple" style={{ color: '#b91c1c' }} />)}
+                    {item.passed ? '✅' : (item.warning ? '⚠️' : '❌')}
                   </span>
                   <span style={{ color: item.passed ? 'var(--texto)' : (item.warning ? 'var(--aviso)' : 'var(--rojo)') }}>
                     {item.label}
@@ -929,7 +924,7 @@ export default function ResultadoDetalle() {
                   justifyContent: 'center',
                   flexShrink: 0,
                   fontSize: '1.3rem'
-                }}><Icono nombre="alerta" tam={20} /></div>
+                }}>⚠️</div>
                 <div>
                   <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.95rem' }}>
                     ¿Eliminar esta evidencia?

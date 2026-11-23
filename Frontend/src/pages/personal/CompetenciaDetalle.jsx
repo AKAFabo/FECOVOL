@@ -3,7 +3,6 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
-import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -81,7 +80,7 @@ function Combobox({ opciones, valor, onChange, placeholder, disabled }) {
   );
 }
 
-export default function CompetenciaDetalle() {
+export default function CompetenciaDetalle({ basePath = '/personal' }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -564,7 +563,7 @@ export default function CompetenciaDetalle() {
 
       <div className="admin-page-header">
         <div className="admin-page-header__title-group">
-          <span style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/personal')}>← Volver a competencias</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--rojo)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate(basePath)}>← Volver a competencias</span>
           <h1 style={{ marginTop: '8px' }}>{competencia.name}</h1>
           <p className="admin-page-header__subtitle">{competencia.categoria?.value} · {competencia.rama?.value} · Temporada {competencia.season}</p>
         </div>
@@ -700,7 +699,7 @@ export default function CompetenciaDetalle() {
                       <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', marginRight: '8px' }} onClick={() => abrirModalReprogramar(p)}>Editar Estado</button>
                     )}
                     {(p.status === 'PROGRAMADO' || p.status === 'FINALIZADO') && (
-                      <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`/personal/resultados/${p.id}`)}>
+                      <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>
                         {p.status === 'FINALIZADO' ? 'Editar Resultado' : 'Registrar Resultado'}
                       </button>
                     )}
@@ -1163,7 +1162,7 @@ export default function CompetenciaDetalle() {
                   flexShrink: 0,
                   fontSize: '1.3rem'
                 }}>
-                  {modalConfirmacion.tipo === 'peligro' ? <Icono nombre="alerta" tam={20} /> : <Icono nombre="info" tam={20} />}
+                  {modalConfirmacion.tipo === 'peligro' ? '⚠️' : 'ℹ️'}
                 </div>
                 <p style={{ margin: 0, color: 'var(--texto-suave)', fontSize: '0.92rem', lineHeight: 1.5 }}>
                   {modalConfirmacion.mensaje}

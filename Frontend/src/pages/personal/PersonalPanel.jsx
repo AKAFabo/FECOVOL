@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js'; 
-import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -29,7 +28,7 @@ const ESTILOS_SHAKE = `
 // Define los elementos por página
 const ELEMENTOS_POR_PAGINA = 10;
 
-export default function PersonalPanel() {
+export default function PersonalPanel({ basePath = '/personal' }) {
   const navigate = useNavigate();
   
   // Declara los estados principales
@@ -299,7 +298,7 @@ export default function PersonalPanel() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                          <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`/personal/competencia/${comp.id}`)}>Gestionar</button>
+                          <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/competencia/${comp.id}`)}>Gestionar</button>
                           <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => abrirModalEditar(comp)}>Editar</button>
                           {comp.status !== 'CERRADA' && (
                             <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => abrirModalArchivar(comp)}>Archivar</button>
@@ -333,21 +332,21 @@ export default function PersonalPanel() {
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#c8102e', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.resultados_pendientes}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Resultados pendientes de registrar</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate('/personal/resultados')}>Registrar ahora →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados`)}>Registrar ahora →</button>
           </div>
         </div>
         <div className="admin-card" style={{ padding: '20px', borderLeft: '4px solid #a8501f' }}>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#a8501f', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.solicitudes_reprogramacion}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Solicitudes de reprogramación</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate('/personal/calendario')}>Revisar →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/calendario`)}>Revisar →</button>
           </div>
         </div>
         <div className="admin-card" style={{ padding: '20px', borderLeft: '4px solid #0e3b6b' }}>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0e3b6b', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.partidos_sin_arbitro}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Partidos sin árbitro designado</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate('/personal/calendario')}>Revisar →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/calendario`)}>Revisar →</button>
           </div>
         </div>
       </div>
@@ -475,7 +474,7 @@ export default function PersonalPanel() {
             <form onSubmit={handleArchivarCompetencia}>
               <div className="admin-modal__body">
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.3rem' }}><Icono nombre="alerta" tam={20} /></div>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.3rem' }}>⚠️</div>
                   <div>
                     <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.98rem' }}>¿Estás seguro de archivar «{compArchivar.name}»?</p>
                     <p style={{ margin: 0, color: 'var(--texto-mudo)', fontSize: '0.85rem', lineHeight: '1.45' }}>La competencia pasará a estado <strong>Cerrada / Archivada</strong>. No se borrará y todo su historial se conservará intacto, pero ya no podrás inscribir más equipos ni programar partidos.</p>
