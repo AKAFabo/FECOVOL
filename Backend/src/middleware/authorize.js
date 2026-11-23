@@ -25,9 +25,12 @@ function authorize(options = {}) {
     // mande el cliente.
     const callerEmail = req.auth?.email;
     const callerId = req.auth?.userId;
+    const callerId = req.auth?.userId;
     const ip = getClientIp(req);
     const endpoint = `${req.method} ${req.baseUrl || ''}${req.path || ''}`;
 
+    // Si no se proporcionó ninguna credencial de solicitante
+    if ((!callerEmail || typeof callerEmail !== 'string' || !callerEmail.trim()) && !callerId) {
     // Si no se proporcionó ninguna credencial de solicitante
     if ((!callerEmail || typeof callerEmail !== 'string' || !callerEmail.trim()) && !callerId) {
       await logDeniedAttempt({
