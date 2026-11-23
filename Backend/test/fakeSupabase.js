@@ -53,13 +53,6 @@ function crearFake() {
     } else {
       return null;
     }
-    if (porCorreo) perfil = perfiles[porCorreo[2]] || null;
-    else if (porCorreoSinMayus) {
-      const buscado = String(porCorreoSinMayus[2]).replace(/\\(.)/g, '$1').toLowerCase();
-      perfil = Object.values(perfiles).find((x) => String(x.email).toLowerCase() === buscado) || null;
-    }
-    else if (porId) perfil = Object.values(perfiles).find((x) => x.id === porId[2]) || null;
-    else return null;
     return { data: perfil, error: null };
   }
 
