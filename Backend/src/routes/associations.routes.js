@@ -317,7 +317,10 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   const errActualizar = fromSupabase(error, 'Asociación');
   if (errActualizar) throw errActualizar;
 
-  const { data } = await supabase.from('associations').select(SELECT_BASE).eq('id', req.params.id).single();
+  // Si la asociacion no existe, el update directo no falla: el 404 sale de esta consulta.
+  const { data, error: errSelect } = await supabase.from('associations').select(SELECT_BASE).eq('id', req.params.id).single();
+  const errLectura = fromSupabase(errSelect, 'Asociación');
+  if (errLectura) throw errLectura;
   res.json({ data });
 }));
 

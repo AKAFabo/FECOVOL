@@ -12,6 +12,11 @@ export function listarNoticias(pagina, opciones) {
   return obtener(`/news?page=${n}`, opciones);
 }
 
+/** Bloque de la página principal: { featured: noticia | null, recent: noticia[] }. */
+export function obtenerNoticiasPortada(opciones) {
+  return obtener('/news/portada', opciones);
+}
+
 export function obtenerNoticia(id, opciones) {
   if (!esIdValido(id)) throw new Error('Identificador de noticia inválido');
   return obtener(`/news/${encodeURIComponent(id)}`, opciones);

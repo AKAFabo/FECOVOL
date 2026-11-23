@@ -21,6 +21,12 @@ import RedactarNoticia from './pages/admin/noticias/RedactarNoticia.jsx';
 import ParametrosSistema from './pages/admin/parametros/ParametrosSistema.jsx';
 import Perfil from './pages/admin/perfil/Perfil.jsx';
 
+// Incidentes y sanciones: expedientes disciplinarios y catálogo de faltas.
+import Incidentes from './pages/admin/incidentes/Incidentes.jsx';
+import CatalogoFaltas from './pages/admin/incidentes/CatalogoFaltas.jsx';
+import AbrirExpediente from './pages/admin/incidentes/AbrirExpediente.jsx';
+import Expediente from './pages/admin/incidentes/Expediente.jsx';
+
 // Gestión federativa (Estudiante 3): asociaciones, equipos, personas y documentos. Se cargan al
 // abrirlas para no agrandar el resto de la aplicación.
 import GestionFederativa from './pages/admin/federativo/GestionFederativa.jsx';
@@ -110,6 +116,10 @@ export default function App() {
           <Route path="noticias/redactar" element={<RedactarNoticia key="redactar" />} />
           <Route path="noticias/:id/editar" element={<RedactarNoticia key="editar" />} />
           <Route path="perfil" element={<Perfil />} />
+          <Route path="incidentes" element={<Incidentes />} />
+          <Route path="incidentes/faltas" element={<CatalogoFaltas />} />
+          <Route path="incidentes/abrir" element={<AbrirExpediente />} />
+          <Route path="incidentes/:id" element={<Expediente />} />
           <Route element={<GestionFederativa />}>
             <Route path="asociaciones" element={<AsociacionesFecovol />} />
             <Route path="asociaciones/afiliar" element={<AfiliarAsociacion />} />

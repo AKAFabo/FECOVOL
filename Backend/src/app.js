@@ -24,11 +24,15 @@ const usersRoutes = require('./routes/users.routes');
 const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
 const auditRoutes = require('./routes/audit.routes');
+const newsRoutes = require('./routes/news.routes');
+const incidentsRoutes = require('./routes/incidents.routes');
 const publicRoutes = require('./routes/public.routes');
 
 const app = express();
 
 app.use(cors());
+// El cuerpo de una noticia puede traer imagenes incrustadas por el editor.
+app.use('/api/news', express.json({ limit: '25mb' }));
 app.use(express.json());
 
 // Portal público: solo lectura y sin sesión (ver routes/public.routes.js). Va antes de
@@ -63,6 +67,8 @@ app.get('/', (req, res) => {
       '/api/roles',
       '/api/parameters',
       '/api/audit',
+      '/api/news',
+      '/api/incidents',
       '/api/public'
     ]
   });
@@ -88,6 +94,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/incidents', incidentsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
