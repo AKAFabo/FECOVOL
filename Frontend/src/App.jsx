@@ -23,6 +23,10 @@ import Arbitraje from './pages/admin/arbitraje/Arbitraje.jsx';
 import ProgramarCurso from './pages/admin/arbitraje/ProgramarCurso.jsx';
 import AcreditarArbitro from './pages/admin/arbitraje/AcreditarArbitro.jsx';
 import FichaArbitro from './pages/admin/arbitraje/FichaArbitro.jsx';
+import Incidentes from './pages/admin/incidentes/Incidentes.jsx';
+import CatalogoFaltas from './pages/admin/incidentes/CatalogoFaltas.jsx';
+import AbrirExpediente from './pages/admin/incidentes/AbrirExpediente.jsx';
+import Expediente from './pages/admin/incidentes/Expediente.jsx';
 
 // Paneles protegidos por entorno/rol
 import ArbitroPanel from './pages/arbitro/ArbitroPanel.jsx';
@@ -96,6 +100,10 @@ export default function App() {
           <Route path="arbitraje/acreditar" element={<AcreditarArbitro key="nuevo" />} />
           <Route path="arbitraje/:id/editar" element={<AcreditarArbitro key="editar" modo="editar" />} />
           <Route path="arbitraje/:id" element={<FichaArbitro />} />
+          <Route path="incidentes" element={<Incidentes />} />
+          <Route path="incidentes/faltas" element={<CatalogoFaltas />} />
+          <Route path="incidentes/abrir" element={<AbrirExpediente />} />
+          <Route path="incidentes/:id" element={<Expediente />} />
           <Route path="perfil" element={<Perfil />} />
           <Route path="*" element={<EnConstruccion titulo="Sección administrativa" />} />
         </Route>
