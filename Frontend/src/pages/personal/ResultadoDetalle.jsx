@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
+import '../../styles/gestion.css';
+import CierreArbitral from '../../components/CierreArbitral.jsx';
+import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -496,6 +499,8 @@ export default function ResultadoDetalle() {
         </div>
       </div>
 
+      <CierreArbitral matchId={matchId} onCambio={cargarTodo} />
+
       {esFinalizado && !esEspecial && (
         <div className="admin-banner" style={{ marginBottom: '16px', background: '#fff7ed', borderColor: '#f97316', color: '#9a3412' }}>
           Este partido ya está <strong>FINALIZADO</strong>. Cualquier cambio al marcador te pedirá un motivo de corrección y quedará registrado en la bitácora.
@@ -717,7 +722,7 @@ export default function ResultadoDetalle() {
               {checklist.map(item => (
                 <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
                   <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>
-                    {item.passed ? '✅' : (item.warning ? '⚠️' : '❌')}
+                    {item.passed ? <Icono nombre="correcto" tam={18} titulo="Cumple" style={{ color: 'var(--ok)' }} /> : (item.warning ? <Icono nombre="alerta" tam={18} titulo="Advertencia" style={{ color: 'var(--aviso)' }} /> : <Icono nombre="error" tam={18} titulo="No cumple" style={{ color: '#b91c1c' }} />)}
                   </span>
                   <span style={{ color: item.passed ? 'var(--texto)' : (item.warning ? 'var(--aviso)' : 'var(--rojo)') }}>
                     {item.label}
@@ -924,7 +929,7 @@ export default function ResultadoDetalle() {
                   justifyContent: 'center',
                   flexShrink: 0,
                   fontSize: '1.3rem'
-                }}>⚠️</div>
+                }}><Icono nombre="alerta" tam={20} /></div>
                 <div>
                   <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.95rem' }}>
                     ¿Eliminar esta evidencia?

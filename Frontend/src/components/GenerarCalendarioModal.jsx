@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient.js';
 import '../pages/admin/AdminCommon.css';
+import Icono from '../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -356,7 +357,7 @@ export default function GenerarCalendarioModal({ isOpen, onClose, competitionId,
                     color: step >= s.n ? '#fff' : 'var(--texto-mudo)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 700, fontSize: '0.78rem'
-                  }}>{step > s.n ? '✓' : s.n}</div>
+                  }}>{step > s.n ? <Icono nombre="check" tam={14} titulo="Completado" /> : s.n}</div>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: step >= s.n ? 'var(--texto)' : 'var(--texto-mudo)' }}>
                     {s.label}
                   </span>
@@ -464,7 +465,7 @@ export default function GenerarCalendarioModal({ isOpen, onClose, competitionId,
             {!cargando && step === 3 && (
               <>
                 <div style={{ marginBottom: '16px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', padding: '12px 16px', borderRadius: '6px' }}>
-                  <strong>⚠️ Aún no se ha aplicado el calendario.</strong>
+                  <strong><Icono nombre="alerta" tam={16} /> Aún no se ha aplicado el calendario.</strong>
                   <div style={{ marginTop: '4px', fontSize: '0.85rem' }}>
                     Revisa los detalles y presiona "Aplicar calendario" para guardar los cambios en la base de datos.
                   </div>
@@ -591,7 +592,7 @@ function PreviewCalendario({ partidos, sedes, onEditarJornada, onEditarPartido }
                 <button type="button" className="admin-btn admin-btn--secondary"
                   style={{ padding: '2px 8px', fontSize: '0.75rem' }}
                   onClick={() => onEditarJornada(j)}>
-                  ✎ Editar fecha
+                  <Icono nombre="lapiz" tam={14} /> Editar fecha
                 </button>
               </div>
               <span style={{ fontSize: '0.8rem', color: 'var(--texto-mudo)' }}>{formatFechaCorta(fecha)}</span>
@@ -621,8 +622,8 @@ function PreviewCalendario({ partidos, sedes, onEditarJornada, onEditarPartido }
                 </span>
                 <button type="button" className="admin-btn admin-btn--secondary"
                   style={{ padding: 0, width: '28px', height: '28px', fontSize: '0.85rem' }}
-                  onClick={() => onEditarPartido(p)} title="Editar hora y sede">
-                  ✎
+                  onClick={() => onEditarPartido(p)} title="Editar hora y sede" aria-label="Editar hora y sede">
+                  <Icono nombre="lapiz" tam={14} />
                 </button>
               </div>
             ))}

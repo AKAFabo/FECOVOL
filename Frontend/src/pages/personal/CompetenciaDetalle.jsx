@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
+import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -1162,7 +1163,7 @@ export default function CompetenciaDetalle() {
                   flexShrink: 0,
                   fontSize: '1.3rem'
                 }}>
-                  {modalConfirmacion.tipo === 'peligro' ? '⚠️' : 'ℹ️'}
+                  {modalConfirmacion.tipo === 'peligro' ? <Icono nombre="alerta" tam={20} /> : <Icono nombre="info" tam={20} />}
                 </div>
                 <p style={{ margin: 0, color: 'var(--texto-suave)', fontSize: '0.92rem', lineHeight: 1.5 }}>
                   {modalConfirmacion.mensaje}

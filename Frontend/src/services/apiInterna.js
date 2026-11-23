@@ -97,5 +97,6 @@ export const api = {
   get: (ruta, opciones) => pedir(ruta, { ...opciones, method: 'GET' }),
   post: (ruta, body, opciones) => pedir(ruta, { ...opciones, method: 'POST', body }),
   patch: (ruta, body, opciones) => pedir(ruta, { ...opciones, method: 'PATCH', body }),
+  put: (ruta, body, opciones) => pedir(ruta, { ...opciones, method: 'PUT', body }),
   del: (ruta, opciones) => pedir(ruta, { ...opciones, method: 'DELETE' })
 };

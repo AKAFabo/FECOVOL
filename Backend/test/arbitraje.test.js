@@ -373,3 +373,180 @@ test('dar acceso a un árbitro sin cuenta envía la invitación', async () => {
   assert.equal(r.json.acceso.estado, 'INVITACION_ENVIADA');
   assert.equal(rpcs()[0].nombre, 'sp_link_referee_account');
 });
+
+/* ── Partido designado: nóminas, cierre y evidencias (RF-ARB-004, 005 y 006) ── */
+
+const { limpiarCacheLimites } = require('../src/utils/archivos');
+
+function partidoDe({ puesto = 'PRI', estado = 'CONFIRMADA', fecha = sumarDias(hoyCR(), -1), persona = PERSONA, acta = 'BORRADOR' } = {}) {
+  return {
+    data: {
+      id: PARTIDO, match_number: 7, matchday: 2, scheduled_date: fecha, scheduled_time: '19:00', status: 'PROGRAMADO', acta_status: acta,
+      competencia: { id: '99999999-9999-4999-8999-999999999999', name: 'Liga' },
+      local: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'Local VC', short_name: 'LOC' },
+      visitante: { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Visita VC', short_name: 'VIS' },
+      oficiales: [{ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', status: estado, persona: { id: persona, first_name: 'Ana', last_name: 'Mora' }, puesto: { code: puesto, value: 'Árbitro principal' } }]
+    },
+    error: null
+  };
+}
+
+const SETS_OK = [{ home_points: 25, away_points: 20 }, { home_points: 23, away_points: 25 }, { home_points: 26, away_points: 24 }, { home_points: 25, away_points: 18 }];
+
+test('el árbitro no consulta un partido en el que no está designado', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe({ persona: OTRA_PERSONA }));
+  const r = await call('GET', `/api/referees/me/partidos/${PARTIDO}`, null, ARBITRO);
+  assert.equal(r.status, 404);
+  assert.equal(denegaciones().length, 1);
+});
+
+test('la nómina para el arbitraje no expone cédulas y avisa si no está oficializada', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe());
+  fake.alResponderTabla('competition_rosters',
+    { data: [{ jersey_number: 7, roster_role: 'JUGADOR', is_habilitated: true, persona: { first_name: 'Eva', last_name: 'Solís', is_verified: true } }], error: null },
+    { data: [], error: null });
+  fake.alResponderTabla('competition_roster_versions', { data: [{ version_number: 2, status: 'OFICIALIZADA' }], error: null }, { data: [{ version_number: 1, status: 'PENDIENTE' }], error: null });
+  fake.alResponderTabla('match_referee_reports', { data: null, error: null });
+  fake.alResponderTabla('match_evidence', { data: [], error: null });
+
+  const r = await call('GET', `/api/referees/me/partidos/${PARTIDO}`, null, ARBITRO);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.data.nominas[0].official, true);
+  assert.equal(r.json.data.nominas[1].official, false);
+  assert.deepEqual(Object.keys(r.json.data.nominas[0].members[0]).sort(), ['habilitated', 'identity_verified', 'name', 'number', 'role']);
+  assert.equal(r.json.data.puede_cerrar, true);
+  const consultaNomina = fake.llamadas.find((l) => l.tabla === 'competition_rosters');
+  assert.ok(!JSON.stringify(consultaNomina.pasos).includes('document_number'));
+});
+
+test('solo el árbitro principal registra el cierre', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe({ puesto: 'SEG' }));
+  const r = await call('PUT', `/api/referees/me/partidos/${PARTIDO}/cierre`, { sets: SETS_OK, enviar: true }, ARBITRO);
+  assert.equal(r.status, 403);
+  assert.equal(rpcs().length, 0);
+});
+
+test('un set imposible o un partido incompleto no se envían', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA, MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe(), partidoDe());
+  const imposible = await call('PUT', `/api/referees/me/partidos/${PARTIDO}/cierre`, { sets: [{ home_points: 25, away_points: 24 }, ...SETS_OK.slice(1)], enviar: true }, ARBITRO);
+  assert.equal(imposible.status, 400);
+  assert.match(imposible.json.error, /set 1/);
+  const incompleto = await call('PUT', `/api/referees/me/partidos/${PARTIDO}/cierre`, { sets: SETS_OK.slice(0, 2), enviar: true }, ARBITRO);
+  assert.equal(incompleto.status, 400);
+  assert.equal(rpcs().length, 0);
+});
+
+test('el cierre válido se envía con los sets numerados y queda a la espera de FECOVOL', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe());
+  fake.alResponderRpc('sp_save_referee_report', { data: 'ENVIADO', error: null });
+  const r = await call('PUT', `/api/referees/me/partidos/${PARTIDO}/cierre`, { sets: SETS_OK, enviar: true, person_id: OTRA_PERSONA }, ARBITRO);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.data.enviado, true);
+  const rpc = rpcs()[0];
+  assert.equal(rpc.params.p_person_id, PERSONA);
+  assert.equal(rpc.params.p_sets.length, 4);
+  assert.deepEqual(rpc.params.p_sets[2], { set_number: 3, home_points: 26, away_points: 24 });
+});
+
+test('un cierre ya enviado no se modifica sin que FECOVOL lo devuelva', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe());
+  fake.alResponderRpc('sp_save_referee_report', { data: null, error: { code: 'P0001', message: 'El cierre ya fue enviado; FECOVOL debe devolverlo para modificarlo' } });
+  const r = await call('PUT', `/api/referees/me/partidos/${PARTIDO}/cierre`, { sets: SETS_OK, enviar: true }, ARBITRO);
+  assert.equal(r.status, 409);
+});
+
+async function adjuntar(campos, archivo, nombre) {
+  const f = new FormData();
+  for (const [k, v] of Object.entries(campos)) f.append(k, v);
+  if (archivo) f.append('archivo', new Blob([archivo]), nombre);
+  const res = await fetch(`${base}/api/referees/me/partidos/${PARTIDO}/evidencias`, { method: 'POST', headers: encabezadosDe(ARBITRO), body: f });
+  return { status: res.status, json: await res.json() };
+}
+
+test('una evidencia con extensión falsa se rechaza por su contenido', async () => {
+  limpiarCacheLimites();
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe());
+  const r = await adjuntar({ file_type: 'HOJA_ANOTACION' }, Buffer.from('<script>alert(1)</script>'), 'hoja.pdf');
+  assert.equal(r.status, 400);
+  assert.equal(fake.llamadas.filter((l) => l.tipo === 'storage').length, 0);
+});
+
+test('la hoja de anotación se guarda asociada al partido y a quien la cargó', async () => {
+  limpiarCacheLimites();
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('matches', partidoDe());
+  fake.alResponderTabla('match_evidence', { data: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', file_type: 'HOJA_ANOTACION' }, error: null });
+  const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(100, 0x20)]);
+  const r = await adjuntar({ file_type: 'HOJA_ANOTACION', description: 'Hoja oficial' }, pdf, 'hoja.pdf');
+  assert.equal(r.status, 201);
+  const subida = fake.llamadas.find((l) => l.tipo === 'storage' && l.accion === 'upload');
+  assert.match(subida.ruta, new RegExp(`^matches/${PARTIDO}/`));
+  const insercion = fake.llamadas.find((l) => l.tabla === 'match_evidence' && l.pasos.some((p) => p[0] === 'insert'));
+  assert.equal(insercion.pasos.find((p) => p[0] === 'insert')[1].uploaded_by_person, PERSONA);
+});
+
+test('devolver un cierre es solo de FECOVOL y exige motivo', async () => {
+  assert.equal((await call('PATCH', `/api/referee-assignments/cierres/${PARTIDO}/devolver`, { motivo: 'Falta la hoja de anotación' }, ARBITRO)).status, 403);
+  assert.equal((await call('PATCH', `/api/referee-assignments/cierres/${PARTIDO}/devolver`, { motivo: 'corto' })).status, 400);
+  fake.alResponderRpc('sp_return_referee_report', { data: null, error: null });
+  const r = await call('PATCH', `/api/referee-assignments/cierres/${PARTIDO}/devolver`, { motivo: 'Falta la hoja de anotación' });
+  assert.equal(r.status, 200);
+  assert.equal(rpcs()[0].nombre, 'sp_return_referee_report');
+});
+
+test('las reglas de los sets aceptan el quinto set a 15 y el alargue con dos puntos', () => {
+  const { validarSets } = require('../src/utils/cierreArbitral');
+  const base = [{ home_points: 25, away_points: 20 }, { home_points: 20, away_points: 25 }, { home_points: 25, away_points: 22 }, { home_points: 22, away_points: 25 }];
+  assert.equal(validarSets([...base, { home_points: 16, away_points: 14 }], { completo: true }).local, 3);
+  assert.throws(() => validarSets([...base, { home_points: 17, away_points: 14 }], { completo: true }), /set 5/);
+  assert.throws(() => validarSets([...base.slice(0, 1), { home_points: 25, away_points: 10 }, { home_points: 25, away_points: 10 }, { home_points: 25, away_points: 10 }], { completo: true }), /decidido/);
+  assert.equal(validarSets(base.slice(0, 2), { completo: false }).sets.length, 2);
+});
+
+test('las evidencias de un partido no se consultan ni se cargan con una cuenta de asociación', async () => {
+  assert.equal((await call('GET', `/api/matches/${PARTIDO}/evidence`, null, REPRE)).status, 403);
+  const f = new FormData();
+  f.append('file', new Blob([Buffer.from('%PDF-1.7\n')], { type: 'application/pdf' }), 'hoja.pdf');
+  const res = await fetch(`${base}/api/matches/${PARTIDO}/evidence`, { method: 'POST', headers: encabezadosDe(REPRE), body: f });
+  assert.equal(res.status, 403);
+  assert.equal(fake.llamadas.filter((l) => l.tipo === 'storage').length, 0);
+});
+
+test('FECOVOL no puede subir como evidencia un archivo cuyo contenido no es PDF ni imagen', async () => {
+  const f = new FormData();
+  f.append('file', new Blob([Buffer.from('MZ ejecutable')], { type: 'application/pdf' }), 'hoja.pdf');
+  const res = await fetch(`${base}/api/matches/${PARTIDO}/evidence`, { method: 'POST', headers: encabezadosDe(ADMIN), body: f });
+  assert.equal(res.status, 400);
+  assert.equal(fake.llamadas.filter((l) => l.tipo === 'storage').length, 0);
+});
+
+test('las actas del árbitro calculan su estado, marcador y hoja de anotación', async () => {
+  const ayer = sumarDias(hoyCR(), -1);
+  const p = (id, acta, extra = {}) => ({ id, match_number: 1, scheduled_date: ayer, scheduled_time: '19:00', status: 'PROGRAMADO', acta_status: acta, competencia: { id: 'c', name: 'Liga' }, local: { name: 'A' }, visitante: { name: 'B' }, ...extra });
+  fake.alResponderTabla('persons', MI_PERSONA);
+  fake.alResponderTabla('referee_assignments', { data: [
+    { id: 'd1', status: 'CONFIRMADA', puesto: { code: 'PRI' }, partido: p(PARTIDO, 'BORRADOR') },
+    { id: 'd2', status: 'CONFIRMADA', puesto: { code: 'PRI' }, partido: p(OTRO_PARTIDO, 'VALIDADA', { status: 'FINALIZADO', home_sets_won: 3, away_sets_won: 1 }) }
+  ], error: null });
+  fake.alResponderTabla('match_referee_reports', { data: [{ match_id: PARTIDO, status: 'DEVUELTO', sets: [], return_reason: 'Falta la hoja de anotación' }], error: null });
+  fake.alResponderTabla('match_evidence', { data: [{ match_id: OTRO_PARTIDO }], error: null });
+
+  const r = await call('GET', '/api/referees/me/actas', null, ARBITRO);
+  assert.equal(r.status, 200);
+  const porId = Object.fromEntries(r.json.data.map((a) => [a.partido.id, a]));
+  assert.equal(porId[PARTIDO].estado, 'DEVUELTA');
+  assert.equal(porId[PARTIDO].puede_cerrar, true);
+  assert.equal(porId[PARTIDO].hoja_adjuntada, false);
+  assert.equal(porId[OTRO_PARTIDO].estado, 'VALIDADA');
+  assert.deepEqual(porId[OTRO_PARTIDO].marcador, [3, 1]);
+  assert.equal(porId[OTRO_PARTIDO].puede_cerrar, false);
+  const consulta = fake.llamadas.find((l) => l.tabla === 'referee_assignments');
+  assert.ok(consulta.pasos.some((x) => x[0] === 'eq' && x[1] === 'person_id' && x[2] === PERSONA));
+});

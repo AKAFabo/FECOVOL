@@ -6,6 +6,7 @@ import { supabase } from '../../supabaseClient.js';
 import { URL_BACKEND } from '../../services/backend.js';
 import { evaluarPoliticaPassword } from '../../utils/passwordPolicy.js';
 import IndicadorPoliticaPassword from '../../components/IndicadorPoliticaPassword.jsx';
+import { api } from '../../services/apiInterna.js';
 
 /* ── Ícono ojo (mostrar/ocultar contraseña) ─────────────────────── */
 function IconoOjo({ visible }) {
@@ -567,28 +568,9 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
       });
       if (updateError) throw updateError;
 
-      // 4. Actualizar estado a ACTIVA en user_profiles y auditar en bitácora
-      await supabase
-        .from('user_profiles')
-        .update({ 
-          status: 'ACTIVA',
-          last_login: new Date().toISOString() 
-        })
-        .eq('id', userId);
-
-      try {
-        await supabase.from('audit_logs').insert([{
-          usuario: session.user.email,
-          accion: 'UPDATE',
-          tabla: 'auth.users',
-          registro_id: userId,
-          registro_nuevo: {
-            evento: 'Establecimiento de contraseña',
-            email: session.user.email,
-            timestamp: new Date().toISOString()
-          }
-        }]);
-      } catch (e) {}
+      // 4. El backend activa la cuenta (si la contraseña estaba pendiente) y lo registra en la
+      //    bitácora a nombre del usuario del token. El navegador no modifica el estado de la cuenta.
+      await api.post('/users/me/contrasena-actualizada', { motivo: 'ESTABLECIDA' });
 
       // 5. Limpiar cualquier bloqueo temporal por intentos fallidos previos (Bypass seguro por correo)
       try {
@@ -676,7 +658,7 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
           {error && <div className="alerta alerta--error" role="alert">{error}</div>}
           {exito && (
             <div className="alerta" style={{ background: 'var(--ok-fondo)', color: 'var(--ok)', border: '1px solid #bbf7d0', marginBottom: '18px' }} role="status">
-              ✓ Contraseña establecida con éxito. Redirigiendo al sistema...
+              Contraseña establecida con éxito. Redirigiendo al sistema...
             </div>
           )}
 

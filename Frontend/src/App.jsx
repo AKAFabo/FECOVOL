@@ -34,6 +34,9 @@ const AsociacionesFecovol = lazy(() => import('./pages/admin/federativo/Asociaci
 const AfiliarAsociacion = lazy(() => import('./pages/admin/federativo/AfiliarAsociacion.jsx'));
 const AsociacionDetalleFecovol = lazy(() => import('./pages/admin/federativo/AsociacionDetalle.jsx'));
 const PersonasFecovol = lazy(() => import('./pages/admin/federativo/Personas.jsx'));
+// Selecciones nacionales: selecciones, eventos y convocatorias.
+const SeleccionesAdmin = lazy(() => import('./pages/admin/selecciones/Selecciones.jsx'));
+const ConvocatoriaSeleccion = lazy(() => import('./pages/admin/selecciones/Convocatoria.jsx'));
 const PersonaFichaFecovol = lazy(() => import('./pages/admin/federativo/PersonaFicha.jsx'));
 const DocumentosFecovol = lazy(() => import('./pages/admin/federativo/Documentos.jsx'));
 const EquipoDetalle = lazy(() => import('./pages/asociacion/EquipoDetalle.jsx'));
@@ -128,6 +131,8 @@ export default function App() {
             <Route path="equipos/:id" element={<EquipoDetalle />} />
             <Route path="equipos/:id/editar" element={<EquipoForm />} />
             <Route path="personas" element={<PersonasFecovol />} />
+            <Route path="selecciones" element={<SeleccionesAdmin />} />
+            <Route path="selecciones/convocatorias/:convocatoriaId" element={<ConvocatoriaSeleccion />} />
             <Route path="personas/nueva" element={<PersonaForm />} />
             <Route path="personas/:id" element={<PersonaFichaFecovol />} />
             <Route path="documentos" element={<DocumentosFecovol />} />
@@ -170,4 +175,4 @@ export default function App() {
       <Route path="/arbitros/*" element={<Navigate to="/arbitro" replace />} />
     </Routes>
   );
-}
+}

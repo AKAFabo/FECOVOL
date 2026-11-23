@@ -1,4 +1,5 @@
 import '../pages/admin/AdminCommon.css';
+import Icono from '../components/Icono.jsx';
 
 /**
  * Modal de confirmación para el cierre de sesión unificado en todos los roles (RF-SEG-002).
@@ -34,7 +35,7 @@ export default function ModalConfirmarLogout({
             disabled={cerrando}
             aria-label="Cerrar modal"
           >
-            ✕
+            ×
           </button>
         </div>
 
@@ -52,7 +53,7 @@ export default function ModalConfirmarLogout({
               flexShrink: 0,
               fontSize: '1.3rem'
             }}>
-              ⚠️
+              <Icono nombre="salir" tam={20} />
             </div>
             <div>
               <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.98rem' }}>

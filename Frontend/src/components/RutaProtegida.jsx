@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient.js';
+import { cerrarSesionAuditada } from '../services/cerrarSesion.js';
+import ModalConfirmarLogout from './ModalConfirmarLogout.jsx';
 
 const RUTA_POR_ROL = {
   'Administrador': '/admin',
@@ -24,6 +26,8 @@ const RUTA_POR_ROL = {
 export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess = false, subruta = null }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
 
   const [estado, setEstado] = useState({
     cargando: true,
@@ -105,20 +109,7 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
 
         // 4. Validar si la cuenta está suspendida
         if (profile.status === 'SUSPENDIDA') {
-          try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-            await fetch(`${backendUrl}/api/users/logout-audit`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                user_id: user.id,
-                email: user.email,
-                full_name: profile.full_name,
-                razon: 'Cierre forzado: cuenta suspendida'
-              })
-            });
-          } catch (e) {}
-          await supabase.auth.signOut();
+          await cerrarSesionAuditada({ razon: 'Cierre forzado: cuenta suspendida', nombre: profile.full_name });
           if (montado) {
             setEstado({
               cargando: false,
@@ -136,20 +127,7 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
         if (profile.organization_id && profile.associations) {
           const estadoAsoc = (profile.associations.status || '').toUpperCase();
           if (estadoAsoc === 'SUSPENDIDA' || estadoAsoc === 'DESAFILIADA' || estadoAsoc === 'INACTIVA') {
-            try {
-              const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-              await fetch(`${backendUrl}/api/users/logout-audit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  user_id: user.id,
-                  email: user.email,
-                  full_name: profile.full_name,
-                  razon: `Cierre forzado: asociación ${profile.associations.name} ${estadoAsoc}`
-                })
-              });
-            } catch (e) {}
-            await supabase.auth.signOut();
+            await cerrarSesionAuditada({ razon: `Cierre forzado: asociación ${profile.associations.name} ${estadoAsoc}`, nombre: profile.full_name });
             if (montado) {
               setEstado({
                 cargando: false,
@@ -496,23 +474,7 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
             Ir a mi panel
           </button>
           <button
-            onClick={async () => {
-              try {
-                const { data: { user } } = await supabase.auth.getUser();
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-                await fetch(`${backendUrl}/api/users/logout-audit`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    user_id: user?.id,
-                    email: user?.email,
-                    razon: 'Cierre voluntario desde pantalla de acceso denegado'
-                  })
-                });
-              } catch (e) {}
-              await supabase.auth.signOut();
-              navigate('/ingresar');
-            }}
+            onClick={() => setConfirmarSalida(true)}
             style={{
               padding: '9px 16px',
               background: '#fff',
@@ -527,6 +489,21 @@ export default function RutaProtegida({ rolesPermitidos = [], requireAdminAccess
             Cerrar sesión
           </button>
         </div>
+        <ModalConfirmarLogout
+          abierto={confirmarSalida}
+          cerrando={saliendo}
+          onCancelar={() => setConfirmarSalida(false)}
+          onConfirmar={async () => {
+            setSaliendo(true);
+            try {
+              await cerrarSesionAuditada({ razon: 'Cierre voluntario desde pantalla de acceso denegado' });
+            } finally {
+              setConfirmarSalida(false);
+              setSaliendo(false);
+              navigate('/ingresar', { replace: true });
+            }
+          }}
+        />
       </div>
     );
   }

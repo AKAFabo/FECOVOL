@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
+import Icono from '../../../components/Icono.jsx';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
@@ -1059,21 +1060,6 @@ export default function ListasValores() {
           .eq('id', asoc.id);
 
         if (errUpdate) throw errUpdate;
-
-        try {
-          await supabase.from('audit_logs').insert([{
-            usuario: user?.email || 'Administrador',
-            accion: 'UPDATE',
-            tabla: 'associations',
-            registro_id: asoc.id,
-            registro_nuevo: {
-              evento: `Cambio de estado de asociación a ${nuevoEstado}`,
-              nombre: asoc.name,
-              nuevo_estado: nuevoEstado,
-              timestamp: new Date().toISOString()
-            }
-          }]);
-        } catch (e) {}
       }
 
       setModalConfirmacionDesactivar(null);
@@ -1573,7 +1559,7 @@ export default function ListasValores() {
                                   fontWeight: 700,
                                   color: esSuper ? '#166534' : '#0e3b6b'
                                 }}>
-                                  {esSuper ? '★ Acceso total (Todas las pantallas)' : `${totalPerms} de ${PANTALLAS_SISTEMA.length} pantallas`}
+                                  {esSuper ? 'Acceso total (todas las pantallas)' : `${totalPerms} de ${PANTALLAS_SISTEMA.length} pantallas`}
                                 </span>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                   {(rol.permissions || []).slice(0, 3).map(pKey => {
@@ -2164,7 +2150,7 @@ export default function ListasValores() {
                       }));
                     }}
                   >
-                    ★ Acceso total (Superuser)
+                    <Icono nombre="estrella" tam={14} /> Acceso total
                   </button>
                   <button
                     type="button"
@@ -2345,7 +2331,7 @@ export default function ListasValores() {
                         style={{ border: 'none', background: 'none', color: '#0e3b6b', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
                         onClick={() => setNuevoRol(prev => ({ ...prev, permissions: PANTALLAS_SISTEMA.map(p => p.key) }))}
                       >
-                        ★ Acceso total
+                        <Icono nombre="estrella" tam={14} /> Acceso total
                       </button>
                       <span style={{ color: '#cbd5e1' }}>|</span>
                       <button
@@ -3169,7 +3155,9 @@ export default function ListasValores() {
           <div className="admin-modal" style={{ maxWidth: '520px' }}>
             <div className="admin-modal__header">
               <h3 className="admin-modal__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {modalConfirmacionDesactivar.bloqueado ? '🚫 Operación bloqueada' : '⚠️ Advertencia de Consistencia Histórica'}
+                {modalConfirmacionDesactivar.bloqueado
+                  ? <><Icono nombre="prohibido" tam={20} /> Operación bloqueada</>
+                  : <><Icono nombre="alerta" tam={20} /> Advertencia de consistencia histórica</>}
               </h3>
               <button 
                 type="button" 

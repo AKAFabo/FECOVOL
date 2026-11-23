@@ -26,6 +26,7 @@ router.use('/competitions', require('./public/competitions'));
 router.use('/associations', require('./public/associations'));
 router.use('/news', require('./public/news'));
 router.use('/federation', require('./public/federation'));
+router.use('/national-teams', require('./public/nationalTeams'));
 
 // Cualquier otra ruta o método bajo /api/public.
 router.use((req, res) => {

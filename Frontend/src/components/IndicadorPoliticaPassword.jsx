@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { evaluarPoliticaPassword } from '../utils/passwordPolicy.js';
+import Icono from '../components/Icono.jsx';
 
 export default function IndicadorPoliticaPassword({ password = '', mostrarSoloSiHayTexto = false }) {
   const { reglas, esValida } = useMemo(() => evaluarPoliticaPassword(password), [password]);
@@ -25,7 +26,7 @@ export default function IndicadorPoliticaPassword({ password = '', mostrarSoloSi
         alignItems: 'center',
         gap: '6px'
       }}>
-        <span>{esValida ? '✓ Política de contraseña cumplida' : 'Requisitos de seguridad de la contraseña:'}</span>
+        <span>{esValida ? 'Política de contraseña cumplida' : 'Requisitos de seguridad de la contraseña:'}</span>
       </div>
 
       <ul style={{
@@ -49,7 +50,7 @@ export default function IndicadorPoliticaPassword({ password = '', mostrarSoloSi
             }}
           >
             <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>
-              {regla.cumplida ? '✓' : '○'}
+              {regla.cumplida ? <Icono nombre="check" tam={13} /> : '○'}
             </span>
             <span>{regla.texto}</span>
           </li>

@@ -16,7 +16,7 @@ function Modal({ titulo, subtitulo, onCerrar, children, pie }) {
             <h2 id="inc-modal-titulo" className="admin-modal__title">{titulo}</h2>
             {subtitulo && <p className="inc-modal-subtitulo">{subtitulo}</p>}
           </div>
-          <button type="button" className="admin-modal__close" onClick={onCerrar} aria-label="Cerrar">✕</button>
+          <button type="button" className="admin-modal__close" onClick={onCerrar} aria-label="Cerrar">×</button>
         </div>
         <div className="admin-modal__body">{children}</div>
         <div className="admin-modal__footer">{pie}</div>

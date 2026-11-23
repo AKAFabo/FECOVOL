@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient.js';
+import { cerrarSesionAuditada } from '../services/cerrarSesion.js';
 
 // Límite de inactividad: 30 minutos (RF-SEG-003)
 const TIEMPO_INACTIVIDAD_MS = 30 * 60 * 1000;
@@ -44,49 +45,15 @@ export function useVigenciaSesion({
   const auditarYDesconectar = useCallback(async (mensajeUsuario, razonAuditoria) => {
     if (refDesconectando.current) return;
     refDesconectando.current = true;
-
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-      await fetch(`${backendUrl}/api/users/logout-audit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          email: userEmail,
-          full_name: userName,
-          razon: razonAuditoria
-        })
-      });
-    } catch (err) {
-      console.warn('Error al enviar auditoría de cierre de sesión:', err);
-      // Fallback directo a Supabase
-      try {
-        await supabase.from('audit_logs').insert([{
-          usuario: userEmail || 'Usuario',
-          accion: 'LOGOUT',
-          tabla: 'auth.users',
-          registro_id: userId ? String(userId) : null,
-          registro_nuevo: {
-            evento: 'Cierre forzado de sesión',
-            razon: razonAuditoria,
-            email: userEmail
-          }
-        }]);
-      } catch (e) {}
+      await cerrarSesionAuditada({ razon: razonAuditoria, nombre: userName });
     } finally {
-      localStorage.removeItem(CLAVE_LOCALSTORAGE_ACTIVIDAD);
-      sessionStorage.removeItem('fecovol_password_changed_locally');
-      await supabase.auth.signOut();
       navigate('/ingresar', {
-        state: {
-          mensaje: mensajeUsuario,
-          vista: 'login',
-          email: userEmail
-        },
+        state: { mensaje: mensajeUsuario, vista: 'login', email: userEmail },
         replace: true
       });
     }
-  }, [userId, userEmail, userName, navigate]);
+  }, [userEmail, userName, navigate]);
 
   // 1. GESTIÓN DE INACTIVIDAD (30 minutos)
   useEffect(() => {

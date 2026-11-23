@@ -424,3 +424,26 @@ test('un usuario con rol de administrador siempre tiene scope.isAdmin = true', a
   const r3 = await call('GET', '/api/associations', null, ADMIN_MULTI_ROL);
   assert.equal(r3.status, 200);
 });
+
+test('el aviso de contraseña actualizada exige sesión y un motivo conocido', async () => {
+  assert.equal((await call('POST', '/api/users/me/contrasena-actualizada', { motivo: 'CAMBIADA' }, null)).status, 401);
+  assert.equal((await call('POST', '/api/users/me/contrasena-actualizada', { motivo: 'OTRO' }, REPRE)).status, 400);
+});
+
+test('al establecer la contraseña el backend activa la cuenta y registra a nombre del token', async () => {
+  const NUEVA = { token: 'token-cuenta-nueva-000000000', id: '00000000-0000-4000-8000-0000000000e1', email: 'nueva@asociacion.cr', status: 'PENDIENTE_CONTRASENA', organization_id: null, roles: { name: 'Representante' } };
+  const { token, ...perfil } = NUEVA;
+  fake.conSesion(token, perfil);
+  const r = await call('POST', '/api/users/me/contrasena-actualizada', { motivo: 'ESTABLECIDA', usuario: 'otro@correo.cr' }, NUEVA);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.data.activada, true);
+  const activacion = fake.llamadas.find((l) => l.tabla === 'user_profiles' && l.pasos.some((p) => p[0] === 'update'));
+  assert.equal(activacion.pasos.find((p) => p[0] === 'update')[1].status, 'ACTIVA');
+  const registro = fake.llamadas.find((l) => l.tabla === 'audit_logs' && l.pasos.some((p) => p[0] === 'insert'));
+  assert.equal(registro.pasos.find((p) => p[0] === 'insert')[1][0].usuario, NUEVA.email);
+});
+
+test('establecer la contraseña aplica la política completa en el servidor', async () => {
+  const r = await call('POST', '/api/users/establish-password', { password: 'corta123' }, REPRE);
+  assert.equal(r.status, 400);
+});

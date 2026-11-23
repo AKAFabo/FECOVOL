@@ -156,4 +156,37 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json({ data });
 }));
 
+/* ------------------------------------------------------------------------------------------------
+   Cierre arbitral de un partido (RF-ARB-005): consulta y devolución al árbitro.
+   ---------------------------------------------------------------------------------------------- */
+// GET /api/referee-assignments/cierres/:id -> cierre registrado por el árbitro principal
+router.get('/cierres/:id', asyncHandler(async (req, res) => {
+  const { data, error } = await supabase
+    .from('match_referee_reports')
+    .select(`status, result_type, sets, observations, return_reason, submitted_at, returned_at, returned_by, updated_at,
+      arbitro:persons!match_referee_reports_person_id_fkey(first_name, last_name)`)
+    .eq('match_id', req.params.id)
+    .maybeSingle();
+  const err = fromSupabase(error);
+  if (err) throw err;
+  res.set('Cache-Control', 'no-store');
+  res.json({ data: data || null });
+}));
+
+// PATCH /api/referee-assignments/cierres/:id/devolver { motivo } -> el árbitro puede corregirlo
+router.patch('/cierres/:id/devolver', asyncHandler(async (req, res) => {
+  const motivo = texto(req.body?.motivo, 500);
+  if (motivo.length < 10) throw new HttpError(400, 'Indique el motivo de la devolución (al menos 10 caracteres).');
+  const { error } = await supabase.rpc('sp_return_referee_report', {
+    p_match_id: req.params.id,
+    p_reason: motivo,
+    p_user: req.currentUser
+  });
+  if (error) {
+    if (error.code === 'P0001') throw new HttpError(409, error.message);
+    throw fromSupabase(error);
+  }
+  res.json({ data: { status: 'DEVUELTO' } });
+}));
+
 module.exports = router;

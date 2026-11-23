@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { getMatchValidationChecklist } = require('../utils/validationChecklist');
+const { detectarTipo } = require('../utils/archivos');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
@@ -464,8 +465,12 @@ router.post('/:id/reschedule-request', requireAuth, asyncHandler(async (req, res
 
 // Sube un archivo al bucket privado "evidence" y lo registra en match_evidence.
 // Guarda el path relativo en file_url y genera la signed URL para responder.
-router.post('/:id/evidence', requireAuth, uploadEvidenciaMiddleware, asyncHandler(async (req, res) => {
+// Solo FECOVOL adjunta evidencias desde aquí; el cuerpo arbitral usa /api/referees/me/partidos.
+router.post('/:id/evidence', requireAuth, requireAdmin, uploadEvidenciaMiddleware, asyncHandler(async (req, res) => {
   if (!req.file) throw new HttpError(400, 'Debes adjuntar un archivo.');
+  // El tipo se decide por el contenido, no por el Content-Type que manda el navegador.
+  const tipoReal = detectarTipo(req.file.buffer);
+  if (!tipoReal) throw new HttpError(400, 'El contenido del archivo no es PDF, JPG ni PNG.');
 
   const { file_type, description } = req.body;
 
@@ -482,7 +487,7 @@ router.post('/:id/evidence', requireAuth, uploadEvidenciaMiddleware, asyncHandle
     .storage
     .from('evidence')
     .upload(path, req.file.buffer, {
-      contentType: req.file.mimetype,
+      contentType: tipoReal.mime,
       upsert: false
     });
 
@@ -519,7 +524,7 @@ router.post('/:id/evidence', requireAuth, uploadEvidenciaMiddleware, asyncHandle
 
 // Lista las evidencias del partido y genera signed URLs para las que están en el bucket.
 // Los registros antiguos con URL externa se devuelven tal cual.
-router.get('/:id/evidence', requireAuth, asyncHandler(async (req, res) => {
+router.get('/:id/evidence', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from('match_evidence')
     .select('*')

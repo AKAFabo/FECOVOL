@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
+import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -468,8 +469,9 @@ export default function CalendarioPartidos() {
                               style={{ padding: '2px 6px', fontSize: '0.7rem' }}
                               onClick={() => abrirEditarJornada(p.matchday)}
                               title="Editar fecha de la jornada completa"
+                              aria-label="Editar fecha de la jornada completa"
                             >
-                              ✎
+                              <Icono nombre="lapiz" tam={13} />
                             </button>
                           </div>
                         </td>
@@ -512,7 +514,7 @@ export default function CalendarioPartidos() {
                               onClick={() => abrirEditarJornada(jornadaDeLista)}
                               title="Editar fecha de la jornada completa"
                             >
-                              ✎ Editar fecha
+                              <Icono nombre="lapiz" tam={13} /> Editar fecha
                             </button>
                           )}
                         </div>

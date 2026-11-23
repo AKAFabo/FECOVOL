@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
+import Icono from '../../../components/Icono.jsx';
 
 const CATEGORIAS_PARAMETROS = [
   { key: 'TODAS', label: 'Todas las categorías' },
@@ -430,8 +431,8 @@ export default function ParametrosSistema() {
               setPaginaActual(1);
             }}
           />
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.45 }}>
-            🔍
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.45, display: 'inline-flex' }}>
+            <Icono nombre="lupa" tam={16} />
           </span>
           {busqueda && (
             <button
@@ -492,7 +493,7 @@ export default function ParametrosSistema() {
                         </strong>
                         {p.is_readonly && (
                           <span style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: 600 }}>
-                            🔒 Sistema (Solo lectura)
+                            <Icono nombre="candado" tam={13} /> Sistema (solo lectura)
                           </span>
                         )}
                       </div>
@@ -732,7 +733,7 @@ export default function ParametrosSistema() {
                   color: '#92400e',
                   lineHeight: '1.45'
                 }}>
-                  <strong>⚠️ Impacto Oficial:</strong>
+                  <strong><Icono nombre="alerta" tam={15} /> Impacto oficial:</strong>
                   <br />
                   La modificación de este parámetro afectará los cálculos de clasificación de competencias, límites de carga o vigencia de sesiones. Esta acción quedará registrada en la bitácora con su usuario y valor previo.
                 </div>

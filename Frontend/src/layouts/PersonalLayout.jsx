@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './AdminLayout.css';
 import '../pages/admin/AdminCommon.css';
 import { supabase } from '../supabaseClient.js';
-import { api } from '../services/apiInterna.js';
+import { cerrarSesionAuditada } from '../services/cerrarSesion.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
 import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
 import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
@@ -142,26 +142,11 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
   const handleConfirmarCerrarSesion = async () => {
     setCerrandoSesion(true);
     try {
-      let email = usuarioActual.email;
-      let userId = usuarioActual.id;
-      if (!userId || !email) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) { userId = userId || user.id; email = email || user.email; }
-      }
-      email = email || 'Usuario';
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-        await fetch(`${backendUrl}/api/users/logout-audit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, email, full_name: usuarioActual.nombre }),
-        });
-      } catch (e) {}
+      await cerrarSesionAuditada({ nombre: usuarioActual.nombre });
     } finally {
-      await supabase.auth.signOut();
       setMostrarModalLogout(false);
       setCerrandoSesion(false);
-      navigate('/ingresar');
+      navigate('/ingresar', { replace: true });
     }
   };
 
@@ -247,4 +232,4 @@ export default function PersonalLayout({ breadcrumb = 'Personal de competencias'
       />
     </div>
   );
-}
+}

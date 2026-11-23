@@ -3,10 +3,11 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import './AdminLayout.css';
 import '../pages/admin/AdminCommon.css';
 import { supabase } from '../supabaseClient.js';
-import { api } from '../services/apiInterna.js';
+import { cerrarSesionAuditada } from '../services/cerrarSesion.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
 import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
 import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
+import Icono from '../components/Icono.jsx';
 
 const NAV_ITEMS = [
   { to: '/admin/panel', texto: 'Panel general', subruta: '/admin' },
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/admin/documentos', texto: 'Documentos y licencias', subruta: '/admin' },
   { to: '/admin/competencias', texto: 'Competencias', subruta: '/admin' },
   { to: '/admin/arbitraje', texto: 'Arbitraje', subruta: '/admin' },
+  { to: '/admin/selecciones', texto: 'Selecciones nacionales', subruta: '/admin' },
   { to: '/admin/incidentes', texto: 'Incidentes y sanciones', subruta: '/admin' },
   { to: '/admin/noticias', texto: 'Noticias y comunicados', subruta: '/admin' },
   { to: '/admin/usuarios', texto: 'Usuarios y permisos', subruta: '/admin/usuarios' },
@@ -59,7 +61,6 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
           // Intentar obtener el perfil de la base de datos
           const { data: profile } = await supabase
             .from('user_profiles')
-            .select('full_name, roles!user_profiles_role_id_fkey(name)')
             .select('role_id, status, full_name, roles:roles!user_profiles_role_id_fkey(name)')
             .eq('id', user.id)
             .single();
@@ -199,55 +200,11 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
   const handleConfirmarCerrarSesion = async () => {
     setCerrandoSesion(true);
     try {
-      let email = usuarioActual.email;
-      let userId = usuarioActual.id;
-      let nombre = usuarioActual.nombre;
-
-      if (!userId || !email) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          userId = userId || user.id;
-          email = email || user.email;
-        }
-      }
-      email = email || 'Usuario';
-
-      // 1. Intentar registrar en audit_logs vía Backend (con service_role para garantizar escritura)
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-        await fetch(`${backendUrl}/api/users/logout-audit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: userId,
-            email,
-            full_name: nombre
-          })
-        });
-      } catch (errBackend) {
-        console.warn('Backend /api/users/logout-audit no disponible, intentando directo en Supabase:', errBackend);
-        // Fallback directo a Supabase
-        await supabase.from('audit_logs').insert([{
-          usuario: email,
-          accion: 'LOGOUT',
-          tabla: 'auth.users',
-          registro_id: userId ? String(userId) : null,
-          registro_viejo: null,
-          registro_nuevo: {
-            evento: 'Cierre de sesión',
-            email,
-            full_name: nombre
-          }
-        }]);
-      }
-    } catch (errAudit) {
-      console.error('Error al registrar auditoría de logout:', errAudit);
+      await cerrarSesionAuditada({ nombre: usuarioActual.nombre });
     } finally {
-      // 2. Invalida sesión en Supabase y redirige a la vista pública de ingreso
-      await supabase.auth.signOut();
       setMostrarModalLogout(false);
       setCerrandoSesion(false);
-      navigate('/ingresar');
+      navigate('/ingresar', { replace: true });
     }
   };
 
@@ -323,7 +280,7 @@ export default function AdminLayout({ breadcrumb = 'Administración FECOVOL' }) 
             <Outlet />
           ) : (
             <div style={{ padding: '36px', maxWidth: '600px', margin: '40px auto', textAlign: 'center', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🔒</div>
+              <div style={{ marginBottom: '12px', color: 'var(--texto-mudo)' }}><Icono nombre="candado" tam={44} /></div>
               <h2 style={{ color: 'var(--texto)', marginBottom: '8px', fontSize: '1.4rem' }}>Acceso restringido</h2>
               <p style={{ color: 'var(--texto-suave)', lineHeight: 1.5, marginBottom: '20px' }}>
                 Su rol actual (<strong>{usuarioActual.rol}</strong>) no tiene autorización en la matriz de permisos para acceder al módulo de <strong>{rutaActualItem?.texto}</strong>.

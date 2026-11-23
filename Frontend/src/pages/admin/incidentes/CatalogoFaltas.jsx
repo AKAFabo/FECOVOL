@@ -112,7 +112,7 @@ function FaltaModal({ falta, onCerrar, onGuardada }) {
       <form className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="falta-titulo" onSubmit={guardar} noValidate>
         <div className="admin-modal__header">
           <h2 id="falta-titulo" className="admin-modal__title">{falta ? `Editar ${falta.codigo}` : 'Agregar falta'}</h2>
-          <button type="button" className="admin-modal__close" onClick={onCerrar} aria-label="Cerrar">✕</button>
+          <button type="button" className="admin-modal__close" onClick={onCerrar} aria-label="Cerrar">×</button>
         </div>
         <div className="admin-modal__body">
           <div className="arb-campos">

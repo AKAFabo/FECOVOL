@@ -4,6 +4,17 @@ const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const authorize = require('../middleware/authorize');
 const { requireSession } = require('../middleware/authenticate');
+
+// Política de contraseñas (RF-SEG-007): la misma que muestra el formulario, revisada en el servidor.
+function errorPoliticaPassword(password) {
+  if (typeof password !== 'string' || password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+  if (password.length > 72) return 'La contraseña admite hasta 72 caracteres.';
+  if (!/[a-z]/.test(password)) return 'La contraseña debe incluir una letra minúscula.';
+  if (!/[A-Z]/.test(password)) return 'La contraseña debe incluir una letra mayúscula.';
+  if (!/[0-9]/.test(password)) return 'La contraseña debe incluir un número.';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'La contraseña debe incluir un símbolo.';
+  return null;
+}
 const { logDeniedAttempt, logFailedLogin, logSystemProcess, getClientIp: getAuditClientIp } = require('../utils/auditLogger');
 const { obtenerRolMayorPrioridad, asegurarRolMayorPrioridadUsuario } = require('../utils/rolesPrioridad');
 
@@ -549,9 +560,8 @@ router.post('/establish-password', requireSession, asyncHandler(async (req, res)
     throw new HttpError(400, 'La nueva contraseña es obligatoria');
   }
 
-  if (password.length < 6) {
-    throw new HttpError(400, 'La contraseña debe tener al menos 6 caracteres');
-  }
+  const fallaPolitica = errorPoliticaPassword(password);
+  if (fallaPolitica) throw new HttpError(400, fallaPolitica);
 
   // 1. Verificar que el usuario exista y tenga contraseña pendiente
   const { data: profile, error: errProfile } = await supabase
@@ -602,6 +612,52 @@ router.post('/establish-password', requireSession, asyncHandler(async (req, res)
     message: 'Contraseña establecida exitosamente',
     data: { id: profile.id, email: profile.email }
   });
+}));
+
+// POST /api/users/me/contrasena-actualizada { motivo: 'CAMBIADA' | 'ESTABLECIDA' }
+// El navegador cambia la contraseña con Supabase Auth y luego avisa aquí: el registro en la
+// bitácora (y la activación de una cuenta que tenía la contraseña pendiente) los hace el servidor
+// a nombre del usuario del token. El navegador ya no escribe en la bitácora.
+router.post('/me/contrasena-actualizada', requireSession, asyncHandler(async (req, res) => {
+  const motivo = req.body?.motivo;
+  if (!['CAMBIADA', 'ESTABLECIDA'].includes(motivo)) throw new HttpError(400, 'Motivo no válido.');
+
+  const { data: perfil, error } = await supabase
+    .from('user_profiles')
+    .select('id, status')
+    .eq('id', req.auth.userId)
+    .maybeSingle();
+  if (error) throw new HttpError(500, 'No fue posible consultar su cuenta.');
+  if (!perfil) throw new HttpError(404, 'Su cuenta no tiene un perfil en el sistema.');
+  if (perfil.status === 'SUSPENDIDA' || perfil.status === 'INACTIVA') {
+    throw new HttpError(403, 'Su cuenta está inhabilitada. Comuníquese con FECOVOL.');
+  }
+
+  const activar = motivo === 'ESTABLECIDA' && ['PENDIENTE_CONTRASENA', 'PENDIENTE'].includes(perfil.status);
+  if (activar) {
+    const ahora = new Date().toISOString();
+    const { error: errAct } = await supabase
+      .from('user_profiles')
+      .update({ status: 'ACTIVA', last_login: ahora, updated_at: ahora })
+      .eq('id', perfil.id);
+    if (errAct) throw new HttpError(500, 'No fue posible activar su cuenta.');
+  }
+
+  const { error: errBitacora } = await supabase.from('audit_logs').insert([{
+    usuario: req.auth.email,
+    accion: 'UPDATE',
+    tabla: 'auth.users',
+    registro_id: perfil.id,
+    registro_nuevo: {
+      evento: motivo === 'CAMBIADA' ? 'Cambio de contraseña por usuario autenticado' : 'Establecimiento de contraseña',
+      cuenta_activada: activar,
+      ip: getAuditClientIp(req),
+      timestamp: new Date().toISOString()
+    }
+  }]);
+  if (errBitacora) console.error('No se pudo registrar el cambio de contraseña en la bitácora:', errBitacora.message);
+
+  res.json({ data: { registrado: !errBitacora, activada: activar } });
 }));
 
 // GET /api/users/me -> Perfil de quien tiene la sesión: nombre, rol activo y organización.

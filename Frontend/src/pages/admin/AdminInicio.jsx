@@ -4,6 +4,7 @@ import { obtenerResumenAdmin } from '../../services/administracion.js';
 import { supabase } from '../../supabaseClient.js';
 import './AdminCommon.css';
 import './AdminInicio.css';
+import Icono from '../../components/Icono.jsx';
 
 function formatearFecha(iso) {
   if (!iso) return '—';
@@ -315,10 +316,10 @@ export default function AdminInicio() {
             <div className="dashboard-kpi-value">{comps.totalEnCurso}</div>
             <div className="dashboard-kpi-badges">
               <span className="dashboard-badge dashboard-badge--ok" title="Partidos disputados durante esta semana">
-                ✓ {comps.partidosSemanaDisputados} jugados esta semana
+                <Icono nombre="check" tam={14} /> {comps.partidosSemanaDisputados} jugados esta semana
               </span>
               <span className="dashboard-badge dashboard-badge--neutral" title="Partidos programados pendientes de disputa">
-                ⏱ {comps.partidosSemanaProgramados} programados
+                <Icono nombre="reloj" tam={14} /> {comps.partidosSemanaProgramados} programados
               </span>
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--texto-mudo)' }}>
@@ -376,7 +377,7 @@ export default function AdminInicio() {
         <div className="dashboard-section-card" style={{ marginBottom: '24px' }}>
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">
-              <span>🔔</span> Alertas Inmediatas y Trámites Pendientes
+              <Icono nombre="campana" tam={18} /> Alertas Inmediatas y Trámites Pendientes
             </h2>
             <span className="dashboard-section-badge">{alertas.items.length} pendientes</span>
           </div>
@@ -565,7 +566,7 @@ export default function AdminInicio() {
                     className="dashboard-badge dashboard-badge--neutral"
                     style={{ textDecoration: 'none' }}
                   >
-                    🏆 {c.name} {c.season ? `(${c.season})` : ''}
+                    <Icono nombre="trofeo" tam={14} /> {c.name} {c.season ? `(${c.season})` : ''}
                   </Link>
                 ))}
               </div>

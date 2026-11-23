@@ -11,9 +11,9 @@ import useCarga from '../hooks/useCarga.js';
 import { useVigenciaSesion } from '../hooks/useVigenciaSesion.js';
 import { useRolActivo } from '../hooks/useRolActivo.js';
 import { api } from '../services/apiInterna.js';
+import { cerrarSesionAuditada } from '../services/cerrarSesion.js';
 import { categoriaArbitral, miFichaArbitral } from '../services/arbitraje.js';
 import { miPerfil, nombrePersona } from '../services/representante.js';
-import { supabase } from '../supabaseClient.js';
 import { SidebarRoleBox, SidebarFooter } from '../components/SidebarComun.jsx';
 import ModalConfirmarLogout from '../components/ModalConfirmarLogout.jsx';
 import './AdminLayout.css';
@@ -22,6 +22,7 @@ import './ArbitroLayout.css';
 
 const NAV = [
   { to: '/arbitro', texto: 'Mis designaciones', fin: true },
+  { to: '/arbitro/actas', texto: 'Actas' },
   { to: '/arbitro/mi-ficha', texto: 'Mi ficha' }
 ];
 
@@ -72,9 +73,8 @@ export default function ArbitroLayout() {
   async function cerrarSesion() {
     setSaliendo(true);
     try {
-      await api.post('/users/logout-audit', { razon: 'Cierre de sesión manual voluntario' }).catch(() => {});
+      await cerrarSesionAuditada({ nombre: usuarioActual?.nombre });
     } finally {
-      await supabase.auth.signOut();
       setConfirmarSalida(false);
       setSaliendo(false);
       navigate('/ingresar', { replace: true });

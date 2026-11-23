@@ -778,7 +778,7 @@ export default function AuditoriaRespaldos() {
                           style={{ padding: '2px 8px', fontSize: '0.74rem' }}
                           onClick={() => copiarTexto(detalleLog.detalleViejo, 'viejo')}
                         >
-                          {copiado === 'viejo' ? '✓ Copiado' : 'Copiar JSON'}
+                          {copiado === 'viejo' ? 'Copiado' : 'Copiar JSON'}
                         </button>
                       )}
                     </div>
@@ -817,7 +817,7 @@ export default function AuditoriaRespaldos() {
                           style={{ padding: '2px 8px', fontSize: '0.74rem' }}
                           onClick={() => copiarTexto(detalleLog.detalleNuevo, 'nuevo')}
                         >
-                          {copiado === 'nuevo' ? '✓ Copiado' : 'Copiar JSON'}
+                          {copiado === 'nuevo' ? 'Copiado' : 'Copiar JSON'}
                         </button>
                       )}
                     </div>

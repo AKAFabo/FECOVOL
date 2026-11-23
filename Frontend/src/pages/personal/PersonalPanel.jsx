@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js'; 
+import Icono from '../../components/Icono.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -474,7 +475,7 @@ export default function PersonalPanel() {
             <form onSubmit={handleArchivarCompetencia}>
               <div className="admin-modal__body">
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.3rem' }}>⚠️</div>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.3rem' }}><Icono nombre="alerta" tam={20} /></div>
                   <div>
                     <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.98rem' }}>¿Estás seguro de archivar «{compArchivar.name}»?</p>
                     <p style={{ margin: 0, color: 'var(--texto-mudo)', fontSize: '0.85rem', lineHeight: '1.45' }}>La competencia pasará a estado <strong>Cerrada / Archivada</strong>. No se borrará y todo su historial se conservará intacto, pero ya no podrás inscribir más equipos ni programar partidos.</p>

@@ -3,6 +3,7 @@ import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 import { evaluarPoliticaPassword } from '../../../utils/passwordPolicy.js';
 import IndicadorPoliticaPassword from '../../../components/IndicadorPoliticaPassword.jsx';
+import { api } from '../../../services/apiInterna.js';
 
 function IconoOjo({ visible }) {
   return visible ? (
@@ -159,20 +160,12 @@ export default function Perfil() {
       // Paso 3: Registrar marca local para que esta pestaña no se desconecte
       sessionStorage.setItem('fecovol_password_changed_locally', 'true');
 
-      // Paso 4: Auditar en bitácora (audit_logs)
+      // Paso 4: Registrar el cambio en la bitácora (lo hace el backend con el usuario del token)
       try {
-        await supabase.from('audit_logs').insert([{
-          usuario: usuario.email,
-          accion: 'UPDATE',
-          tabla: 'auth.users',
-          registro_id: usuario.id,
-          registro_nuevo: {
-            evento: 'Cambio de contraseña por usuario autenticado',
-            email: usuario.email,
-            timestamp: new Date().toISOString()
-          }
-        }]);
-      } catch (e) {}
+        await api.post('/users/me/contrasena-actualizada', { motivo: 'CAMBIADA' });
+      } catch (e) {
+        console.warn('No se pudo registrar el cambio de contraseña en la bitácora:', e.message);
+      }
 
       // Paso 5: Cerrar todas las demás sesiones activas (RF-SEG-007)
       try {
@@ -187,7 +180,7 @@ export default function Perfil() {
         });
       } catch (e) {}
 
-      setExitoPass('✓ Su contraseña ha sido cambiada con éxito. Por seguridad, cualquier otra sesión abierta en otros dispositivos ha sido cerrada.');
+      setExitoPass('Su contraseña ha sido cambiada con éxito. Por seguridad, cualquier otra sesión abierta en otros dispositivos ha sido cerrada.');
       setPassActual('');
       setPassNueva('');
       setPassConfirmar('');
@@ -217,7 +210,7 @@ export default function Perfil() {
           email: usuario.email
         })
       });
-      setMensajeSesiones('✓ Todas las demás sesiones han sido revocadas con éxito.');
+      setMensajeSesiones('Todas las demás sesiones han sido revocadas con éxito.');
       await cargarSesiones(usuario.id);
     } catch (err) {
       setMensajeSesiones('Error al cerrar otras sesiones: ' + err.message);

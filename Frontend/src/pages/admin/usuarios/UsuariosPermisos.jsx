@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
+import Icono from '../../../components/Icono.jsx';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
@@ -313,7 +314,7 @@ export default function UsuariosPermisos() {
 
       setMensajeFeedbackModal({
         tipo: 'exito',
-        texto: `✓ Enlace enviado exitosamente a ${usuarioEditando.email} y registrado en la bitácora de auditoría.`
+        texto: `Enlace enviado exitosamente a ${usuarioEditando.email} y registrado en la bitácora de auditoría.`
       });
 
       // Refrescar tabla en segundo plano
@@ -442,27 +443,8 @@ export default function UsuariosPermisos() {
           console.warn('user_roles fallback sync warning:', eUr);
         }
 
-        // Si cambió el rol o estado y no pasó por backend, auditarlo directo
-        if (rolCambio || estadoCambio) {
-          const razon = rolCambio 
-            ? 'Revocación de sesión por cambio de rol' 
-            : `Revocación de sesión por cambio de estado a ${usuarioEditando.estado}`;
-          try {
-            await supabase.from('audit_logs').insert([{
-              usuario: currentUser?.email || 'Administrador',
-              accion: 'LOGOUT',
-              tabla: 'auth.users',
-              registro_id: usuarioEditando.id,
-              registro_nuevo: {
-                evento: razon,
-                email: usuarioEditando.email,
-                nuevos_roles: usuarioEditando.rolesIds,
-                nuevo_estado: usuarioEditando.estado,
-                razon
-              }
-            }]);
-          } catch (e) {}
-        }
+        // Los cambios de rol y estado quedan en la bitácora por los disparadores de la base de
+        // datos; el navegador no escribe en la bitácora.
       }
 
       // Si el administrador editó el rol o suspendió SU PROPIA cuenta, cerrar su sesión de inmediato
@@ -942,7 +924,7 @@ export default function UsuariosPermisos() {
                     fontSize: '0.82rem',
                     lineHeight: '1.4'
                   }}>
-                    🛡️ <strong>Única cuenta de Administrador activa:</strong> Esta cuenta es el único Administrador con estado activo en el sistema. Su rol y estado están protegidos contra desactivación para garantizar la continuidad del acceso administrativo.
+                    <Icono nombre="escudo" tam={16} /> <strong>Única cuenta de Administrador activa:</strong> Esta cuenta es el único Administrador con estado activo en el sistema. Su rol y estado están protegidos contra desactivación para garantizar la continuidad del acceso administrativo.
                   </div>
                 )}
 
@@ -1014,7 +996,7 @@ export default function UsuariosPermisos() {
                             }}
                           />
                           <span style={{ fontWeight: seleccionado ? 600 : 400 }}>
-                            {r.name} {deshabilitado && '🔒'}
+                            {r.name} {deshabilitado && <Icono nombre="candado" tam={13} titulo="Protegido" />}
                           </span>
                         </label>
                       );

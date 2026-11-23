@@ -24,8 +24,17 @@ function EstadoDesignacion({ d, hoy }) {
   return <Estado tono={e.tono}>{e.texto}</Estado>;
 }
 
+const rutaPartido = (d) => `/arbitro/partidos/${encodeURIComponent(d.partido.id)}`;
+
 function Acciones({ d, onConfirmar, onRechazar, ocupado }) {
-  if (!d.puede_responder) return null;
+  if (!d.puede_responder) {
+    if (d.status !== 'CONFIRMADA' && d.status !== 'CUMPLIDA') return null;
+    return (
+      <Link to={rutaPartido(d)} className="g-boton g-boton--chico">
+        Ver partido<span className="visualmente-oculto"> {nombrePartido(d.partido)}</span>
+      </Link>
+    );
+  }
   return (
     <div className="arb-acciones-fila">
       <button type="button" className="g-boton g-boton--chico g-boton--acento" onClick={() => onConfirmar(d)} disabled={ocupado}>
@@ -188,7 +197,11 @@ export default function MisDesignaciones() {
                   return (
                     <li key={d.id} className="g-lista__fila">
                       <div className="g-lista__texto">
-                        <p className="g-lista__titulo">{nombrePartido(d.partido)}</p>
+                        <p className="g-lista__titulo">
+                          {['CONFIRMADA', 'CUMPLIDA'].includes(d.status)
+                            ? <Link to={rutaPartido(d)} className="g-enlace">{nombrePartido(d.partido)}</Link>
+                            : nombrePartido(d.partido)}
+                        </p>
                         <p className="g-lista__detalle">{fechaCorta(d.partido.scheduled_date)} · {d.puesto?.value}</p>
                       </div>
                       {acta && <Estado tono={acta.tono}>{acta.texto}</Estado>}
@@ -211,6 +224,9 @@ export default function MisDesignaciones() {
                 <p className="arb-tarjeta-partido__titulo">{nombrePartido(deHoy.partido)}</p>
                 <p className="g-lista__detalle">{[deHoy.partido.sede?.value, deHoy.partido.competencia?.name, deHoy.partido.matchday ? `jornada ${deHoy.partido.matchday}` : null].filter(Boolean).join(' · ')}</p>
                 <p className="g-lista__detalle">Su rol: {deHoy.puesto?.value?.toLowerCase()}</p>
+                <Link to={rutaPartido(deHoy)} className="g-boton g-boton--chico g-boton--acento arb-boton-hoy">
+                  {deHoy.puesto?.code === 'PRI' ? 'Nóminas, cierre y evidencias' : 'Nóminas y evidencias'}
+                </Link>
               </div>
             </section>
           )}

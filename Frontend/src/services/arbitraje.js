@@ -61,6 +61,20 @@ export const responderDesignacion = (id, estado, motivo) =>
   datos(api.patch(`/referees/me/designaciones/${enc(id)}`, { status: estado, motivo: motivo || undefined }));
 export const actualizarMiContacto = (cambios) => datos(api.patch('/referees/me/contacto', cambios));
 export const inscribirmeEnCurso = (cursoId) => datos(api.post(`/referees/me/cursos/${enc(cursoId)}/inscripcion`));
+/** Actas de los partidos disputados de la temporada. Devuelve { data, anio, hoy }. */
+export const misActas = (opciones) => api.get('/referees/me/actas', opciones);
+/** Partido designado: información, nóminas, cierre y evidencias (RF-ARB-004 a 006). */
+export const partidoDesignado = (partidoId, opciones) => datos(api.get(`/referees/me/partidos/${enc(partidoId)}`, opciones));
+/** Guarda el cierre como borrador o lo envía a FECOVOL (`enviar: true`). */
+export const guardarCierre = (partidoId, cierre) => datos(api.put(`/referees/me/partidos/${enc(partidoId)}/cierre`, cierre));
+export function adjuntarEvidencia(partidoId, { archivo, tipo, descripcion, sustituye }) {
+  const f = new FormData();
+  f.append('file_type', tipo);
+  if (descripcion) f.append('description', descripcion);
+  if (sustituye) f.append('replaces', sustituye);
+  f.append('archivo', archivo);
+  return datos(api.post(`/referees/me/partidos/${enc(partidoId)}/evidencias`, f, { timeoutMs: 60000 }));
+}
 
 /* Textos ------------------------------------------------------------------------------------- */
 export const ESTADOS_ACREDITACION = {

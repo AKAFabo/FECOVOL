@@ -1,14 +1,12 @@
 // Selecciones nacionales para el portal público.
 //
-// TODAVÍA NO HAY DATOS NI ENDPOINT: el equipo no ha definido cómo se registran las selecciones y
-// sus convocatorias. Mientras tanto la página muestra su estado vacío. Para revisar el diseño en
-// desarrollo (npm run dev) se puede abrir /selecciones?demo y se cargan datos de ejemplo
-// marcados como tales; en la versión publicada (npm run build) ese ejemplo no existe.
+// Los datos vienen de GET /api/public/national-teams: selecciones activas y sus convocatorias
+// publicadas, administradas en /admin/selecciones. En desarrollo (npm run dev) se puede abrir
+// /selecciones?demo para ver datos de ejemplo marcados como tales; en la versión publicada
+// (npm run build) ese ejemplo no existe.
 //
-// Cuando exista GET /api/public/national-teams, `obtenerSelecciones` debe pedirlo con
-// `obtener()` de apiPublica.js y pasar la respuesta por `normalizarSelecciones`, sin tocar la
-// página. Forma esperada de la respuesta (lista blanca: nada de cédulas, fechas de nacimiento ni
-// contactos; solo nombre, número, posición y club de cada atleta):
+// Forma de la respuesta (lista blanca: nada de cédulas, fechas de nacimiento ni contactos; de cada
+// atleta solo nombre, número y posición):
 //
 // {
 //   national_teams: [{ id, name, modality, branch, category,
@@ -19,6 +17,7 @@
 //               players: [{ number, name, position, club }],
 //               staff:   [{ name, role }] }]
 // }
+import { obtener } from './apiPublica.js';
 import { esIdValido } from '../utils/ids.js';
 import { isoValida } from '../utils/formato.js';
 import { urlHttps } from '../utils/urls.js';
@@ -89,12 +88,13 @@ function pideDemo() {
 /**
  * @returns {Promise<{ datos: ReturnType<typeof normalizarSelecciones>, ejemplo: boolean }>}
  */
-export async function obtenerSelecciones() {
+export async function obtenerSelecciones(opciones) {
   // import.meta.env.DEV es false en el build de producción: Vite elimina esta rama y el archivo
   // de ejemplo no se incluye en el sitio publicado.
   if (import.meta.env.DEV && pideDemo()) {
     const { SELECCIONES_EJEMPLO } = await import('../data/selecciones.ejemplo.js');
     return { datos: normalizarSelecciones(SELECCIONES_EJEMPLO), ejemplo: true };
   }
-  return { datos: normalizarSelecciones(VACIO), ejemplo: false };
+  const respuesta = await obtener('/national-teams', opciones);
+  return { datos: normalizarSelecciones(respuesta || VACIO), ejemplo: false };
 }

@@ -27,6 +27,7 @@ const auditRoutes = require('./routes/audit.routes');
 const newsRoutes = require('./routes/news.routes');
 const incidentsRoutes = require('./routes/incidents.routes');
 const publicRoutes = require('./routes/public.routes');
+const nationalTeamsRoutes = require('./routes/nationalTeams.routes');
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.get('/', (req, res) => {
       '/api/roles',
       '/api/parameters',
       '/api/audit',
+      '/api/national-teams',
       '/api/news',
       '/api/incidents',
       '/api/public'
@@ -94,6 +96,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);
 app.use('/api/audit', auditRoutes);
+// Selecciones nacionales (administración de FECOVOL).
+app.use('/api/national-teams', nationalTeamsRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/incidents', incidentsRoutes);
 
@@ -103,4 +107,4 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-module.exports = app;
+module.exports = app;
