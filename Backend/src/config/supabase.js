@@ -10,10 +10,24 @@ const { createClient } = require('@supabase/supabase-js');
 const url = process.env.SUPABASE_URL || process.env.VITA_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITA_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
+const FALTA_CONFIG =
+  'El backend no está configurado: faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY ' +
+  '(en local, en Backend/.env; en Vercel, en Settings > Environment Variables del proyecto del backend).';
+
+// Sin las variables no se lanza el error al cargar: en Vercel eso tumba la función entera
+// (FUNCTION_INVOCATION_FAILED, sin encabezados CORS) y el navegador solo ve un error de CORS.
+// Así el servidor arranca y cada consulta responde 503 con el motivo.
 if (!url || !serviceKey) {
-  throw new Error(
-    'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY (o VITA_SUPABASE_URL / VITA_SUPABASE_SERVICE_ROLE_KEY). Verifique su archivo .env.'
-  );
+  console.error(`[config] ${FALTA_CONFIG}`);
+  const sinConfigurar = new Proxy({}, {
+    get() {
+      const error = new Error(FALTA_CONFIG);
+      error.status = 503;
+      throw error;
+    }
+  });
+  module.exports = sinConfigurar;
+  return;
 }
 
 // supabase-js crea su cliente de Realtime al arrancar y exige un WebSocket.

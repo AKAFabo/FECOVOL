@@ -1,8 +1,10 @@
 // Cliente de la API del panel de administración: envía el token de la sesión iniciada
 // (Authorization: Bearer) y traduce los errores del Backend a mensajes legibles.
 import { supabase } from '../supabaseClient.js';
+import { URL_BACKEND } from './backend.js';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+// Misma URL que el resto del frontend (VITE_BACKEND_URL, ver services/backend.js).
+const API_URL = URL_BACKEND;
 
 /** Devuelve pedir(ruta, { metodo, cuerpo }) para un módulo montado en `base` (p. ej. '/api/incidents'). */
 export function crearClienteAdmin(base) {

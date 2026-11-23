@@ -9,6 +9,10 @@ function sinBarraFinal(ruta) {
 }
 
 function leerUrl() {
+  // En un build de producción sin VITE_BACKEND_URL el navegador terminaría llamando a localhost.
+  if (import.meta.env.PROD && !import.meta.env.VITE_BACKEND_URL) {
+    console.error('Falta VITE_BACKEND_URL en las variables del build: el frontend no sabe dónde está el backend.');
+  }
   const valor = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
   try {
     const url = new URL(valor);

@@ -1,8 +1,10 @@
 // Fuente de datos de noticias para el panel de administración.
 // Aquí solo hay peticiones a la API del Backend (/api/news): las consultas a la base de datos viven allá.
 import { supabase } from '../../../supabaseClient.js';
+import { URL_BACKEND } from '../../../services/backend.js';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+// Misma URL que el resto del frontend (VITE_BACKEND_URL, ver services/backend.js).
+const API_URL = URL_BACKEND;
 
 // La API identifica al administrador con el token de la sesión iniciada.
 async function pedir(ruta, { metodo = 'GET', cuerpo, tipo } = {}) {

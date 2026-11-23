@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
+import { URL_BACKEND } from '../../../services/backend.js';
 import Icono from '../../../components/Icono.jsx';
 
 const ELEMENTOS_POR_PAGINA = 10;
@@ -53,7 +54,7 @@ export default function UsuariosPermisos() {
       // Cargar asociaciones vía Backend API (service_role para evitar bloqueo RLS)
       let asocs = [];
       try {
-        const resAsoc = await fetch('http://localhost:4000/api/associations');
+        const resAsoc = await fetch(`${URL_BACKEND}/api/associations`);
         if (resAsoc.ok) {
           const resJson = await resAsoc.json();
           asocs = resJson.data || [];
