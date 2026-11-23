@@ -3,6 +3,7 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
+const { personaSuspendida } = require('../utils/sanciones');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
@@ -512,6 +513,11 @@ router.post('/:id/teams/:teamId/roster', requireAuth, asyncHandler(async (req, r
   const { data: persona } = await supabase.from('persons').select('is_verified, first_name, last_name').eq('id', person_id).single();
   if (!persona || !persona.is_verified) {
     throw new HttpError(400, 'La persona no existe o no está verificada/habilitada.');
+  }
+
+  // Una persona con suspensión o expulsión disciplinaria en curso no puede figurar en una nómina.
+  if (await personaSuspendida(person_id)) {
+    throw new HttpError(400, 'La persona tiene una sanción disciplinaria vigente (suspensión o expulsión) y no puede inscribirse en la nómina.');
   }
 
   // Valida que la persona esté vinculada al equipo en la composición general

@@ -22,6 +22,7 @@ const rolesRoutes = require('./routes/roles.routes');
 const parametersRoutes = require('./routes/parameters.routes');
 const auditRoutes = require('./routes/audit.routes');
 const refereesRoutes = require('./routes/referees.routes');
+const incidentsRoutes = require('./routes/incidents.routes');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.get('/', (req, res) => {
       '/api/parameters',
       '/api/audit',
       '/api/referees',
+      '/api/incidents',
       '/api/public'
     ]
   });
@@ -80,6 +82,7 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/parameters', parametersRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/referees', refereesRoutes);
+app.use('/api/incidents', incidentsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
