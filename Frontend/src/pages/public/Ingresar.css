@@ -232,6 +232,41 @@
   cursor: not-allowed;
 }
 
+.btn-secundario {
+  display: block;
+  width: 100%;
+  padding: 11px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radio-sm);
+  font-family: var(--fuente-titulo);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.btn-secundario:hover {
+  background: var(--campo);
+  border-color: #94a3b8;
+  color: var(--texto);
+}
+
+.btn-secundario:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ingresar__botones-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  width: 100%;
+}
+
 /* ── Divider / consultar resultados ──────────────────────────────── */
 .ingresar__separador {
   text-align: center;
