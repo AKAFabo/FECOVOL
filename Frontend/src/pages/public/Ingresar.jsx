@@ -500,10 +500,41 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
   const [verificandoToken, setVerificandoToken] = useState(true);
   const [errorToken, setErrorToken]       = useState('');
 
+  // Soporte para validación manual de código de 6 dígitos (OTP)
+  const [mostrarFormCodigo, setMostrarFormCodigo] = useState(false);
+  const [codigoOtp, setCodigoOtp]         = useState('');
+  const [validandoCodigo, setValidandoCodigo] = useState(false);
+  const [errorCodigo, setErrorCodigo]     = useState('');
+
   // Verificar obligatoriamente si el usuario llegó con un token firmado válido en la URL o sesión
   useEffect(() => {
     async function cargarSesion() {
       setVerificandoToken(true);
+
+      // 1. Verificar si viene con ?token_hash=... (Flujo directo anti-escáner de Supabase)
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenHash = searchParams.get('token_hash');
+      const otpType = searchParams.get('type') || 'recovery';
+
+      if (tokenHash) {
+        try {
+          const { data, error: errOtp } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: otpType
+          });
+          if (!errOtp && data?.session?.user?.email) {
+            setCorreo(data.session.user.email);
+            setTieneToken(true);
+            setErrorToken('');
+            setVerificandoToken(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('Error al verificar token_hash:', e);
+        }
+      }
+
+      // 2. Verificar hash de URL (#error o #access_token)
       const hash = window.location.hash;
       const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
       const errorParam = hashParams.get('error') || hashParams.get('error_code');
@@ -536,6 +567,42 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
     }
     cargarSesion();
   }, []);
+
+  async function handleValidarCodigo(ev) {
+    ev.preventDefault();
+    setErrorCodigo('');
+    const correoLimpio = correo.trim().toLowerCase();
+    const tokenLimpio = codigoOtp.trim();
+    if (!correoLimpio) {
+      setErrorCodigo('Ingrese su correo electrónico.');
+      return;
+    }
+    if (!tokenLimpio || tokenLimpio.length < 6) {
+      setErrorCodigo('El código de verificación debe contener al menos 6 dígitos.');
+      return;
+    }
+    setValidandoCodigo(true);
+    try {
+      const { data, error: errOtp } = await supabase.auth.verifyOtp({
+        email: correoLimpio,
+        token: tokenLimpio,
+        type: 'recovery'
+      });
+      if (errOtp) {
+        setErrorCodigo(errOtp.message || 'Código inválido o expirado.');
+        return;
+      }
+      if (data?.session) {
+        setTieneToken(true);
+        setErrorToken('');
+        setMostrarFormCodigo(false);
+      }
+    } catch (e) {
+      setErrorCodigo('Ocurrió un error al validar el código.');
+    } finally {
+      setValidandoCodigo(false);
+    }
+  }
 
   async function handleSubmit(ev) {
     ev.preventDefault();
@@ -660,13 +727,69 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
           <div className="alerta alerta--error" role="alert" style={{ marginBottom: '20px' }}>
             {errorToken || 'Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.'}
           </div>
+
+          {mostrarFormCodigo ? (
+            <form onSubmit={handleValidarCodigo} style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', color: '#1e293b' }}>
+                Validar con código de 6 dígitos
+              </h3>
+              <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '14px' }}>
+                Si su correo incluye un código numérico (OTP), ingréselo a continuación para habilitar el cambio de contraseña:
+              </p>
+              {errorCodigo && (
+                <div className="alerta alerta--error" role="alert" style={{ marginBottom: '12px' }}>
+                  {errorCodigo}
+                </div>
+              )}
+              <div className="campo">
+                <label htmlFor="correo-otp-val" className="campo__etiqueta">Correo electrónico</label>
+                <input
+                  id="correo-otp-val"
+                  type="email"
+                  value={correo}
+                  onChange={(e) => setCorreo(e.target.value)}
+                  placeholder="usuario@correo.com"
+                  className="campo__input"
+                  required
+                />
+              </div>
+              <div className="campo">
+                <label htmlFor="codigo-otp-val" className="campo__etiqueta">Código de 6 dígitos</label>
+                <input
+                  id="codigo-otp-val"
+                  type="text"
+                  maxLength={10}
+                  value={codigoOtp}
+                  onChange={(e) => setCodigoOtp(e.target.value)}
+                  placeholder="Ej. 123456"
+                  className="campo__input"
+                  style={{ letterSpacing: '2px', fontSize: '1.1rem', fontWeight: 'bold' }}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" className="btn-primario" disabled={validandoCodigo}>
+                  {validandoCodigo ? 'Validando…' : 'Validar código'}
+                </button>
+                <button type="button" className="btn-secundario" onClick={() => setMostrarFormCodigo(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : null}
+
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {!mostrarFormCodigo && (
+              <button type="button" className="btn-secundario" onClick={() => setMostrarFormCodigo(true)}>
+                Ingresar código de 6 dígitos
+              </button>
+            )}
             {errorToken && onSolicitarNuevoEnlace && (
               <button type="button" className="btn-primario" onClick={onSolicitarNuevoEnlace}>
                 Solicitar nuevo enlace de recuperación
               </button>
             )}
-            <button type="button" className={errorToken ? 'btn-secundario' : 'btn-primario'} onClick={onVolver}>
+            <button type="button" className="btn-secundario" onClick={onVolver}>
               Volver al inicio de sesión
             </button>
           </div>
