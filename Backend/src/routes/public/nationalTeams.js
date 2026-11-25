@@ -39,7 +39,7 @@ router.get('/', asyncHandler(async (req, res) => {
   for (const r of [selecciones, convocatorias, eventos]) {
     if (r.error) throw fallaBaseDatos(r.error);
   }
-  res.json(aSelecciones({ selecciones: selecciones.data || [], convocatorias: convocatorias.data || [], eventos: eventos.data || [] }));
+  res.json({ data: aSelecciones({ selecciones: selecciones.data || [], convocatorias: convocatorias.data || [], eventos: eventos.data || [] }) });
 }));
 
 module.exports = router;

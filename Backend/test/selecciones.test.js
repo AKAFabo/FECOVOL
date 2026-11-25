@@ -77,6 +77,9 @@ test('una convocatoria archivada no admite cambios en sus integrantes', async ()
 test('el portal público de selecciones no pide ni devuelve datos personales', async () => {
   const r = await fetch(`${base}/api/public/national-teams`);
   assert.equal(r.status, 200);
+  // Mismo formato que el resto de /api/public: el cliente del portal exige { data: ... }.
+  const cuerpo = await r.json();
+  assert.ok(cuerpo.data && Array.isArray(cuerpo.data.national_teams) && Array.isArray(cuerpo.data.callups));
   const consultas = fake.llamadas.filter((l) => l.tipo === 'from').map((l) => JSON.stringify(l.pasos)).join(' ');
   assert.ok(!/document_number|birth_date|email|phone/.test(consultas));
 });

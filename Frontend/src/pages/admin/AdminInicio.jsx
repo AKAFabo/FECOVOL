@@ -327,7 +327,7 @@ export default function AdminInicio() {
             </div>
           </div>
           <div className="dashboard-kpi-footer">
-            <Link to="/personal" className="dashboard-kpi-link">
+            <Link to="/admin/competencias" className="dashboard-kpi-link">
               Módulo de competencias &rarr;
             </Link>
           </div>
