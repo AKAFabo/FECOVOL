@@ -178,6 +178,25 @@ test('crear curso valida fechas, cupo y nota mínima', async () => {
   assert.equal(rpcs()[0].params.p_passing_grade, 70);
 });
 
+test('solo se inscribe en un curso a quien tiene el rol de árbitro en el padrón', async () => {
+  fake.alResponderTabla('person_roles', { data: null, error: null });
+  const r = await call('POST', `/api/referees/cursos/${CURSO}/inscripciones`, { person_id: PERSONA });
+  assert.equal(r.status, 409);
+  assert.match(r.json.error || r.json.message || '', /rol de árbitro/);
+  assert.equal(rpcs().length, 0);
+});
+
+test('con el rol de árbitro activo la inscripción llega al procedimiento', async () => {
+  fake.alResponderTabla('person_roles', { data: { id: 'rol' }, error: null });
+  fake.alResponderRpc('sp_enroll_referee_course', { data: INSCRIPCION, error: null });
+  const r = await call('POST', `/api/referees/cursos/${CURSO}/inscripciones`, { person_id: PERSONA });
+  assert.equal(r.status, 201);
+  const consulta = fake.llamadas.find((l) => l.tabla === 'person_roles');
+  assert.ok(consulta.pasos.some((p) => p[0] === 'eq' && p[1] === 'role_type' && p[2] === 'ARBITRO'));
+  assert.ok(consulta.pasos.some((p) => p[0] === 'eq' && p[1] === 'is_active' && p[2] === true));
+  assert.equal(rpcs()[0].params.p_person_id, PERSONA);
+});
+
 test('no se califica una inscripción de otro curso por la URL', async () => {
   fake.alResponderTabla('referee_course_enrollments', { data: { id: INSCRIPCION, course_id: 'otro-curso' }, error: null });
   const r = await call('PATCH', `/api/referees/cursos/${CURSO}/inscripciones/${INSCRIPCION}`, { grade: 90 });
@@ -346,6 +365,16 @@ test('el árbitro solo cambia su correo y teléfono, validados', async () => {
   assert.equal(rpc.params.p_id, PERSONA);
   assert.equal(rpc.params.p_email, 'nueva@correo.cr');
   assert.equal('p_first_name' in rpc.params, false);
+});
+
+test('el teléfono del árbitro no puede ser una extensión ni tener letras', async () => {
+  fake.alResponderTabla('persons', MI_PERSONA, MI_PERSONA, MI_PERSONA);
+  assert.equal((await call('PATCH', '/api/referees/me/contacto', { phone: '1234' }, ARBITRO)).status, 400);
+  assert.equal((await call('PATCH', '/api/referees/me/contacto', { phone: '8876-44ab' }, ARBITRO)).status, 400);
+  assert.equal(rpcs().length, 0);
+  const r = await call('PATCH', '/api/referees/me/contacto', { phone: '88764410' }, ARBITRO);
+  assert.equal(r.status, 200);
+  assert.equal(rpcs()[0].params.p_phone, '8876-4410');
 });
 
 test('el árbitro se inscribe en un curso como sí mismo y sin saltarse el periodo', async () => {

@@ -7,7 +7,8 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
-const { UUID, esFecha, texto, tieneRol, denegar } = require('../utils/arbitraje');
+const { UUID, esFecha, texto, tieneRol, denegar, hoyCR } = require('../utils/arbitraje');
+const { motivoNoElegible, descripcionRequisitos } = require('../utils/elegibilidadSeleccion');
 
 const router = express.Router();
 for (const p of ['id', 'miembroId']) router.param(p, validateUuidParams);
@@ -53,7 +54,9 @@ const SELECT_SELECCION = `id, name, modality, status, created_at,
   rama:catalog_values!national_teams_branch_fkey(code, value),
   categoria:catalog_values!national_teams_category_fkey(code, value)`;
 const SELECT_CONVOCATORIA = `id, title, notes, status, published_at, created_at, updated_at, national_team_id, event_id,
-  seleccion:national_teams!national_team_callups_team_fkey(id, name, modality),
+  seleccion:national_teams!national_team_callups_team_fkey(id, name, modality,
+    rama:catalog_values!national_teams_branch_fkey(code, value),
+    categoria:catalog_values!national_teams_category_fkey(code, value)),
   evento:national_team_events!national_team_callups_event_fkey(id, name, start_date, end_date, venue)`;
 
 /* ------------------------------------------------------------------------------------------------
@@ -178,18 +181,55 @@ async function convocatoria(id) {
   return data;
 }
 
+// Rama, categoría y fecha con que se comprueba quién puede ser convocado (inicio del evento o hoy).
+function criterioDe(c, inicioEvento) {
+  const inicio = inicioEvento !== undefined ? inicioEvento : c.evento?.start_date;
+  return {
+    rama: c.seleccion?.rama || null,
+    categoria: c.seleccion?.categoria || null,
+    fechaReferencia: inicio && esFecha(String(inicio).slice(0, 10)) ? String(inicio).slice(0, 10) : hoyCR()
+  };
+}
+
+const nombreDe = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Una persona';
+
+// Atletas de la convocatoria que ya no cumplen la categoría o la rama (por ejemplo, al cambiar el
+// evento o corregir una fecha de nacimiento en el padrón).
+async function atletasFueraDeCategoria(c, criterio) {
+  const { data, error } = await supabase
+    .from('national_team_callup_members')
+    .select('id, persona:persons!callup_members_person_fkey(first_name, last_name, birth_date, sex)')
+    .eq('callup_id', c.id)
+    .eq('member_type', 'JUGADOR');
+  lanzar(error);
+  return (data || [])
+    .map((m) => ({ nombre: nombreDe(m.persona), motivo: motivoNoElegible(m.persona, criterio) }))
+    .filter((m) => m.motivo);
+}
+
+function lanzarSiFuera(fuera) {
+  if (!fuera.length) return;
+  const nombres = fuera.slice(0, 5).map((m) => m.nombre).join(', ') + (fuera.length > 5 ? ` y ${fuera.length - 5} más` : '');
+  throw new HttpError(409, `No cumplen la categoría o la rama de la selección: ${nombres}. ${fuera[0].motivo} Quítelos o corrija su ficha antes de continuar.`);
+}
+
 router.get('/convocatorias/:id', asyncHandler(async (req, res) => {
   const c = await convocatoria(req.params.id);
   const { data, error } = await supabase
     .from('national_team_callup_members')
     .select(`id, member_type, jersey_number, staff_role, created_at,
       posicion:catalog_values!callup_members_position_fkey(code, value),
-      persona:persons!callup_members_person_fkey(id, first_name, last_name, document_number, status,
+      persona:persons!callup_members_person_fkey(id, first_name, last_name, document_number, status, birth_date, sex,
         asociacion:associations(short_name, name))`)
     .eq('callup_id', c.id);
   lanzar(error);
+  const criterio = criterioDe(c);
+  const integrantes = (data || []).map((m) => ({
+    ...m,
+    motivo_no_elegible: m.member_type === 'JUGADOR' ? motivoNoElegible(m.persona, criterio) : null
+  }));
   res.set('Cache-Control', 'no-store');
-  res.json({ data: { ...c, integrantes: data || [] } });
+  res.json({ data: { ...c, integrantes, requisitos: { fecha_referencia: criterio.fechaReferencia, detalle: descripcionRequisitos(criterio) } } });
 }));
 
 router.post('/convocatorias', soloAdministrador, asyncHandler(async (req, res) => {
@@ -221,9 +261,17 @@ router.patch('/convocatorias/:id', soloAdministrador, asyncHandler(async (req, r
     cambios.title = titulo;
   }
   if (b.notes !== undefined) cambios.notes = texto(b.notes, 2000) || null;
+  let inicioEvento;
   if (b.event_id !== undefined) {
     if (b.event_id && !UUID.test(b.event_id)) throw new HttpError(400, 'El evento no es válido.');
     cambios.event_id = b.event_id || null;
+    inicioEvento = null;
+    if (b.event_id) {
+      const { data: evento, error: errEvento } = await supabase.from('national_team_events').select('id, start_date').eq('id', b.event_id).maybeSingle();
+      lanzar(errEvento);
+      if (!evento) throw new HttpError(404, 'El evento no existe.');
+      inicioEvento = evento.start_date;
+    }
   }
   if (b.status !== undefined) {
     if (!['BORRADOR', 'PUBLICADA', 'ARCHIVADA'].includes(b.status)) throw new HttpError(400, 'Estado no válido.');
@@ -233,6 +281,12 @@ router.patch('/convocatorias/:id', soloAdministrador, asyncHandler(async (req, r
       cambios.published_at = c.published_at || new Date().toISOString();
     }
     cambios.status = b.status;
+  }
+  // Lo publicado tiene que cumplir la categoría y la rama: al publicar y al cambiar el evento (y con
+  // él la fecha de referencia) de una convocatoria publicada.
+  const quedaPublicada = (cambios.status || c.status) === 'PUBLICADA';
+  if (quedaPublicada && (cambios.status === 'PUBLICADA' || b.event_id !== undefined)) {
+    lanzarSiFuera(await atletasFueraDeCategoria(c, criterioDe(c, inicioEvento)));
   }
   const { data, error } = await supabase.from('national_team_callups').update(cambios).eq('id', c.id).select(SELECT_CONVOCATORIA).single();
   lanzar(error);
@@ -247,9 +301,13 @@ router.post('/convocatorias/:id/integrantes', soloAdministrador, asyncHandler(as
   if (!UUID.test(b.person_id || '')) throw new HttpError(400, 'Elija la persona.');
   if (!['JUGADOR', 'CUERPO_TECNICO'].includes(b.member_type)) throw new HttpError(400, 'Indique si es atleta o del cuerpo técnico.');
 
-  const { data: persona } = await supabase.from('persons').select('id, status').eq('id', b.person_id).maybeSingle();
+  const { data: persona } = await supabase.from('persons').select('id, status, first_name, last_name, birth_date, sex').eq('id', b.person_id).maybeSingle();
   if (!persona) throw new HttpError(404, 'La persona no existe en el padrón.');
   if (persona.status !== 'ACTIVA') throw new HttpError(409, 'La persona no está activa en el padrón.');
+  if (b.member_type === 'JUGADOR') {
+    const motivo = motivoNoElegible(persona, criterioDe(c));
+    if (motivo) throw new HttpError(409, motivo);
+  }
 
   const fila = { callup_id: c.id, person_id: persona.id, member_type: b.member_type, jersey_number: null, position_value_id: null, staff_role: null };
   if (b.member_type === 'JUGADOR') {

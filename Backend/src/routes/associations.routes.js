@@ -1,6 +1,15 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { normalizarTelefono } = require('../utils/telefono');
+
+// Teléfono que viene en el cuerpo: undefined si no se envió, '' si se borró, o normalizado.
+function telefonoDe(valor) {
+  if (valor === undefined) return undefined;
+  const { valor: telefono, error } = normalizarTelefono(valor);
+  if (error) throw new HttpError(400, error);
+  return telefono ?? '';
+}
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
@@ -240,7 +249,7 @@ router.post('/', asyncHandler(async (req, res) => {
     p_province: province || null,
     p_canton: canton || null,
     p_email: email || null,
-    p_phone: phone || null,
+    p_phone: telefonoDe(phone) || null,
     p_admin_user: req.currentUser,
     p_short_name: short_name || null,
     p_address: address || null,
@@ -308,7 +317,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     p_canton: b.canton ?? null,
     p_address: b.address ?? null,
     p_email: b.email ?? null,
-    p_phone: b.phone ?? null,
+    p_phone: telefonoDe(b.phone) ?? null,
     p_website: b.website ?? null,
     p_home_venue: b.home_venue ?? null,
     p_status: nuevoStatus
@@ -436,7 +445,7 @@ router.post('/:id/board', asyncHandler(async (req, res) => {
     p_full_name: full_name,
     p_admin_user: req.currentUser,
     p_email: email || null,
-    p_phone: phone || null,
+    p_phone: telefonoDe(phone) || null,
     p_start_date: start_date || null
   });
 
@@ -489,7 +498,7 @@ router.patch('/board/:boardId', asyncHandler(async (req, res) => {
     p_position: textoOpcional(b.position, 80) ?? null,
     p_full_name: textoOpcional(b.full_name, 150) ?? null,
     p_email: email ?? null,
-    p_phone: textoOpcional(b.phone, 30) ?? null
+    p_phone: telefonoDe(b.phone) ?? null
   });
   const err = fromSupabase(error, 'Cargo');
   if (err) throw err;

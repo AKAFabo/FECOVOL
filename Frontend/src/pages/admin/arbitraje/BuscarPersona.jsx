@@ -21,8 +21,11 @@ function useDemorado(valor, ms = 350) {
  * @param {string} [props.rol]  Filtra por rol en el padrón (por ejemplo, ARBITRO).
  * @param {string} [props.textoBoton]
  * @param {string[]} [props.excluir]  Ids que no se ofrecen (por ejemplo, ya inscritos).
+ * @param {string} [props.textoVacio]  Mensaje cuando no hay coincidencias.
+ * @param {(persona: object) => string|null} [props.motivoNoApta]  Si devuelve texto, la persona se
+ *   muestra sin botón y con ese motivo (por ejemplo, fuera de la categoría de una selección).
  */
-export default function BuscarPersona({ etiqueta, onElegir, rol, textoBoton = 'Elegir', excluir = [], autoFocus }) {
+export default function BuscarPersona({ etiqueta, onElegir, rol, textoBoton = 'Elegir', excluir = [], autoFocus, textoVacio, motivoNoApta }) {
   const id = useId();
   const [texto, setTexto] = useState('');
   const q = useDemorado(texto.trim());
@@ -52,22 +55,28 @@ export default function BuscarPersona({ etiqueta, onElegir, rol, textoBoton = 'E
         {buscar && resultados.estado === 'cargando' && <p className="g-campo__ayuda">Buscando…</p>}
         {buscar && resultados.estado === 'error' && <p className="g-campo__error">{resultados.error.message}</p>}
         {buscar && resultados.estado === 'listo' && (lista.length === 0 ? (
-          <p className="g-campo__ayuda">No hay personas activas en el padrón que coincidan. Regístrela primero en Personas federadas.</p>
+          <p className="g-campo__ayuda">{textoVacio || 'No hay personas activas en el padrón que coincidan. Regístrela primero en Personas federadas.'}</p>
         ) : (
           <ul className="g-resultados">
-            {lista.map((p) => (
-              <li key={p.id} className="g-resultado">
-                <div>
-                  <p className="g-resultado__nombre">{nombrePersona(p)}</p>
-                  <p className="g-resultado__detalle">
-                    {[p.document_number, p.asociacion?.short_name || p.asociacion?.name || 'Sin asociación', p.province].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <button type="button" className="g-boton g-boton--chico" onClick={() => { onElegir(p); setTexto(''); }}>
-                  {textoBoton}<span className="visualmente-oculto"> a {nombrePersona(p)}</span>
-                </button>
-              </li>
-            ))}
+            {lista.map((p) => {
+              const motivo = motivoNoApta?.(p) || null;
+              return (
+                <li key={p.id} className="g-resultado">
+                  <div>
+                    <p className="g-resultado__nombre">{nombrePersona(p)}</p>
+                    <p className="g-resultado__detalle">
+                      {[p.document_number, p.asociacion?.short_name || p.asociacion?.name || 'Sin asociación', p.province].filter(Boolean).join(' · ')}
+                    </p>
+                    {motivo && <p className="g-campo__error">{motivo}</p>}
+                  </div>
+                  {!motivo && (
+                    <button type="button" className="g-boton g-boton--chico" onClick={() => { onElegir(p); setTexto(''); }}>
+                      {textoBoton}<span className="visualmente-oculto"> a {nombrePersona(p)}</span>
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ))}
       </div>

@@ -19,9 +19,40 @@ const REPORTES_DISPONIBLES = [
   { key: 'consolidado', titulo: 'Consolidado de resultados', descripcion: 'Todos los resultados oficiales de la competencia.' },
   { key: 'estadisticas', titulo: 'Estadísticas por equipo', descripcion: 'Partidos jugados, sets ganados y perdidos, ratio y racha.' },
   { key: 'proxima', titulo: 'Programación próxima jornada', descripcion: 'Partidos programados para la siguiente jornada a jugar.' },
-  { key: 'designaciones', titulo: 'Designaciones arbitrales', descripcion: 'Partidos por árbitro, con acreditación vigente al momento del partido.', noDisponible: true },
-  { key: 'incidentes', titulo: 'Incidentes y sanciones', descripcion: 'Expedientes abiertos, sanciones aplicadas y estado de cada uno.', noDisponible: true },
+  { key: 'designaciones', titulo: 'Designaciones arbitrales', descripcion: 'Partidos por árbitro, con acreditación vigente al momento del partido.' },
+  { key: 'incidentes', titulo: 'Incidentes y sanciones', descripcion: 'Expedientes abiertos, sanciones aplicadas y estado de cada uno.' },
 ];
+
+const ESTADO_DESIGNACION = { PROPUESTA: 'Pendiente de confirmar', CONFIRMADA: 'Confirmada', CUMPLIDA: 'Cumplida' };
+const ESTADO_EXPEDIENTE = { ABIERTO: 'Abierto', EN_SEGUIMIENTO: 'En seguimiento', CON_SANCION: 'Con sanción', RESUELTO: 'Resuelto', ARCHIVADO: 'Archivado' };
+const ESTADO_SANCION = { VIGENTE: 'Vigente', CUMPLIDA: 'Cumplida', ANULADA: 'Anulada' };
+
+const textoAcreditacion = (a) => (a ? [a.nivel, a.funcion].filter(Boolean).join(' · ') + (a.hasta ? ` (hasta ${formatearFecha(a.hasta)})` : '') : 'Sin acreditación vigente');
+const textoSanciones = (lista) => (lista || []).map((x) => `${x.sancionado}: ${x.sancion} (${ESTADO_SANCION[x.estado] || x.estado})`).join('; ');
+
+// Celda de CSV entre comillas; si empieza como una fórmula se antepone ' para que la hoja de
+// cálculo no la ejecute.
+const celdaCSV = (valor) => {
+  const t = String(valor ?? '');
+  return `"${(/^[=+\-@\t\r]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"`;
+};
+
+// Encabezados y filas del CSV de los reportes de arbitraje e incidentes (null para los demás tipos).
+function csvArbitrajeIncidentes(tipo, data) {
+  if (tipo === 'designaciones') {
+    return {
+      headers: ['Fecha', 'Hora', 'Jornada', 'Partido', 'Árbitro', 'Puesto', 'Estado', 'Acreditación vigente'],
+      rows: (data?.filas || []).map((f) => [f.fecha, f.hora || '', f.jornada ?? '', f.partido, f.arbitro, f.puesto, ESTADO_DESIGNACION[f.estado] || f.estado, textoAcreditacion(f.acreditacion)])
+    };
+  }
+  if (tipo === 'incidentes') {
+    return {
+      headers: ['Expediente', 'Fecha', 'Tipo', 'Título', 'Partido', 'Involucrados', 'Estado', 'Sanciones'],
+      rows: (data?.expedientes || []).map((e) => [e.numero, e.fecha || '', e.tipo || '', e.titulo, e.partido || '', (e.involucrados || []).join(', '), ESTADO_EXPEDIENTE[e.estado] || e.estado, textoSanciones(e.sanciones)])
+    };
+  }
+  return null;
+}
 
 export default function Reportes() {
   // Declara los estados principales
@@ -116,10 +147,12 @@ export default function Reportes() {
         else if (tipo === 'consolidado') url = `${backendUrl}/api/reports/consolidated/${competenciaSeleccionada}`;
         else if (tipo === 'nominas') url = `${backendUrl}/api/reports/roster-compliance/${competenciaSeleccionada}`;
         else if (tipo === 'estadisticas') url = `${backendUrl}/api/reports/team-stats/${competenciaSeleccionada}`;
+        else if (tipo === 'designaciones') url = `${backendUrl}/api/reports/referee-assignments/${competenciaSeleccionada}`;
+        else if (tipo === 'incidentes') url = `${backendUrl}/api/reports/incidents/${competenciaSeleccionada}`;
 
         const res = await fetch(url, { headers: { 'x-user-email': user?.email || '' } });
-        if (!res.ok) throw new Error('Error al generar el reporte');
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Error al generar el reporte');
         data = json.data;
       }
 
@@ -186,9 +219,11 @@ export default function Reportes() {
       } else if (tipo === 'estadisticas') {
         headers = ['#', 'Equipo', 'PJ', 'PG', 'PP', 'SG', 'SP', 'Puntos', 'Ratio Sets', 'Ratio Puntos'];
         rows = (data || []).map((t, i) => [i + 1, t.team_name, t.matches_played, t.matches_won, t.matches_lost, t.sets_won, t.sets_lost, t.total_points, t.ratio_sets, t.ratio_puntos]);
+      } else if (csvArbitrajeIncidentes(tipo, data)) {
+        ({ headers, rows } = csvArbitrajeIncidentes(tipo, data));
       }
 
-      const csvContent = [headers.join(','), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
+      const csvContent = [headers.join(','), ...rows.map(r => r.map(celdaCSV).join(','))].join('\n');
       const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -250,9 +285,11 @@ export default function Reportes() {
     } else if (datosReporte.tipo === 'estadisticas') {
       headers = ['#', 'Equipo', 'PJ', 'PG', 'PP', 'SG', 'SP', 'Puntos', 'Ratio Sets', 'Ratio Puntos'];
       rows = (datosReporte.data || []).map((t, i) => [i + 1, t.team_name, t.matches_played, t.matches_won, t.matches_lost, t.sets_won, t.sets_lost, t.total_points, t.ratio_sets, t.ratio_puntos]);
+    } else if (csvArbitrajeIncidentes(datosReporte.tipo, datosReporte.data)) {
+      ({ headers, rows } = csvArbitrajeIncidentes(datosReporte.tipo, datosReporte.data));
     }
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(celdaCSV).join(','))].join('\n');
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -325,8 +362,6 @@ export default function Reportes() {
                     </>
                   )}
                 </div>
-                {/* TODO: Integrar con módulo de Designaciones Arbitrales (Estudiante 3). */}
-                {/* TODO: Integrar con módulo de Incidentes y Sanciones (Estudiante 4). */}
               </div>
             ))}
           </div>
@@ -477,6 +512,103 @@ export default function Reportes() {
                         ))}
                       </tbody>
                     </table>
+                  )}
+
+                  {datosReporte.tipo === 'designaciones' && (
+                    <>
+                      <h3 style={{ fontSize: '1.05rem', margin: '0 0 12px 0' }}>Resumen por árbitro</h3>
+                      <table className="admin-table" style={{ border: '1px solid var(--borde)', marginBottom: '28px' }}>
+                        <thead style={{ background: '#f8fafc' }}>
+                          <tr><th>Árbitro</th><th style={{ textAlign: 'center' }}>Partidos</th><th style={{ textAlign: 'center' }}>Confirmados</th><th style={{ textAlign: 'center' }}>Por confirmar</th><th style={{ textAlign: 'center' }}>Sin acreditación vigente</th></tr>
+                        </thead>
+                        <tbody>
+                          {(datosReporte.data?.por_arbitro || []).map((a, i) => (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 600 }}>{a.arbitro}</td>
+                              <td style={{ textAlign: 'center' }}>{a.partidos}</td>
+                              <td style={{ textAlign: 'center' }}>{a.confirmadas}</td>
+                              <td style={{ textAlign: 'center' }}>{a.pendientes}</td>
+                              <td style={{ textAlign: 'center', fontWeight: a.sin_acreditacion ? 700 : 400, color: a.sin_acreditacion ? 'var(--rojo)' : 'inherit' }}>{a.sin_acreditacion}</td>
+                            </tr>
+                          ))}
+                          {!(datosReporte.data?.por_arbitro || []).length && (
+                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--texto-mudo)' }}>Esta competencia no tiene designaciones arbitrales.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                      {(datosReporte.data?.filas || []).length > 0 && (
+                        <>
+                          <h3 style={{ fontSize: '1.05rem', margin: '0 0 12px 0' }}>Detalle por partido</h3>
+                          <table className="admin-table" style={{ border: '1px solid var(--borde)' }}>
+                            <thead style={{ background: '#f8fafc' }}>
+                              <tr><th>Fecha</th><th>Partido</th><th>Árbitro</th><th>Puesto</th><th>Estado</th><th>Acreditación vigente</th></tr>
+                            </thead>
+                            <tbody>
+                              {datosReporte.data.filas.map((f, i) => (
+                                <tr key={i}>
+                                  <td>{formatearFecha(f.fecha)}{f.hora ? ` · ${f.hora.slice(0, 5)}` : ''}</td>
+                                  <td style={{ fontWeight: 600 }}>{f.partido}{f.jornada ? <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texto-mudo)', fontWeight: 400 }}>Jornada {f.jornada}</span> : null}</td>
+                                  <td>{f.arbitro}</td>
+                                  <td>{f.puesto}</td>
+                                  <td>{ESTADO_DESIGNACION[f.estado] || f.estado}</td>
+                                  <td style={{ color: f.acreditacion ? 'inherit' : 'var(--rojo)', fontWeight: f.acreditacion ? 400 : 600 }}>{textoAcreditacion(f.acreditacion)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {datosReporte.tipo === 'incidentes' && (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '28px' }}>
+                        {[
+                          ['Expedientes', datosReporte.data?.resumen?.total],
+                          ['Abiertos', datosReporte.data?.resumen?.abiertos],
+                          ['En seguimiento', datosReporte.data?.resumen?.en_seguimiento],
+                          ['Con sanción', datosReporte.data?.resumen?.con_sancion],
+                          ['Resueltos', datosReporte.data?.resumen?.resueltos],
+                          ['Archivados', datosReporte.data?.resumen?.archivados],
+                          ['Sanciones vigentes', datosReporte.data?.resumen?.sanciones_vigentes]
+                        ].map(([texto, valor]) => (
+                          <div key={texto} style={{ border: '1px solid var(--linea)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--azul)' }}>{valor ?? 0}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)' }}>{texto}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <table className="admin-table" style={{ border: '1px solid var(--borde)' }}>
+                        <thead style={{ background: '#f8fafc' }}>
+                          <tr><th>Expediente</th><th>Fecha</th><th>Hechos</th><th>Involucrados</th><th>Estado</th><th>Sanciones</th></tr>
+                        </thead>
+                        <tbody>
+                          {(datosReporte.data?.expedientes || []).map((e, i) => (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{e.numero}</td>
+                              <td style={{ whiteSpace: 'nowrap' }}>{e.fecha ? formatearFecha(e.fecha) : '—'}</td>
+                              <td>
+                                <span style={{ fontWeight: 600 }}>{e.titulo}</span>
+                                <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texto-mudo)' }}>{[e.tipo, e.partido].filter(Boolean).join(' · ')}</span>
+                              </td>
+                              <td>{(e.involucrados || []).join(', ') || '—'}</td>
+                              <td>{ESTADO_EXPEDIENTE[e.estado] || e.estado}</td>
+                              <td style={{ fontSize: '0.82rem' }}>
+                                {(e.sanciones || []).length ? e.sanciones.map((x, j) => (
+                                  <span key={j} style={{ display: 'block', textDecoration: x.estado === 'ANULADA' ? 'line-through' : 'none', color: x.estado === 'VIGENTE' ? 'var(--texto)' : 'var(--texto-mudo)' }}>
+                                    {x.sancionado}: {x.sancion} · {ESTADO_SANCION[x.estado] || x.estado}
+                                  </span>
+                                )) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                          {!(datosReporte.data?.expedientes || []).length && (
+                            <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--texto-mudo)' }}>Esta competencia no tiene expedientes disciplinarios.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </>
                   )}
 
                   <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--texto-tenue)', borderTop: '1px solid var(--linea)', paddingTop: '16px' }}>

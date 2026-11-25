@@ -231,6 +231,35 @@ test('un representante no puede cambiar el nombre legal de su asociacion', async
   assert.equal(llamada.params.p_phone, '2222-0000');
 });
 
+test('el teléfono de la asociación y de la junta no admite letras ni números cortos', async () => {
+  fake.alResponderRpc('sp_update_association', { data: null, error: null });
+  const letras = await call('PATCH', `/api/associations/${ASO_PROPIA}`, { phone: '2222-abcd' }, REPRE);
+  assert.equal(letras.status, 400);
+  assert.match(letras.json.error, /8 dígitos/);
+  const corto = await call('PATCH', `/api/associations/${ASO_PROPIA}`, { phone: '1234' }, REPRE);
+  assert.equal(corto.status, 400);
+  assert.equal(rpcs().length, 0);
+
+  const ok = await call('PATCH', `/api/associations/${ASO_PROPIA}`, { phone: '+506 2222 0000' }, REPRE);
+  assert.equal(ok.status, 200);
+  assert.equal(rpcs()[0].params.p_phone, '2222-0000');
+
+  fake.alResponderTabla('association_board_members', { data: { id: UUID, association_id: ASO_PROPIA, end_date: null }, error: null });
+  const cargo = await call('PATCH', `/api/associations/board/${UUID}`, { phone: 'ocho ocho' }, REPRE);
+  assert.equal(cargo.status, 400);
+});
+
+test('normalizarTelefono: Costa Rica con o sin +506 e internacionales con +', () => {
+  const { normalizarTelefono } = require('../src/utils/telefono');
+  assert.deepEqual(normalizarTelefono('88880000'), { valor: '8888-0000', error: null });
+  assert.deepEqual(normalizarTelefono('(506) 6000-1234'), { valor: '6000-1234', error: null });
+  assert.deepEqual(normalizarTelefono('+1 305 555 1234'), { valor: '+13055551234', error: null });
+  assert.deepEqual(normalizarTelefono(''), { valor: null, error: null });
+  for (const malo of ['1234', '12345678', '8888-0000 ext. 12', '8888-000a', '+44', '88+880000']) {
+    assert.ok(normalizarTelefono(malo).error, malo);
+  }
+});
+
 test('un representante no puede modificar otra asociacion', async () => {
   const r = await call('PATCH', `/api/associations/${UUID}`, { phone: '2222-0000' }, REPRE);
   assert.equal(r.status, 403);

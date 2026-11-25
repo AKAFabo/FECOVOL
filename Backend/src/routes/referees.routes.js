@@ -467,6 +467,20 @@ router.patch('/cursos/:id', soloAdministracion, asyncHandler(async (req, res) =>
 router.post('/cursos/:id/inscripciones', soloAdministracion, asyncHandler(async (req, res) => {
   const personId = req.body?.person_id;
   if (!UUID.test(personId || '')) throw new HttpError(400, 'Seleccione la persona.');
+
+  // Los cursos (incluida la formación inicial) son para quien tiene el rol de árbitro en el padrón.
+  const { data: rol, error: errorRol } = await supabase
+    .from('person_roles')
+    .select('id')
+    .eq('person_id', personId)
+    .eq('role_type', 'ARBITRO')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+  const errRol = fromSupabase(errorRol, 'Persona');
+  if (errRol) throw errRol;
+  if (!rol) throw new HttpError(409, 'La persona no tiene el rol de árbitro en el padrón. Asígnelo en Personas federadas antes de inscribirla.');
+
   const { data: id, error } = await supabase.rpc('sp_enroll_referee_course', {
     p_course_id: req.params.id,
     p_person_id: personId,

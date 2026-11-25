@@ -117,7 +117,18 @@ async function personaSuspendida(personId) {
   return data === true;
 }
 
+/** Una sanción sigue vigente si no se anuló y no ha terminado a la fecha (YYYY-MM-DD). */
+const sancionVigente = (s, fecha) => s.status === 'VIGENTE' && (!s.end_date || s.end_date >= fecha);
+
+/** Estado que ve el usuario: un expediente con sanción pasa a RESUELTO cuando no le quedan sanciones vigentes. */
+function estadoVisible(caso, fecha) {
+  if (caso.status !== 'CON_SANCION') return caso.status;
+  return (caso.sanctions || []).some((s) => sancionVigente(s, fecha)) ? 'CON_SANCION' : 'RESUELTO';
+}
+
 module.exports = {
+  sancionVigente,
+  estadoVisible,
   TIPOS,
   SUSPENSIONES,
   etiqueta,

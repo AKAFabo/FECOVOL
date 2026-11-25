@@ -105,3 +105,82 @@ test('la lista blanca muestra solo nombre, número y posición, la última convo
   assert.deepEqual(salida.events[0].teams, ['Mayor Femenina']);
   assert.ok(!JSON.stringify(salida).includes('1-1111-1111'));
 });
+
+/* ─── Categoría y rama de quien se convoca ──────────────────────────────────────────────────── */
+
+const { motivoNoElegible, reglaCategoria } = require('../src/utils/elegibilidadSeleccion');
+
+const FEM = { code: 'FEM', value: 'Femenina' };
+const MAS = { code: 'MAS', value: 'Masculina' };
+const MAYOR = { code: 'MAYOR', value: 'Mayor' };
+const SUB17 = { code: 'U17', value: 'Sub-17' };
+
+const conSeleccion = (rama, categoria, inicio = '2026-11-01', status = 'BORRADOR') => ({
+  data: {
+    id: CONV, title: 'Convocatoria', status, national_team_id: SEL, published_at: null,
+    seleccion: { id: SEL, name: 'Selección', modality: 'SALA', rama, categoria },
+    evento: inicio ? { id: 'e1', name: 'Gira', start_date: inicio } : null
+  },
+  error: null
+});
+
+test('reglas de categoría: Sub-N por año de nacimiento y Mayor con 18 años cumplidos', () => {
+  assert.deepEqual(reglaCategoria(SUB17), { tipo: 'SUB', limite: 17 });
+  assert.deepEqual(reglaCategoria({ code: 'OTRA', value: 'Sub-21' }), { tipo: 'SUB', limite: 21 });
+  assert.deepEqual(reglaCategoria(MAYOR), { tipo: 'MAYOR', minima: 18 });
+  assert.equal(reglaCategoria({ code: 'LIBRE', value: 'Libre' }), null);
+
+  const sub17 = { rama: FEM, categoria: SUB17, fechaReferencia: '2026-07-10' };
+  assert.equal(motivoNoElegible({ birth_date: '2010-01-01', sex: 'F' }, sub17), null);
+  assert.match(motivoNoElegible({ birth_date: '2009-12-31', sex: 'F' }, sub17), /nacidos en 2010 o después/);
+
+  const mayor = { rama: MAS, categoria: MAYOR, fechaReferencia: '2026-11-01' };
+  assert.equal(motivoNoElegible({ birth_date: '2008-11-01', sex: 'M' }, mayor), null);
+  assert.match(motivoNoElegible({ birth_date: '2008-11-02', sex: 'M' }, mayor), /18 años cumplidos/);
+  assert.match(motivoNoElegible({ birth_date: '1995-05-05', sex: 'F' }, mayor), /rama Masculina/);
+  assert.match(motivoNoElegible({ birth_date: null, sex: 'M' }, mayor), /fecha de nacimiento/);
+  assert.match(motivoNoElegible({ birth_date: '1995-05-05', sex: null }, mayor), /sexo/);
+  assert.equal(motivoNoElegible({ birth_date: '2015-01-01', sex: 'F' }, { rama: { code: 'MIX' }, categoria: null, fechaReferencia: '2026-01-01' }), null);
+});
+
+test('no se convoca a la Mayor a una persona menor de edad', async () => {
+  fake.alResponderTabla('national_team_callups', conSeleccion(MAS, MAYOR, '2026-11-01'));
+  fake.alResponderTabla('persons', { data: { id: PERSONA, status: 'ACTIVA', first_name: 'Ana', last_name: 'Mora', birth_date: '2010-03-03', sex: 'M' }, error: null });
+  const r = await call('POST', `/api/national-teams/convocatorias/${CONV}/integrantes`, { person_id: PERSONA, member_type: 'JUGADOR', jersey_number: 5 });
+  assert.equal(r.status, 409);
+  assert.match(r.json.error, /18 años/);
+  assert.ok(!fake.llamadas.some((l) => l.tabla === 'national_team_callup_members' && l.pasos.some((p) => p[0] === 'insert')));
+});
+
+test('no se convoca a una Sub-17 a quien ya pasó la edad ni a otra rama', async () => {
+  fake.alResponderTabla('national_team_callups', conSeleccion(FEM, SUB17, '2026-07-10'), conSeleccion(FEM, SUB17, '2026-07-10'));
+  fake.alResponderTabla('persons',
+    { data: { id: PERSONA, status: 'ACTIVA', birth_date: '2008-01-01', sex: 'F' }, error: null },
+    { data: { id: PERSONA, status: 'ACTIVA', birth_date: '2011-01-01', sex: 'M' }, error: null });
+  const mayorDeEdad = await call('POST', `/api/national-teams/convocatorias/${CONV}/integrantes`, { person_id: PERSONA, member_type: 'JUGADOR' });
+  assert.equal(mayorDeEdad.status, 409);
+  assert.match(mayorDeEdad.json.error, /Sub-17/);
+  const otraRama = await call('POST', `/api/national-teams/convocatorias/${CONV}/integrantes`, { person_id: PERSONA, member_type: 'JUGADOR' });
+  assert.equal(otraRama.status, 409);
+  assert.match(otraRama.json.error, /rama Femenina/);
+});
+
+test('el cuerpo técnico no tiene límite de edad ni de rama', async () => {
+  fake.alResponderTabla('national_team_callups', conSeleccion(FEM, SUB17, '2026-07-10'));
+  fake.alResponderTabla('persons', { data: { id: PERSONA, status: 'ACTIVA', birth_date: '1970-01-01', sex: 'M' }, error: null });
+  fake.alResponderTabla('national_team_callup_members', { data: { id: 'm1' }, error: null });
+  const r = await call('POST', `/api/national-teams/convocatorias/${CONV}/integrantes`, { person_id: PERSONA, member_type: 'CUERPO_TECNICO', staff_role: 'Entrenador' });
+  assert.equal(r.status, 201);
+});
+
+test('no se publica una convocatoria con atletas fuera de la categoría', async () => {
+  fake.alResponderTabla('national_team_callups', conSeleccion(MAS, MAYOR, '2026-11-01'));
+  fake.alResponderTabla('national_team_callup_members',
+    { data: null, error: null, count: 2 },
+    { data: [{ id: 'm1', persona: { first_name: 'Luis', last_name: 'Rojas', birth_date: '1999-01-01', sex: 'M' } }, { id: 'm2', persona: { first_name: 'Joven', last_name: 'Pérez', birth_date: '2012-01-01', sex: 'M' } }], error: null });
+  const r = await call('PATCH', `/api/national-teams/convocatorias/${CONV}`, { status: 'PUBLICADA' });
+  assert.equal(r.status, 409);
+  assert.match(r.json.error, /Joven Pérez/);
+  assert.doesNotMatch(r.json.error, /Luis Rojas/);
+  assert.ok(!fake.llamadas.some((l) => l.tabla === 'national_team_callups' && l.pasos.some((p) => p[0] === 'update')));
+});

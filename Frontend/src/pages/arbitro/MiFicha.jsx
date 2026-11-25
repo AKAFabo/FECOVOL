@@ -8,6 +8,7 @@ import {
 } from '../../services/arbitraje.js';
 import { correoValido, nombrePersona } from '../../services/representante.js';
 import { rangoFechas } from '../../utils/formato.js';
+import { normalizarTelefono, soloCaracteresDeTelefono } from '../../utils/telefono.js';
 import '../../styles/arbitraje.css';
 
 const iniciales = (p) => `${p?.first_name?.[0] || ''}${p?.last_name?.[0] || ''}`.toUpperCase();
@@ -29,12 +30,13 @@ function EditarContacto({ persona, onCerrar, onGuardado }) {
   async function guardar() {
     const e = {};
     if (!f.email.trim() || !correoValido(f.email.trim())) e.email = 'Escriba un correo válido.';
-    if (!/^[0-9 +()-]{7,20}$/.test(f.phone.trim())) e.phone = 'Escriba un teléfono válido (por ejemplo, 8888-0000).';
+    const tel = normalizarTelefono(f.phone);
+    if (tel.error || !tel.valor) e.phone = tel.error || 'Escriba su teléfono.';
     setErrores(e);
     if (Object.keys(e).length) return;
     setEstado({ ocupado: true, error: null });
     try {
-      await actualizarMiContacto({ email: f.email.trim(), phone: f.phone.trim() });
+      await actualizarMiContacto({ email: f.email.trim(), phone: tel.valor });
       onGuardado();
     } catch (err) {
       setEstado({ ocupado: false, error: err.message });
@@ -61,7 +63,7 @@ function EditarContacto({ persona, onCerrar, onGuardado }) {
           {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={(e) => setF((x) => ({ ...x, email: e.target.value }))} maxLength={254} autoComplete="email" data-autofoco />}
         </Campo>
         <Campo etiqueta="Teléfono" obligatorio error={errores.phone}>
-          {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: e.target.value }))} maxLength={20} autoComplete="tel" />}
+          {(a) => <input {...a} type="tel" inputMode="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} autoComplete="tel" placeholder="8888-0000" />}
         </Campo>
       </div>
     </Modal>

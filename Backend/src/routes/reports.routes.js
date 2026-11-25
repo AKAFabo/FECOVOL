@@ -3,6 +3,8 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
+const { soloFecovol, hoyCR } = require('../utils/arbitraje');
+const reglas = require('../utils/sanciones');
 
 const router = express.Router();
 router.param('competitionId', validateUuidParams);
@@ -172,6 +174,154 @@ router.get('/team-stats/:competitionId', asyncHandler(async (req, res) => {
   }));
 
   res.json({ data: enriched });
+}));
+
+// ==========================================
+//    DESIGNACIONES ARBITRALES E INCIDENTES Y SANCIONES
+//    Traen nombres de árbitros y expedientes disciplinarios: solo FECOVOL (Administración y
+//    Personal de competencias). No incluyen cédulas ni datos de contacto.
+// ==========================================
+
+const ESTADOS_DESIGNACION_REPORTE = ['PROPUESTA', 'CONFIRMADA', 'CUMPLIDA'];
+const nombrePersona = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim() || 'Sin nombre';
+const nombreEquipo = (e) => e?.short_name || e?.name || '';
+const nombrePartido = (m) => (m ? `${nombreEquipo(m.local) || 'Por definir'} vs ${nombreEquipo(m.visitante || m.visita) || 'Por definir'}` : null);
+
+// GET /api/reports/referee-assignments/:competitionId -> partidos por árbitro, con la acreditación
+// vigente a la fecha de cada partido (las anuladas y rechazadas no cuentan).
+router.get('/referee-assignments/:competitionId', soloFecovol, asyncHandler(async (req, res) => {
+  const { data: partidos, error } = await supabase
+    .from('matches')
+    .select(`id, match_number, matchday, scheduled_date, scheduled_time, status,
+      local:teams!matches_home_team_id_fkey(name, short_name),
+      visitante:teams!matches_away_team_id_fkey(name, short_name),
+      arbitraje:referee_assignments!fk_referee_assignments_match(id, status, person_id,
+        arbitro:persons!referee_assignments_person_id_fkey(id, first_name, last_name),
+        puesto:catalog_values!referee_assignments_official_type_value_id_fkey(code, value))`)
+    .eq('competition_id', req.params.competitionId)
+    .order('scheduled_date', { ascending: true })
+    .order('scheduled_time', { ascending: true })
+    .limit(1000);
+  if (error) throw fromSupabase(error);
+
+  const designaciones = (partidos || []).flatMap((m) => (m.arbitraje || [])
+    .filter((a) => ESTADOS_DESIGNACION_REPORTE.includes(a.status))
+    .map((a) => ({ partido: m, designacion: a })));
+
+  const personas = [...new Set(designaciones.map((d) => d.designacion.person_id).filter(Boolean))];
+  let acreditaciones = [];
+  if (personas.length) {
+    const r = await supabase
+      .from('referee_accreditations')
+      .select(`person_id, valid_from, valid_until, status, modality,
+        funcion:catalog_values!referee_accreditations_function_value_id_fkey(value),
+        nivel:catalog_values!referee_accreditations_level_value_id_fkey(value)`)
+      .in('person_id', personas)
+      .neq('status', 'REVOCADA');
+    if (r.error) throw fromSupabase(r.error);
+    acreditaciones = r.data || [];
+  }
+
+  const vigenteA = (personaId, fecha) => (fecha
+    ? acreditaciones
+      .filter((a) => a.person_id === personaId && a.valid_from <= fecha && a.valid_until >= fecha)
+      .sort((x, y) => (y.valid_until || '').localeCompare(x.valid_until || ''))[0] || null
+    : null);
+
+  const filas = designaciones.map(({ partido: m, designacion: a }) => {
+    const acreditacion = vigenteA(a.person_id, m.scheduled_date);
+    return {
+      fecha: m.scheduled_date,
+      hora: m.scheduled_time,
+      jornada: m.matchday,
+      numero: m.match_number,
+      partido: nombrePartido(m),
+      estado_partido: m.status,
+      arbitro_id: a.person_id,
+      arbitro: nombrePersona(a.arbitro),
+      puesto: a.puesto?.value || a.puesto?.code || '',
+      estado: a.status,
+      acreditacion: acreditacion
+        ? { nivel: acreditacion.nivel?.value || null, funcion: acreditacion.funcion?.value || null, hasta: acreditacion.valid_until }
+        : null
+    };
+  });
+
+  const porArbitro = new Map();
+  for (const f of filas) {
+    const r = porArbitro.get(f.arbitro_id) || { arbitro: f.arbitro, partidos: 0, confirmadas: 0, pendientes: 0, sin_acreditacion: 0 };
+    r.partidos += 1;
+    if (f.estado === 'PROPUESTA') r.pendientes += 1; else r.confirmadas += 1;
+    if (!f.acreditacion) r.sin_acreditacion += 1;
+    porArbitro.set(f.arbitro_id, r);
+  }
+
+  res.json({
+    data: {
+      filas: filas.map(({ arbitro_id: _id, ...f }) => f),
+      por_arbitro: [...porArbitro.values()].sort((a, b) => b.partidos - a.partidos || a.arbitro.localeCompare(b.arbitro, 'es'))
+    }
+  });
+}));
+
+// GET /api/reports/incidents/:competitionId -> expedientes de la competencia, su estado y las
+// sanciones aplicadas.
+router.get('/incidents/:competitionId', soloFecovol, asyncHandler(async (req, res) => {
+  const { data, error } = await supabase
+    .from('disciplinary_cases')
+    .select(`id, case_number, title, status, occurred_at, created_at,
+      tipo:catalog_values!disciplinary_cases_incident_type_value_id_fkey(value),
+      partido:matches!disciplinary_cases_match_id_fkey(match_number,
+        local:teams!matches_home_team_id_fkey(name, short_name), visita:teams!matches_away_team_id_fkey(name, short_name)),
+      case_parties!case_parties_case_id_fkey(party_type, role_in_case, venue_name,
+        persona:persons!case_parties_person_id_fkey(first_name, last_name),
+        equipo:teams!case_parties_team_id_fkey(name, short_name)),
+      sanctions(sanction_type, quantity, start_date, end_date, status,
+        persona:persons!sanctions_person_id_fkey(first_name, last_name),
+        equipo:teams!sanctions_team_id_fkey(name, short_name))`)
+    .eq('competition_id', req.params.competitionId)
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  if (error) throw fromSupabase(error);
+
+  const hoy = hoyCR();
+  const parte = (p) => (p.party_type === 'PERSONA' ? nombrePersona(p.persona) : p.party_type === 'EQUIPO' ? nombreEquipo(p.equipo) || 'Equipo' : p.venue_name || 'Sede');
+  const expedientes = (data || []).map((c) => {
+    const partes = c.case_parties || [];
+    const denunciados = partes.filter((p) => p.role_in_case === 'DENUNCIADO');
+    return {
+      numero: c.case_number,
+      titulo: c.title,
+      tipo: c.tipo?.value || null,
+      fecha: String(c.occurred_at || c.created_at || '').slice(0, 10) || null,
+      partido: c.partido ? `${c.partido.match_number ? `#${c.partido.match_number} ` : ''}${nombrePartido(c.partido)}` : null,
+      estado: reglas.estadoVisible(c, hoy),
+      involucrados: (denunciados.length ? denunciados : partes.filter((p) => p.role_in_case === 'INVOLUCRADO')).map(parte),
+      sanciones: (c.sanctions || []).map((s) => ({
+        sancionado: s.persona ? nombrePersona(s.persona) : nombreEquipo(s.equipo) || '—',
+        sancion: reglas.etiqueta(s.sanction_type, s.quantity),
+        desde: s.start_date,
+        hasta: s.end_date,
+        estado: s.status === 'ANULADA' ? 'ANULADA' : reglas.sancionVigente(s, hoy) ? 'VIGENTE' : 'CUMPLIDA'
+      }))
+    };
+  });
+
+  const contar = (e) => expedientes.filter((x) => x.estado === e).length;
+  res.json({
+    data: {
+      expedientes,
+      resumen: {
+        total: expedientes.length,
+        abiertos: contar('ABIERTO'),
+        en_seguimiento: contar('EN_SEGUIMIENTO'),
+        con_sancion: contar('CON_SANCION'),
+        resueltos: contar('RESUELTO'),
+        archivados: contar('ARCHIVADO'),
+        sanciones_vigentes: expedientes.reduce((n, x) => n + x.sanciones.filter((s) => s.estado === 'VIGENTE').length, 0)
+      }
+    }
+  });
 }));
 
 // ==========================================

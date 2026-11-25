@@ -6,6 +6,7 @@ import { Campo, Confirmar, Encabezado, Estado, OpcionesCatalogo, Tarjeta, useMen
 import useCarga from '../../../hooks/useCarga.js';
 import { nombrePersona, valoresCatalogo } from '../../../services/representante.js';
 import { agregarConvocado, editarConvocatoria, ESTADOS_CONVOCATORIA, obtenerConvocatoria, quitarConvocado } from '../../../services/seleccionesAdmin.js';
+import { motivoNoElegible } from '../../../utils/elegibilidadSeleccion.js';
 import { fechaCorta } from '../../../utils/formato.js';
 import BuscarPersona from '../arbitraje/BuscarPersona.jsx';
 
@@ -18,10 +19,19 @@ function AgregarIntegrante({ convocatoria, onAgregado }) {
   const [estado, setEstado] = useState({ ocupado: false, error: '' });
   const cambiar = (campo) => (e) => setF((x) => ({ ...x, [campo]: e.target.value }));
   const yaEstan = convocatoria.integrantes.map((m) => m.persona?.id).filter(Boolean);
+  // Mismo criterio que el backend: rama y categoría de la selección, a la fecha del evento (o hoy).
+  const criterio = {
+    rama: convocatoria.seleccion?.rama || null,
+    categoria: convocatoria.seleccion?.categoria || null,
+    fechaReferencia: convocatoria.requisitos?.fecha_referencia || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Costa_Rica' })
+  };
+  const motivoNoApta = f.member_type === 'JUGADOR' ? (p) => motivoNoElegible(p, criterio) : undefined;
 
   async function guardar(e) {
     e.preventDefault();
     if (!persona) { setEstado({ ocupado: false, error: 'Busque y elija la persona en el padrón.' }); return; }
+    const motivo = motivoNoApta?.(persona);
+    if (motivo) { setEstado({ ocupado: false, error: motivo }); return; }
     setEstado({ ocupado: true, error: '' });
     try {
       await agregarConvocado(convocatoria.id, {
@@ -43,6 +53,12 @@ function AgregarIntegrante({ convocatoria, onAgregado }) {
   return (
     <form className="g-tarjeta__cuerpo g-formulario" onSubmit={guardar}>
       {estado.error && <p className="g-aviso g-aviso--error g-campo--ancho" role="alert">{estado.error}</p>}
+      <Campo etiqueta="Integra como" ancho>{(a) => (
+        <select {...a} className="g-control" value={f.member_type} onChange={cambiar('member_type')}>
+          <option value="JUGADOR">Atleta</option>
+          <option value="CUERPO_TECNICO">Cuerpo técnico</option>
+        </select>
+      )}</Campo>
       <div className="g-campo--ancho">
         {persona ? (
           <p className="g-lista__titulo">
@@ -50,15 +66,9 @@ function AgregarIntegrante({ convocatoria, onAgregado }) {
             <button type="button" className="g-boton g-boton--chico" onClick={() => setPersona(null)}>Cambiar</button>
           </p>
         ) : (
-          <BuscarPersona etiqueta="Persona del padrón" onElegir={setPersona} excluir={yaEstan} textoBoton="Convocar" />
+          <BuscarPersona etiqueta="Persona del padrón" onElegir={setPersona} excluir={yaEstan} textoBoton="Convocar" motivoNoApta={motivoNoApta} />
         )}
       </div>
-      <Campo etiqueta="Integra como">{(a) => (
-        <select {...a} className="g-control" value={f.member_type} onChange={cambiar('member_type')}>
-          <option value="JUGADOR">Atleta</option>
-          <option value="CUERPO_TECNICO">Cuerpo técnico</option>
-        </select>
-      )}</Campo>
       {f.member_type === 'JUGADOR' ? (
         <>
           <Campo etiqueta="Número">{(a) => <input {...a} className="g-control" inputMode="numeric" maxLength={2} value={f.jersey_number} onChange={(e) => setF((x) => ({ ...x, jersey_number: e.target.value.replace(/\D/g, '') }))} />}</Campo>
@@ -90,6 +100,8 @@ export default function Convocatoria() {
   const atletas = c.integrantes.filter((m) => m.member_type === 'JUGADOR').sort((a, b) => (a.jersey_number ?? 999) - (b.jersey_number ?? 999));
   const cuerpo = c.integrantes.filter((m) => m.member_type === 'CUERPO_TECNICO');
   const editable = c.status !== 'ARCHIVADA';
+  const fuera = atletas.filter((m) => m.motivo_no_elegible);
+  const requisitos = c.requisitos?.detalle || [];
 
   async function cambiarEstado(status) {
     setError('');
@@ -126,6 +138,19 @@ export default function Convocatoria() {
         {c.published_at && <Estado tono="neutro">Publicada el {fechaCorta(c.published_at.slice(0, 10))}</Estado>}
       </div>
       {error && <p className="g-aviso g-aviso--error" role="alert">{error}</p>}
+      {requisitos.length > 0 && (
+        <p className="g-aviso">
+          <span className="g-aviso__titulo">Quién puede ser convocado como atleta</span>
+          {[c.seleccion?.categoria?.value, c.seleccion?.rama?.value].filter(Boolean).join(' · ')}: {requisitos.join('; ')}
+          {c.evento ? ', según la fecha de inicio del evento.' : '. Sin evento asignado se toma la fecha de hoy.'}
+        </p>
+      )}
+      {fuera.length > 0 && (
+        <p className="g-aviso g-aviso--error" role="alert">
+          <span className="g-aviso__titulo">{fuera.length === 1 ? 'Un atleta no cumple' : `${fuera.length} atletas no cumplen`} la categoría o la rama</span>
+          Quítelos o corrija su ficha en el padrón; mientras tanto la convocatoria no se puede publicar.
+        </p>
+      )}
       <p className="g-aviso">
         <span className="g-aviso__titulo">Qué se publica</span>
         De cada atleta, el portal muestra solo nombre, número y posición; del cuerpo técnico, nombre y cargo. Nada de cédulas ni contactos.
@@ -143,7 +168,10 @@ export default function Convocatoria() {
                     {atletas.map((m) => (
                       <tr key={m.id}>
                         <td>{m.jersey_number ?? '—'}</td>
-                        <th scope="row">{nombrePersona(m.persona)}<span className="g-tabla__sub">{m.persona?.document_number}</span></th>
+                        <th scope="row">
+                          {nombrePersona(m.persona)}<span className="g-tabla__sub">{m.persona?.document_number}</span>
+                          {m.motivo_no_elegible && <span className="g-tabla__sub g-campo__error">{m.motivo_no_elegible}</span>}
+                        </th>
                         <td>{m.posicion?.value || 'Sin definir'}</td>
                         <td>{m.persona?.asociacion?.short_name || m.persona?.asociacion?.name || 'Sin asociación'}</td>
                         {editable && <td className="g-tabla__accion"><button type="button" className="g-boton g-boton--chico" onClick={() => quitar(m)}>Quitar<span className="visualmente-oculto"> {nombrePersona(m.persona)}</span></button></td>}

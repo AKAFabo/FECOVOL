@@ -8,6 +8,7 @@ import {
   actualizarAsociacion, agregarCargo, correoValido, editarCargo, listarDocumentos, obtenerAsociacion, terminarCargo, valoresCatalogo, PROVINCIAS
 } from '../../services/representante.js';
 import { fechaCorta } from '../../utils/formato.js';
+import { normalizarTelefono, soloCaracteresDeTelefono } from '../../utils/telefono.js';
 import SubirDocumento from './SubirDocumento.jsx';
 import TablaDocumentos from './TablaDocumentos.jsx';
 import { useAsociacion } from './contexto.js';
@@ -38,11 +39,13 @@ function CargoModal({ cargo, onCerrar, onGuardar }) {
     if (!f.position.trim()) e.position = 'Indique el cargo.';
     if (!f.full_name.trim()) e.full_name = 'Escriba el nombre.';
     if (!correoValido(f.email.trim())) e.email = 'El correo no es válido.';
+    const tel = normalizarTelefono(f.phone);
+    if (tel.error) e.phone = tel.error;
     setErrores(e);
     if (Object.keys(e).length) return;
     setEstado({ guardando: true, error: null });
     try {
-      await onGuardar({ position: f.position.trim(), full_name: f.full_name.trim(), email: f.email.trim(), phone: f.phone.trim() });
+      await onGuardar({ position: f.position.trim(), full_name: f.full_name.trim(), email: f.email.trim(), phone: tel.valor || '' });
     } catch (err) {
       setEstado({ guardando: false, error: err.message });
     }
@@ -91,8 +94,8 @@ function CargoModal({ cargo, onCerrar, onGuardar }) {
         <Campo etiqueta="Correo" error={errores.email}>
           {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
         </Campo>
-        <Campo etiqueta="Teléfono">
-          {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={30} />}
+        <Campo etiqueta="Teléfono" error={errores.phone}>
+          {(a) => <input {...a} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} placeholder="8888-0000" />}
         </Campo>
       </div>
     </Modal>
@@ -114,11 +117,13 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
     const encontrados = {};
     if (!correoValido(f.email.trim())) encontrados.email = 'El correo no es válido.';
     if (f.website && !/^(https?:\/\/)?[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(f.website.trim())) encontrados.website = 'Escriba una dirección web válida.';
+    const tel = normalizarTelefono(f.phone);
+    if (tel.error) encontrados.phone = tel.error;
     setErrores(encontrados);
     if (Object.keys(encontrados).length) return;
     setEstado({ guardando: true, error: null });
     try {
-      await actualizarAsociacion(a.id, Object.fromEntries(CAMPOS.map((c) => [c, f[c].trim()])));
+      await actualizarAsociacion(a.id, { ...Object.fromEntries(CAMPOS.map((c) => [c, f[c].trim()])), phone: tel.valor || '' });
       setEstado({ guardando: false, error: null });
       mostrar('Datos de la asociación guardados.');
       recargar();
@@ -175,8 +180,8 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
               <Campo etiqueta="Correo institucional" error={errores.email}>
                 {(a2) => <input {...a2} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
               </Campo>
-              <Campo etiqueta="Teléfono">
-                {(a2) => <input {...a2} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={30} />}
+              <Campo etiqueta="Teléfono" error={errores.phone}>
+                {(a2) => <input {...a2} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} placeholder="8888-0000" />}
               </Campo>
               <Campo etiqueta="Sitio web o red social" error={errores.website}>
                 {(a2) => <input {...a2} className="g-control" value={f.website} onChange={cambiar('website')} maxLength={200} />}

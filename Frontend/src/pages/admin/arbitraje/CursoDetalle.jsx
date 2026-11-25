@@ -159,7 +159,8 @@ export default function CursoDetalle() {
                   <BuscarPersona
                     etiqueta="Inscribir a una persona"
                     textoBoton={inscribiendo.ocupado ? 'Inscribiendo…' : 'Inscribir'}
-                    rol={c.course_type === 'FORMACION_INICIAL' ? undefined : 'ARBITRO'}
+                    rol="ARBITRO"
+                    textoVacio="No hay árbitros activos en el padrón que coincidan. La persona necesita el rol de árbitro en Personas federadas."
                     excluir={inscritos.map((i) => i.persona?.id)}
                     onElegir={inscribir}
                   />

@@ -136,13 +136,10 @@ function archivo(valor, campo) {
   return { path: valor.path, name: texto(valor.name, 255, `Nombre de ${campo}`) || valor.path.split('/').pop() };
 }
 
-const sancionVigente = (s, fecha = hoy()) => s.status === 'VIGENTE' && (!s.end_date || s.end_date >= fecha);
+const sancionVigente = (s, fecha = hoy()) => reglas.sancionVigente(s, fecha);
 
 // Estado que ve el usuario: un expediente con sanción pasa a "Resuelto" cuando ya no le quedan sanciones vigentes.
-function estadoVisible(caso) {
-  if (caso.status !== 'CON_SANCION') return caso.status;
-  return (caso.sanctions || []).some((s) => sancionVigente(s)) ? 'CON_SANCION' : 'RESUELTO';
-}
+const estadoVisible = (caso) => reglas.estadoVisible(caso, hoy());
 
 // "K. Brown (técnico)", "Heredia VC", "Sede".
 function etiquetaParte(p) {

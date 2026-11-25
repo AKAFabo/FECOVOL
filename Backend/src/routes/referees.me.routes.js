@@ -8,6 +8,7 @@ const express = require('express');
 const multer = require('multer');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { normalizarTelefono } = require('../utils/telefono');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { tieneRol, denegar, hoyCR, sumarDias, texto } = require('../utils/arbitraje');
@@ -18,7 +19,6 @@ const router = express.Router();
 router.param('id', validateUuidParams);
 
 const CORREO = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
-const TELEFONO = /^[0-9 +()-]{7,20}$/;
 
 const SELECT_ACREDITACION = `id, modality, valid_from, valid_until, status, created_at,
   funcion:catalog_values!referee_accreditations_function_value_id_fkey(code, value),
@@ -199,10 +199,14 @@ router.patch('/designaciones/:id', asyncHandler(async (req, res) => {
 router.patch('/contacto', asyncHandler(async (req, res) => {
   const b = req.body || {};
   const correo = b.email === undefined ? undefined : texto(b.email, 254).toLowerCase();
-  const telefono = b.phone === undefined ? undefined : texto(b.phone, 20);
+  let telefono;
+  if (b.phone !== undefined) {
+    const { valor, error } = normalizarTelefono(b.phone);
+    if (error || !valor) throw new HttpError(400, error || 'Escriba el teléfono.');
+    telefono = valor;
+  }
   if (correo === undefined && telefono === undefined) throw new HttpError(400, 'Indique el correo o el teléfono.');
   if (correo !== undefined && !CORREO.test(correo)) throw new HttpError(400, 'El correo no es válido.');
-  if (telefono !== undefined && !TELEFONO.test(telefono)) throw new HttpError(400, 'El teléfono no es válido.');
 
   const { error } = await supabase.rpc('sp_update_person', {
     p_id: req.arbitro.id,
