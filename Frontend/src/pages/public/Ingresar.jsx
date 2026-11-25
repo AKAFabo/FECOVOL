@@ -724,20 +724,22 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
       {/* Si no tiene token y ya terminó de verificar, bloquear formulario para prevenir Account Takeover */}
       {!verificandoToken && !tieneToken ? (
         <div style={{ marginTop: '16px' }}>
-          <div className="alerta alerta--error" role="alert" style={{ marginBottom: '20px' }}>
-            {errorToken || 'Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.'}
-          </div>
+          {!mostrarFormCodigo && (
+            <div className="alerta alerta--error" role="alert" style={{ marginBottom: '20px' }}>
+              {errorToken || 'Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.'}
+            </div>
+          )}
 
           {mostrarFormCodigo ? (
-            <form onSubmit={handleValidarCodigo} style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', color: '#1e293b' }}>
-                Validar con código de 6 dígitos
+            <form onSubmit={handleValidarCodigo} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px', color: '#1e293b' }}>
+                Validar con código de verificación (OTP)
               </h3>
-              <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '14px' }}>
-                Si su correo incluye un código numérico (OTP), ingréselo a continuación para habilitar el cambio de contraseña:
+              <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px', lineHeight: 1.4 }}>
+                Si su correo incluye un código numérico (de 6 u 8 dígitos), ingréselo a continuación para habilitar el cambio de contraseña:
               </p>
               {errorCodigo && (
-                <div className="alerta alerta--error" role="alert" style={{ marginBottom: '12px' }}>
+                <div className="alerta alerta--error" role="alert" style={{ marginBottom: '14px' }}>
                   {errorCodigo}
                 </div>
               )}
@@ -754,34 +756,34 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
                 />
               </div>
               <div className="campo">
-                <label htmlFor="codigo-otp-val" className="campo__etiqueta">Código de 6 dígitos</label>
+                <label htmlFor="codigo-otp-val" className="campo__etiqueta">Código de verificación (OTP)</label>
                 <input
                   id="codigo-otp-val"
                   type="text"
-                  maxLength={10}
+                  maxLength={12}
                   value={codigoOtp}
                   onChange={(e) => setCodigoOtp(e.target.value)}
-                  placeholder="Ej. 123456"
+                  placeholder="Ej. 00443821"
                   className="campo__input"
-                  style={{ letterSpacing: '2px', fontSize: '1.1rem', fontWeight: 'bold' }}
+                  style={{ letterSpacing: '3px', fontSize: '1.15rem', fontWeight: 'bold' }}
                   required
                 />
               </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="submit" className="btn-primario" disabled={validandoCodigo}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                <button type="submit" className="btn-primario" style={{ flex: 1 }} disabled={validandoCodigo}>
                   {validandoCodigo ? 'Validando…' : 'Validar código'}
                 </button>
-                <button type="button" className="btn-secundario" onClick={() => setMostrarFormCodigo(false)}>
+                <button type="button" className="btn-secundario" style={{ flex: 1 }} onClick={() => setMostrarFormCodigo(false)}>
                   Cancelar
                 </button>
               </div>
             </form>
           ) : null}
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="ingresar__botones-grupo">
             {!mostrarFormCodigo && (
               <button type="button" className="btn-secundario" onClick={() => setMostrarFormCodigo(true)}>
-                Ingresar código de 6 dígitos
+                Ingresar código de verificación (OTP)
               </button>
             )}
             {errorToken && onSolicitarNuevoEnlace && (

@@ -216,23 +216,20 @@ router.post('/resend-password-link', authorize({ requiredPermission: '/admin/usu
       emailEnviado = true;
     } else {
       console.warn('Aviso de Supabase resetPasswordForEmail en resend-password-link:', resetErr.message);
-    }
+      // Solo si el envío directo de correo falla (o en tests/offline), generar enlace de respaldo vía Admin API.
+      // IMPORTANTE: NO llamar generateLink si el correo ya se envió, porque invalidaría el token recién enviado al usuario.
+      const { data: linkData } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email: emailDestino,
+        options: {
+          redirectTo: `${frontendUrl}/restablecer-contrasena`
+        }
+      });
 
-    // Generar enlace seguro vía Admin API
-    const { data: linkData } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: emailDestino,
-      options: {
-        redirectTo: `${frontendUrl}/restablecer-contrasena`
+      if (linkData?.properties?.action_link) {
+        actionLink = linkData.properties.action_link;
+        console.log(`[AUTH ADMIN] Enlace de respaldo generado para ${emailDestino}: ${actionLink}`);
       }
-    });
-
-    if (linkData?.properties?.action_link) {
-      actionLink = linkData.properties.action_link;
-      console.log('\n========================================================================');
-      console.log(`[AUTH ADMIN] ENLACE DE RESTABLECIMIENTO GENERADO PARA: ${emailDestino}`);
-      console.log(actionLink);
-      console.log('========================================================================\n');
     }
   } catch (errAuth) {
     console.error('Error al generar enlace de restablecimiento en Supabase Auth:', errAuth);
@@ -497,26 +494,22 @@ router.post('/request-password-reset', asyncHandler(async (req, res) => {
 
     if (resetErr) {
       console.warn('Aviso de Supabase resetPasswordForEmail (posible rate limit):', resetErr.message);
+      // Solo generar enlace de respaldo vía Admin API si el envío por correo falló.
+      // Si el correo se envió con éxito, NO llamar generateLink para no invalidar el token recién enviado.
+      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email: emailLimpio,
+        options: {
+          redirectTo: `${frontendUrl}/restablecer-contrasena`
+        }
+      });
+
+      if (!linkErr && linkData?.properties?.action_link) {
+        devActionLink = linkData.properties.action_link;
+        console.log(`[AUTH] Enlace de respaldo generado para ${emailLimpio}: ${devActionLink}`);
+      }
     } else {
       emailEnviado = true;
-    }
-
-    // Generar enlace seguro mediante Admin API como respaldo para desarrollo y testing
-    const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: emailLimpio,
-      options: {
-        redirectTo: `${frontendUrl}/restablecer-contrasena`
-      }
-    });
-
-    if (!linkErr && linkData?.properties?.action_link) {
-      devActionLink = linkData.properties.action_link;
-      console.log('\n========================================================================');
-      console.log(`[AUTH] ENLACE DE RECUPERACIÓN GENERADO PARA: ${emailLimpio}`);
-      console.log('Copie y pegue esta URL en su navegador para probar la recuperación segura:');
-      console.log(devActionLink);
-      console.log('========================================================================\n');
     }
   } catch (errAuth) {
     console.error('Excepción al solicitar recuperación en Supabase Auth:', errAuth);
