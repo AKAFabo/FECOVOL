@@ -485,7 +485,7 @@ function FormularioRecuperar({ onVolver, onContrasenaPendiente }) {
 /* ═══════════════════════════════════════════════════════════════════
    Vista de ESTABLECER / CAMBIAR CONTRASEÑA (Para Invitaciones y Recuperación)
    ═══════════════════════════════════════════════════════════════════ */
-function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = '', onVolver }) {
+function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = '', onVolver, onSolicitarNuevoEnlace }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [correo, setCorreo]               = useState(correoPrellenado || location.state?.email || '');
@@ -498,12 +498,29 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
   const [exito, setExito]                 = useState(false);
   const [tieneToken, setTieneToken]       = useState(false);
   const [verificandoToken, setVerificandoToken] = useState(true);
+  const [errorToken, setErrorToken]       = useState('');
 
   // Verificar obligatoriamente si el usuario llegó con un token firmado válido en la URL o sesión
   useEffect(() => {
     async function cargarSesion() {
       setVerificandoToken(true);
       const hash = window.location.hash;
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+      const errorParam = hashParams.get('error') || hashParams.get('error_code');
+      const errorDesc = hashParams.get('error_description');
+
+      // Si Supabase devuelve un error en el hash (ej. otp_expired o access_denied)
+      if (errorParam || errorDesc) {
+        if (errorParam === 'otp_expired' || (errorDesc && errorDesc.toLowerCase().includes('expired'))) {
+          setErrorToken('El enlace de recuperación es inválido o ha expirado. Por motivos de seguridad, los enlaces son de un solo uso y tienen una vigencia limitada.');
+        } else {
+          setErrorToken(errorDesc ? decodeURIComponent(errorDesc.replace(/\+/g, ' ')) : 'El enlace de acceso es inválido o no está autorizado.');
+        }
+        setTieneToken(false);
+        setVerificandoToken(false);
+        return;
+      }
+
       const hayTokenHash = hash && (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=invite'));
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -641,11 +658,18 @@ function FormularioEstablecerContrasena({ correoPrellenado = '', mensajeAviso = 
       {!verificandoToken && !tieneToken ? (
         <div style={{ marginTop: '16px' }}>
           <div className="alerta alerta--error" role="alert" style={{ marginBottom: '20px' }}>
-            Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.
+            {errorToken || 'Acceso no autorizado: Para definir o cambiar una contraseña debe ingresar al sistema utilizando el enlace seguro enviado a su correo electrónico.'}
           </div>
-          <button type="button" className="btn-primario" onClick={onVolver}>
-            Volver al inicio de sesión
-          </button>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {errorToken && onSolicitarNuevoEnlace && (
+              <button type="button" className="btn-primario" onClick={onSolicitarNuevoEnlace}>
+                Solicitar nuevo enlace de recuperación
+              </button>
+            )}
+            <button type="button" className={errorToken ? 'btn-secundario' : 'btn-primario'} onClick={onVolver}>
+              Volver al inicio de sesión
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -822,6 +846,7 @@ export default function Ingresar() {
               correoPrellenado={correoPendiente} 
               mensajeAviso={mensajeAviso} 
               onVolver={() => setVista('login')} 
+              onSolicitarNuevoEnlace={() => setVista('recuperar')}
             />
           )}
         </div>
