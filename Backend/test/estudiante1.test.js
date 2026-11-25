@@ -100,6 +100,14 @@ test('RF-SEG-004: invitar usuario sin email o sin roles da 400', async () => {
   assert.equal(r2.status, 400);
 });
 
+test('RF-SEG-004: el correo de invitacion vuelve a la pantalla de definir contrasena del frontend', async () => {
+  await call('POST', '/api/users/invite', { email: 'nuevo@fecovol.cr', full_name: 'Nuevo', status: 'ACTIVA', role_ids: [UUID_ROL] }, ADMIN);
+  const invitacion = fake.llamadas.find((l) => l.tipo === 'invitacion');
+  assert.ok(invitacion, 'se envió la invitación');
+  // Sin redirectTo, Supabase usaría su Site URL (localhost) y el enlace no serviría en producción.
+  assert.match(invitacion.opciones.redirectTo, /\/restablecer-contrasena$/);
+});
+
 test('RF-SEG-006: cambiar de vista de rol activo sin role_id da 400', async () => {
   const r = await call('POST', '/api/users/switch-active-role', {}, ADMIN);
   assert.equal(r.status, 400);

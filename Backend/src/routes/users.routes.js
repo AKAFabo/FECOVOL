@@ -72,9 +72,13 @@ router.post('/invite', authorize({ requiredPermission: '/admin/usuarios', resour
     throw new HttpError(400, 'Operación denegada: Toda cuenta activa debe tener al menos un rol asignado.');
   }
 
-  // 1. Enviar invitación por email con Supabase Admin API
+  // 1. Enviar invitación por email con Supabase Admin API.
+  // Sin redirectTo, Supabase usa su "Site URL" (localhost en desarrollo) y el enlace del correo
+  // no sirve en producción: igual que los demás correos, vuelve a la pantalla de definir contraseña.
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-    data: { full_name }
+    data: { full_name },
+    redirectTo: `${frontendUrl}/restablecer-contrasena`
   });
 
   const errAuth = fromSupabase(inviteError);
