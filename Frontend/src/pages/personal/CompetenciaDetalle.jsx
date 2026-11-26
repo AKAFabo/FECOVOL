@@ -722,7 +722,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                   <td>{p.matchday}</td>
                   <td>{p.local?.name}</td>
                   <td>{p.visitante?.name}</td>
-                  <td>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
+                  <td>{formatearFecha(p.scheduled_date)} {p.scheduled_time?.slice(0, 5)}</td>
                   <td>{nombreSede(p)}</td>
                   <td><span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span></td>
                   <td style={{ textAlign: 'right' }}>
@@ -809,7 +809,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                     {datosReporte.tipo === 'proxima' ? (
                       (datosReporte.data.matches || []).map((m, i) => (
                         <tr key={i}>
-                          <td>{m.scheduled_date} {m.scheduled_time}</td>
+                          <td>{m.scheduled_date} {m.scheduled_time?.slice(0, 5)}</td>
                           <td style={{ fontWeight: 600 }}>{m.local?.name}</td>
                           <td style={{ textAlign: 'center', fontWeight: 800 }}>vs</td>
                           <td style={{ fontWeight: 600 }}>{m.visitante?.name}</td>
@@ -819,7 +819,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                     ) : (
                       (datosReporte.data || []).map((m, i) => (
                         <tr key={i}>
-                          <td>{m.scheduled_time}</td>
+                          <td>{m.scheduled_time?.slice(0, 5)}</td>
                           <td style={{ fontWeight: 600, textAlign: 'right' }}>{m.local?.name}</td>
                           <td style={{ textAlign: 'center', fontWeight: 800, color: m.status === 'FINALIZADO' ? 'var(--azul)' : 'inherit' }}>
                             {m.status === 'FINALIZADO' ? `${m.home_sets_won} - ${m.away_sets_won}` : 'Pendiente'}

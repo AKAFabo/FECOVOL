@@ -8,6 +8,8 @@ import useCarga from '../../../hooks/useCarga.js';
 import { crearAsociacion, invitarUsuario, listarRoles } from '../../../services/administracion.js';
 import { correoValido, valoresCatalogo, PROVINCIAS } from '../../../services/representante.js';
 import { RUTA_ADMIN as RUTA } from '../../asociacion/contexto.js';
+import EntradaTelefono from '../../../components/EntradaTelefono.jsx';
+import { normalizarTelefono } from '../../../utils/telefono.js';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 
@@ -29,6 +31,7 @@ function validar(f) {
   if (!f.province) e.province = 'Elija la provincia.';
   if (f.founded_date && f.founded_date > HOY()) e.founded_date = 'La fecha de fundación no puede ser futura.';
   if (!correoValido(f.email.trim())) e.email = 'El correo no es válido.';
+  if (normalizarTelefono(f.phone).error) e.phone = normalizarTelefono(f.phone).error;
   if (f.invitar) {
     if (!f.rep_nombre.trim()) e.rep_nombre = 'Escriba el nombre del representante.';
     if (!f.rep_correo.trim() || !correoValido(f.rep_correo.trim())) e.rep_correo = 'Escriba un correo válido: ahí le llega la invitación.';
@@ -64,7 +67,7 @@ function Formulario({ sedes, roles }) {
         canton: f.canton.trim() || null,
         founded_date: f.founded_date || null,
         email: f.email.trim() || null,
-        phone: f.phone.trim() || null,
+        phone: normalizarTelefono(f.phone).valor,
         address: f.address.trim() || null,
         home_venue: f.home_venue || null,
         status: f.status
@@ -148,8 +151,8 @@ function Formulario({ sedes, roles }) {
               <Campo etiqueta="Correo institucional" error={errores.email}>
                 {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
               </Campo>
-              <Campo etiqueta="Teléfono">
-                {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={30} />}
+              <Campo etiqueta="Teléfono" error={errores.phone}>
+                {(a) => <EntradaTelefono {...a} className="g-control" value={f.phone} onCambiar={(v) => setF((x) => ({ ...x, phone: v }))} />}
               </Campo>
               <Campo etiqueta="Gimnasio sede">
                 {(a) => (

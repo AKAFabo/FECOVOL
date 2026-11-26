@@ -4,6 +4,7 @@
 import { useRef, useState } from 'react';
 import { Campo, Modal, OpcionesCatalogo } from '../../components/gestion/Gestion.jsx';
 import { FORMATOS, MAXIMO_MB, subirDocumento } from '../../services/representante.js';
+import { tipoPermitido } from '../../utils/tiposDocumento.js';
 
 const TIPOS_ACEPTADOS = ['application/pdf', 'image/jpeg', 'image/png'];
 const EXTENSIONES = /\.(pdf|jpe?g|png)$/i;
@@ -34,6 +35,13 @@ export default function SubirDocumento({ tipos, titulares, titularFijo, tipoInic
   const [estado, setEstado] = useState({ subiendo: false, error: null });
 
   const cambiar = (campo) => (e) => setF((x) => ({ ...x, [campo]: e.target.value }));
+  const hoy = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+
+  // Solo los tipos que corresponden al titular elegido (una cédula no es de un equipo).
+  const titularActual = titularFijo ? titularFijo.titular : titulares?.find((t) => t.clave === f.titular)?.titular;
+  const tipoTitular = titularActual?.person_id ? 'PERSONA' : titularActual?.team_id ? 'EQUIPO' : titularActual?.association_id ? 'ASOCIACION' : null;
+  const tiposVisibles = tipoTitular ? (tipos || []).filter((t) => tipoPermitido(t.code, tipoTitular)) : (tipos || []);
+  const tipoValido = !f.tipo || tiposVisibles.some((t) => t.code === f.tipo);
 
   function elegir(lista) {
     const elegido = lista?.[0] || null;
@@ -44,7 +52,8 @@ export default function SubirDocumento({ tipos, titulares, titularFijo, tipoInic
   async function subir() {
     const e = {};
     if (!titularFijo && !f.titular) e.titular = 'Elija a quién pertenece el documento.';
-    if (!f.tipo) e.tipo = 'Elija el tipo de documento.';
+    if (!f.tipo || !tipoValido) e.tipo = 'Elija el tipo de documento.';
+    if (f.emision && f.emision > hoy) e.emision = 'La fecha de emisión no puede ser futura.';
     const errorArchivo = revisarArchivo(archivo);
     if (errorArchivo) e.archivo = errorArchivo;
     if (f.emision && f.vencimiento && f.vencimiento < f.emision) e.vencimiento = 'El vencimiento no puede ser anterior a la emisión.';
@@ -91,13 +100,13 @@ export default function SubirDocumento({ tipos, titulares, titularFijo, tipoInic
         )}
         <Campo etiqueta="Tipo de documento" obligatorio error={errores.tipo} ancho>
           {(a) => (
-            <select {...a} className="g-control" value={f.tipo} onChange={cambiar('tipo')}>
-              <OpcionesCatalogo valores={tipos} vacia="Elija…" />
+            <select {...a} className="g-control" value={tipoValido ? f.tipo : ''} onChange={cambiar('tipo')}>
+              <OpcionesCatalogo valores={tiposVisibles} vacia="Elija…" />
             </select>
           )}
         </Campo>
-        <Campo etiqueta="Fecha de emisión">
-          {(a) => <input {...a} type="date" className="g-control" value={f.emision} onChange={cambiar('emision')} />}
+        <Campo etiqueta="Fecha de emisión" error={errores.emision}>
+          {(a) => <input {...a} type="date" className="g-control" value={f.emision} max={hoy} onChange={cambiar('emision')} />}
         </Campo>
         <Campo etiqueta="Fecha de vencimiento" ayuda="Déjela vacía si no vence." error={errores.vencimiento}>
           {(a) => <input {...a} type="date" className="g-control" value={f.vencimiento} min={f.emision || undefined} onChange={cambiar('vencimiento')} />}

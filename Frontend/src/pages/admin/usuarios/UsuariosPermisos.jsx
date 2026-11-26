@@ -4,6 +4,7 @@ import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 import { URL_BACKEND } from '../../../services/backend.js';
 import Icono from '../../../components/Icono.jsx';
+import { avisar, pedirConfirmacion } from '../../../components/Avisos.jsx';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
@@ -167,7 +168,7 @@ export default function UsuariosPermisos() {
       setUsuarios(formateados);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);
-      setError('No se pudieron cargar los usuarios de Supabase: ' + err.message);
+      setError('No se pudieron cargar los usuarios: ' + err.message);
     } finally {
       setCargando(false);
     }
@@ -216,7 +217,7 @@ export default function UsuariosPermisos() {
     e.preventDefault();
     if (!nuevoUsuario.email || !nuevoUsuario.nombre) return;
     if (!nuevoUsuario.rolesIds || nuevoUsuario.rolesIds.length === 0) {
-      alert('Debe seleccionar al menos un rol para el usuario.');
+      avisar('Debe seleccionar al menos un rol para el usuario.', { tono: 'error' });
       return;
     }
 
@@ -257,10 +258,10 @@ export default function UsuariosPermisos() {
         estado: 'PENDIENTE_CONTRASENA'
       });
       await cargarDatos();
-      alert('Invitación enviada por correo al usuario con éxito y registrada en la bitácora.');
+      avisar('Invitación enviada por correo al usuario con éxito y registrada en la bitácora.', { tono: 'ok' });
     } catch (err) {
       console.error('Error al invitar usuario:', err);
-      alert('No se pudo enviar la invitación: ' + err.message);
+      avisar('No se pudo enviar la invitación: ' + err.message, { tono: 'error' });
     } finally {
       setGuardando(false);
     }
@@ -277,9 +278,11 @@ export default function UsuariosPermisos() {
       return;
     }
 
-    const confirmar = window.confirm(
-      `¿Desea enviar un enlace por correo electrónico a ${usuarioEditando.email} para que establezca su contraseña?\n\nLa cuenta quedará en estado "Contraseña pendiente" hasta que el usuario complete el proceso.`
-    );
+    const confirmar = await pedirConfirmacion({
+      titulo: 'Enviar enlace de contraseña',
+      texto: `¿Desea enviar un enlace por correo electrónico a ${usuarioEditando.email} para que establezca su contraseña?\n\nLa cuenta quedará en estado "Contraseña pendiente" hasta que el usuario complete el proceso.`,
+      textoAccion: 'Enviar enlace'
+    });
     if (!confirmar) return;
 
     setEnviandoEnlace(true);
@@ -347,7 +350,7 @@ export default function UsuariosPermisos() {
 
     // Validación preventiva: toda cuenta activa debe tener al menos un rol asignado (RF-SEG-006)
     if (usuarioEditando.estado === 'ACTIVA' && (!usuarioEditando.rolesIds || usuarioEditando.rolesIds.length === 0)) {
-      alert('Operación no permitida: Toda cuenta activa debe tener al menos un rol asignado.');
+      avisar('Operación no permitida: Toda cuenta activa debe tener al menos un rol asignado.', { tono: 'error' });
       return;
     }
 
@@ -372,9 +375,9 @@ export default function UsuariosPermisos() {
       const desactivoCuenta = usuarioEditando.estado !== 'ACTIVA';
 
       if (esUnicoAdminActivo && (perdioAdmin || desactivoCuenta)) {
-        alert(
+        avisar(
           'Operación no permitida: Esta es la única cuenta de Administrador activa en el sistema. ' +
-          'No puede ser suspendida ni despojada del rol Administrador para garantizar la continuidad del acceso administrativo.'
+          'No puede ser suspendida ni despojada del rol Administrador para garantizar la continuidad del acceso administrativo.', { tono: 'error' }
         );
         setGuardando(false);
         return;
@@ -450,11 +453,6 @@ export default function UsuariosPermisos() {
 
       // Si el administrador editó el rol o suspendió SU PROPIA cuenta, cerrar su sesión de inmediato
       if (esMismoUsuario && (rolCambio || estadoCambio)) {
-        alert(
-          rolCambio
-            ? 'Ha modificado los roles de su propia cuenta. Su sesión se cerrará para aplicar los nuevos permisos.'
-            : `Ha modificado el estado de su propia cuenta a ${usuarioEditando.estado}. Su sesión ha sido finalizada.`
-        );
         await supabase.auth.signOut();
         navigate('/ingresar', {
           state: {
@@ -472,7 +470,7 @@ export default function UsuariosPermisos() {
       await cargarDatos();
     } catch (err) {
       console.error('Error al editar usuario:', err);
-      alert('Error al actualizar usuario: ' + err.message);
+      avisar('Error al actualizar usuario: ' + err.message, { tono: 'error' });
     } finally {
       setGuardando(false);
     }
@@ -553,7 +551,7 @@ export default function UsuariosPermisos() {
         <div className="admin-card">
           {cargando ? (
             <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)' }}>
-              Cargando usuarios desde Supabase...
+              Cargando usuarios…
             </div>
           ) : (
             <table className="admin-table">

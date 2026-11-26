@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
+import { avisar } from '../../components/Avisos.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -232,7 +233,7 @@ export default function Reportes() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Error al descargar CSV: ' + err.message);
+      avisar('Error al descargar CSV: ' + err.message, { tono: 'error' });
     }
   }
 
@@ -259,7 +260,7 @@ export default function Reportes() {
         setTimeout(() => window.print(), 500);
       }, 200);
     } catch (err) {
-      alert('Error al descargar PDF: ' + err.message);
+      avisar('Error al descargar PDF: ' + err.message, { tono: 'error' });
     }
   }
 
@@ -407,7 +408,7 @@ export default function Reportes() {
                             <tr key={i}>
                               <td>{m.matchday}</td>
                               <td>{formatearFecha(m.scheduled_date)}</td>
-                              <td>{m.scheduled_time}</td>
+                              <td>{m.scheduled_time?.slice(0, 5)}</td>
                               <td style={{ fontWeight: 600 }}>{m.local?.name}</td>
                               <td style={{ textAlign: 'center', fontWeight: 800 }}>vs</td>
                               <td style={{ fontWeight: 600 }}>{m.visitante?.name}</td>
@@ -419,7 +420,7 @@ export default function Reportes() {
                             <tr key={i}>
                               <td>{m.matchday}</td>
                               <td>{formatearFecha(m.scheduled_date)}</td>
-                              <td>{m.scheduled_time}</td>
+                              <td>{m.scheduled_time?.slice(0, 5)}</td>
                               <td style={{ fontWeight: 600, textAlign: 'right' }}>{m.local?.name}</td>
                               <td style={{ textAlign: 'center', fontWeight: 800, color: m.status === 'FINALIZADO' ? 'var(--azul)' : 'inherit' }}>
                                 {m.status === 'FINALIZADO' ? `${m.home_sets_won} - ${m.away_sets_won}` : 'Pendiente'}

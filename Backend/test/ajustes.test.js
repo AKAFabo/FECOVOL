@@ -72,8 +72,10 @@ test('un equipo retirado se reincorpora si la competencia no terminó y hay cupo
     { data: null, error: null });
   const r = await call('POST', `/api/competitions/${COMP}/teams/${EQUIPO}/reincorporar`);
   assert.equal(r.status, 200);
-  const u = updates('competition_teams')[0];
-  assert.deepEqual(u.pasos.find((p) => p[0] === 'update')[1], { status: 'INSCRITO' });
+  const [rpc] = rpcs();
+  assert.equal(rpc.nombre, 'sp_set_competition_team_status');
+  assert.deepEqual([rpc.params.p_competition_id, rpc.params.p_team_id, rpc.params.p_status], [COMP, EQUIPO, 'INSCRITO']);
+  assert.ok(rpc.params.p_user);
 });
 
 test('no se reincorpora en una competencia finalizada, sin cupo o si el equipo no estaba retirado', async () => {
@@ -91,6 +93,7 @@ test('no se reincorpora en una competencia finalizada, sin cupo o si el equipo n
   fake.alResponderTabla('competition_teams', { data: { id: 'ct1', status: 'INSCRITO' }, error: null });
   assert.equal((await call('POST', `/api/competitions/${COMP}/teams/${EQUIPO}/reincorporar`)).status, 409);
   assert.equal(updates('competition_teams').length, 0);
+  assert.equal(rpcs().length, 0);
 
   assert.equal((await call('POST', `/api/competitions/${COMP}/teams/${EQUIPO}/reincorporar`, null, REPRE)).status, 403);
 });
@@ -158,4 +161,61 @@ test('los expedientes de un partido se listan solo para FECOVOL y sin datos pers
   const consulta = fake.llamadas.find((l) => l.tabla === 'disciplinary_cases');
   assert.ok(consulta.pasos.some((p) => p[0] === 'eq' && p[1] === 'match_id' && p[2] === PARTIDO));
   assert.doesNotMatch(consulta.pasos.find((p) => p[0] === 'select')[1], /facts|document_number|persons/);
+});
+
+test('sin la migración aplicada, retirar un equipo usa la actualización directa', async () => {
+  fake.alResponderTabla('matches', { data: [], error: null });
+  fake.alResponderRpc('sp_set_competition_team_status', { data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+  const r = await call('DELETE', `/api/competitions/${COMP}/teams/${EQUIPO}`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(updates('competition_teams')[0].pasos.find((p) => p[0] === 'update')[1], { status: 'RETIRADO' });
+});
+
+/* ─── Integrantes de un equipo y documentos ─── */
+
+test('a un equipo solo entra quien tiene el rol y, si es atleta, la categoría y la rama', async () => {
+  const equipo = { data: { id: EQUIPO, association_id: 'a1', name: 'Sub-17 F', categoria: { code: 'U17', value: 'Sub-17' }, rama: { code: 'FEM', value: 'Femenina' } }, error: null };
+  const persona = (birth, sex, roles) => ({ data: { id: 'p1', birth_date: birth, sex, person_roles: roles.map((r) => ({ role_type: r, is_active: true })) }, error: null });
+  const año = Number(hoyCR().slice(0, 4));
+
+  fake.alResponderTabla('teams', equipo);
+  fake.alResponderTabla('persons', persona(`${año - 15}-03-01`, 'F', ['TECNICO']));
+  const sinRol = await call('POST', `/api/teams/${EQUIPO}/members`, { person_id: '55555555-5555-4555-8555-555555555555', member_type: 'JUGADOR' });
+  assert.equal(sinRol.status, 409);
+  assert.match(sinRol.json.error, /atleta/);
+
+  fake.alResponderTabla('teams', equipo);
+  fake.alResponderTabla('persons', persona(`${año - 20}-03-01`, 'F', ['JUGADOR']));
+  const mayor = await call('POST', `/api/teams/${EQUIPO}/members`, { person_id: '55555555-5555-4555-8555-555555555555', member_type: 'JUGADOR' });
+  assert.equal(mayor.status, 409);
+  assert.match(mayor.json.error, /Sub-17/);
+
+  fake.alResponderTabla('teams', equipo);
+  fake.alResponderTabla('persons', persona(`${año - 15}-03-01`, 'M', ['JUGADOR']));
+  const rama = await call('POST', `/api/teams/${EQUIPO}/members`, { person_id: '55555555-5555-4555-8555-555555555555', member_type: 'JUGADOR' });
+  assert.equal(rama.status, 409);
+  assert.match(rama.json.error, /este equipo/);
+  assert.equal(rpcs().length, 0);
+
+  fake.alResponderTabla('teams', equipo);
+  fake.alResponderTabla('persons', persona(`${año - 15}-03-01`, 'F', ['JUGADOR']));
+  fake.alResponderRpc('sp_add_team_member', { data: 'm1', error: null });
+  const ok = await call('POST', `/api/teams/${EQUIPO}/members`, { person_id: '55555555-5555-4555-8555-555555555555', member_type: 'JUGADOR' });
+  assert.equal(ok.status, 201);
+});
+
+test('tipos de documento según el titular', () => {
+  const { tipoPermitido } = require('../src/utils/tiposDocumento');
+  assert.equal(tipoPermitido('CED', 'PERSONA'), true);
+  assert.equal(tipoPermitido('CED', 'EQUIPO'), false);
+  assert.equal(tipoPermitido('PER', 'ASOCIACION'), true);
+  assert.equal(tipoPermitido('PER', 'PERSONA'), false);
+  assert.equal(tipoPermitido('POL', 'EQUIPO'), true);
+  assert.equal(tipoPermitido('NUEVO', 'EQUIPO'), true);
+});
+
+test('el teléfono de una persona del padrón se valida y se guarda con formato', async () => {
+  const malo = await call('POST', '/api/persons', { first_name: 'Ana', last_name: 'Mora', document_number: '1-1111-1111', document_type_code: 'CED', birth_date: '2000-01-01', phone: '12ab' });
+  assert.equal(malo.status, 400);
+  assert.equal(rpcs().length, 0);
 });

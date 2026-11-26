@@ -457,6 +457,20 @@ router.post('/:id/teams', requireAuth, requireAdmin, asyncHandler(async (req, re
   res.status(201).json({ data: { id, competition_id: req.params.id, team_id } });
 }));
 
+// Cambia el estado de la inscripción por medio del procedimiento, que deja al usuario en la
+// bitácora. Si la migración 20261126130000 aún no se aplicó, se actualiza directo (como antes).
+async function cambiarEstadoInscripcion(competitionId, teamId, status, usuario, soloSi) {
+  const { error } = await supabase.rpc('sp_set_competition_team_status', {
+    p_competition_id: competitionId, p_team_id: teamId, p_status: status, p_user: usuario
+  });
+  if (!error) return;
+  if (error.code !== 'PGRST202' && error.code !== '42883') throw fromSupabase(error);
+  let q = supabase.from('competition_teams').update({ status }).eq('competition_id', competitionId).eq('team_id', teamId);
+  if (soloSi) q = q.eq('status', soloSi);
+  const { error: errorDirecto } = await q;
+  if (errorDirecto) throw fromSupabase(errorDirecto);
+}
+
 router.delete('/:id/teams/:teamId', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { data: partidos } = await supabase
     .from('matches')
@@ -470,13 +484,7 @@ router.delete('/:id/teams/:teamId', requireAuth, requireAdmin, asyncHandler(asyn
     throw new HttpError(400, 'No se puede retirar un equipo que ya disputó partidos finalizados.');
   }
 
-  const { error } = await supabase
-    .from('competition_teams')
-    .update({ status: 'RETIRADO' })
-    .eq('competition_id', req.params.id)
-    .eq('team_id', req.params.teamId);
-
-  if (error) throw fromSupabase(error);
+  await cambiarEstadoInscripcion(req.params.id, req.params.teamId, 'RETIRADO', req.currentUser);
   res.json({ data: { message: 'Equipo retirado con éxito' } });
 }));
 
@@ -509,12 +517,7 @@ router.post('/:id/teams/:teamId/reincorporar', requireAuth, requireAdmin, asyncH
     }
   }
 
-  const { error } = await supabase
-    .from('competition_teams')
-    .update({ status: 'INSCRITO' })
-    .eq('id', inscripcion.data.id)
-    .eq('status', 'RETIRADO');
-  if (error) throw fromSupabase(error);
+  await cambiarEstadoInscripcion(req.params.id, req.params.teamId, 'INSCRITO', req.currentUser, 'RETIRADO');
   res.json({ data: { message: 'Equipo reincorporado.' } });
 }));
 

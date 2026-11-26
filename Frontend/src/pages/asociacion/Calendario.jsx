@@ -78,7 +78,7 @@ export default function Calendario() {
     <div className="g-pagina">
       <Encabezado
         titulo="Calendario"
-        bajada={respuesta ? `${equiposConPartidos} ${equiposConPartidos === 1 ? 'equipo' : 'equipos'} · ${mes ? mes.texto : 'próximos 60 días'}` : null}
+        bajada={respuesta ? `${equiposConPartidos} ${equiposConPartidos === 1 ? 'equipo con partidos' : 'equipos con partidos'} · ${mes ? mes.texto : 'próximos 60 días'}` : null}
         acciones={<button type="button" className="g-boton" onClick={() => window.print()} disabled={!partidos.length}>Imprimir o guardar en PDF</button>}
       />
 

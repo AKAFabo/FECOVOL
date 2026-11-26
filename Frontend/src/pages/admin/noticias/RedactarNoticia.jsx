@@ -5,6 +5,7 @@ import './RedactarNoticia.css';
 import EditorTexto from './EditorTexto.jsx';
 import RecorteImagen from './RecorteImagen.jsx';
 import { guardarNoticia, listarCompetencias, obtenerNoticia, retirarNoticia } from './noticiasDatos.js';
+import { pedirConfirmacion } from '../../../components/Avisos.jsx';
 
 const NOTICIA_VACIA = {
   titulo: '',
@@ -143,7 +144,13 @@ export default function RedactarNoticia() {
   }
 
   async function retirar() {
-    if (!window.confirm('¿Retirar esta noticia? Dejará de verse en el panel y en el sitio público.')) return;
+    const confirmado = await pedirConfirmacion({
+      titulo: 'Retirar noticia',
+      texto: '¿Retirar esta noticia?\n\nDejará de verse en el panel y en el sitio público.',
+      textoAccion: 'Retirar',
+      peligro: true
+    });
+    if (!confirmado) return;
     setError('');
     setGuardando(true);
     try {

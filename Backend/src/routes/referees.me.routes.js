@@ -460,7 +460,7 @@ router.get('/partidos/:id', asyncHandler(async (req, res) => {
       nominas: [local, visitante].filter(Boolean),
       cierre: cierreR.data || null,
       puede_cerrar: puedeCerrar(partido, propia, cierreR.data, hoy),
-      puede_adjuntar: confirmada && partido.status !== 'CANCELADO' && Boolean(partido.scheduled_date) && partido.scheduled_date <= hoy,
+      puede_adjuntar: confirmada && partido.status !== 'CANCELADO' && partido.acta_status !== 'VALIDADA' && Boolean(partido.scheduled_date) && partido.scheduled_date <= hoy,
       evidencias,
       resultados: RESULTADOS,
       tipos_evidencia: TIPOS_EVIDENCIA,
@@ -504,6 +504,7 @@ router.post('/partidos/:id/evidencias', recibirArchivo, asyncHandler(async (req,
   const hoy = hoyCR();
   const { partido, propia } = await partidoDesignado(req, req.params.id);
   if (!cuentaParaPartidoJugado(propia, partido, hoy)) throw new HttpError(403, 'Su designación no está vigente para este partido.');
+  if (partido.acta_status === 'VALIDADA') throw new HttpError(409, 'FECOVOL ya validó el acta; ya no se adjuntan evidencias.');
   if (partido.status === 'CANCELADO' || !partido.scheduled_date || partido.scheduled_date > hoy) {
     throw new HttpError(409, 'Las evidencias se adjuntan cuando el partido ya se disputó.');
   }

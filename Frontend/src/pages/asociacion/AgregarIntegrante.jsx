@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Campo, Estado, Modal, OpcionesCatalogo } from '../../components/gestion/Gestion.jsx';
 import { agregarIntegrante, coincidePersona, nombrePersona, ROLES_PERSONA } from '../../services/representante.js';
 import { useRutas } from './contexto.js';
+import { motivoNoElegible } from '../../utils/elegibilidadSeleccion.js';
 
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const rolesActivos = (p) => (p.person_roles || []).filter((r) => r.is_active).map((r) => r.role_type);
@@ -26,19 +27,34 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
   const [errores, setErrores] = useState({});
   const [estado, setEstado] = useState({ guardando: false, error: null });
 
+  // Mismas reglas que el backend: el rol en el padrón y, para atletas, la categoría y la rama del equipo.
+  const motivoDe = (p) => {
+    if (!rolesActivos(p).includes(tipo)) {
+      return tipo === 'JUGADOR' ? 'No está registrada como atleta en el padrón.' : 'No está registrada como cuerpo técnico en el padrón.';
+    }
+    if (tipo !== 'JUGADOR') return null;
+    const hoy = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+    const motivo = motivoNoElegible(p, { rama: equipo.rama, categoria: equipo.categoria, fechaReferencia: hoy });
+    return motivo ? motivo.replace('de esta selección', 'de este equipo') : null;
+  };
+
   const resultados = useMemo(() => {
     const t = sinTildes(q.trim());
     if (t.length < 2) return [];
     return personas
       .filter((p) => coincidePersona(p, q))
+      .map((p) => ({ p, motivo: motivoDe(p) }))
+      .sort((a, b) => Number(Boolean(a.motivo)) - Number(Boolean(b.motivo)))
       .slice(0, 8);
-  }, [personas, q]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas, q, tipo]);
 
   const cambiar = (campo) => (e) => setF((x) => ({ ...x, [campo]: e.target.value }));
 
   async function agregar() {
     const e = {};
     if (!elegida) e.persona = 'Busque y elija a una persona.';
+    else if (motivoDe(elegida)) e.persona = motivoDe(elegida);
     if (tipo === 'JUGADOR' && f.jersey_number !== '') {
       const n = Number(f.jersey_number);
       if (!Number.isInteger(n) || n < 1 || n > 99) e.jersey_number = 'El número va de 1 a 99.';
@@ -81,7 +97,7 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
         <legend className="g-campo__etiqueta" style={{ marginBottom: 6 }}>Se agrega como</legend>
         {[['JUGADOR', 'Jugador o jugadora'], ['TECNICO', 'Cuerpo técnico']].map(([valor, texto]) => (
           <label key={valor} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 14 }}>
-            <input type="radio" name="tipo-integrante" value={valor} checked={tipo === valor} onChange={() => setTipo(valor)} />
+            <input type="radio" name="tipo-integrante" value={valor} checked={tipo === valor} onChange={() => { setTipo(valor); setElegida(null); }} />
             {texto}
           </label>
         ))}
@@ -95,7 +111,7 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
         <div>
           <p className="g-subtitulo" aria-live="polite">{resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'}</p>
           <ul className="g-resultados">
-            {resultados.map((p) => {
+            {resultados.map(({ p, motivo }) => {
               const enEquipo = yaEnEquipo.has(p.id);
               const seleccionada = elegida?.id === p.id;
               const otros = (p.equipos || []).filter((e) => e.id !== equipo.id).map((e) => e.short_name || e.name);
@@ -107,10 +123,12 @@ export default function AgregarIntegrante({ equipo, tipo: tipoInicial, personas,
                     <p className="g-resultado__detalle">
                       {[p.document_number, roles, otros.length ? `en ${otros.join(', ')}` : (enEquipo ? null : 'sin equipo')].filter(Boolean).join(' · ')}
                     </p>
+                    {motivo && !enEquipo && <p className="g-campo__error">{motivo}</p>}
                   </div>
                   {enEquipo ? <Estado tono="neutro">Ya está en el equipo</Estado>
                     : seleccionada ? <Estado tono="ok">Seleccionada</Estado>
-                      : <button type="button" className="g-boton g-boton--chico" onClick={() => setElegida(p)}>Elegir</button>}
+                      : motivo ? null
+                        : <button type="button" className="g-boton g-boton--chico" onClick={() => setElegida(p)}>Elegir</button>}
                 </li>
               );
             })}

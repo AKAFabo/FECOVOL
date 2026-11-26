@@ -14,6 +14,8 @@ import TablaDocumentos from '../../asociacion/TablaDocumentos.jsx';
 import { RUTA_ADMIN as RUTA } from '../../asociacion/contexto.js';
 import { EstadoDocumentacion } from './Asociaciones.jsx';
 import RevisarDocumento from './RevisarDocumento.jsx';
+import EntradaTelefono from '../../../components/EntradaTelefono.jsx';
+import { normalizarTelefono } from '../../../utils/telefono.js';
 
 const CAMPOS = ['name', 'short_name', 'province', 'canton', 'email', 'phone', 'website', 'home_venue', 'address'];
 
@@ -27,11 +29,12 @@ function CorregirDatos({ asociacion: a, sedes, onCerrar, onGuardado }) {
     const e = {};
     if (f.name.trim().length < 5) e.name = 'Escriba el nombre legal.';
     if (!correoValido(f.email.trim())) e.email = 'El correo no es válido.';
+    if (normalizarTelefono(f.phone).error) e.phone = normalizarTelefono(f.phone).error;
     setErrores(e);
     if (Object.keys(e).length) return;
     setEstado({ guardando: true, error: null });
     try {
-      await actualizarAsociacionFecovol(a.id, Object.fromEntries(CAMPOS.map((c) => [c, f[c].trim()])));
+      await actualizarAsociacionFecovol(a.id, { ...Object.fromEntries(CAMPOS.map((c) => [c, f[c].trim()])), phone: normalizarTelefono(f.phone).valor || '' });
       onGuardado();
     } catch (err) {
       setEstado({ guardando: false, error: err.message });
@@ -77,8 +80,8 @@ function CorregirDatos({ asociacion: a, sedes, onCerrar, onGuardado }) {
         <Campo etiqueta="Correo institucional" error={errores.email}>
           {(x) => <input {...x} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
         </Campo>
-        <Campo etiqueta="Teléfono">
-          {(x) => <input {...x} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={30} />}
+        <Campo etiqueta="Teléfono" error={errores.phone}>
+          {(x) => <EntradaTelefono {...x} className="g-control" value={f.phone} onCambiar={(v) => setF((y) => ({ ...y, phone: v }))} />}
         </Campo>
         <Campo etiqueta="Sitio web o red social">
           {(x) => <input {...x} className="g-control" value={f.website} onChange={cambiar('website')} maxLength={200} />}

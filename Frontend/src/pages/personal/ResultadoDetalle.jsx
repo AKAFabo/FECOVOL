@@ -5,6 +5,7 @@ import { estadoActa } from '../../utils/estadosCompetencia.js';
 import { revisarSets } from '../../utils/reglasSets.js';
 import Icono from '../../components/Icono.jsx';
 import '../admin/AdminCommon.css';
+import SelectorArchivo from '../../components/SelectorArchivo.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -573,7 +574,7 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', borderTop: '1px solid var(--linea)', paddingTop: '16px', marginTop: '16px' }}>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--texto-mudo)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>Fecha</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--texto)', fontWeight: 600, marginTop: '2px' }}>{formatearFecha(partido.scheduled_date)} · {partido.scheduled_time}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--texto)', fontWeight: 600, marginTop: '2px' }}>{formatearFecha(partido.scheduled_date)} · {partido.scheduled_time?.slice(0, 5)}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--texto-mudo)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>Sede</div>
@@ -665,19 +666,14 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
 
               <div className="campo" style={{ marginBottom: 0 }}>
                 <label className="campo__etiqueta">Archivo (PDF, JPG o PNG, máx. 10 MB) *</label>
-                <input
+                <SelectorArchivo
                   id="evidencia-file"
-                  type="file"
+                  archivo={archivoEvidencia}
                   accept="application/pdf,image/jpeg,image/png"
                   capture="environment"
-                  className="campo__input"
-                  onChange={e => setArchivoEvidencia(e.target.files?.[0] || null)}
+                  claseBoton="admin-btn admin-btn--secondary"
+                  onElegir={setArchivoEvidencia}
                 />
-                {archivoEvidencia && (
-                  <small style={{ fontSize: '0.75rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>
-                    {archivoEvidencia.name} · {(archivoEvidencia.size / 1024 / 1024).toFixed(2)} MB
-                  </small>
-                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px' }}>

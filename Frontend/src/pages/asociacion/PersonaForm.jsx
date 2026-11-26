@@ -12,6 +12,9 @@ import {
 import { listarAsociaciones } from '../../services/administracion.js';
 import { useAsociacion, useEsFecovol, useRutas } from './contexto.js';
 import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../utils/fechaNacimiento.js';
+import EntradaTelefono from '../../components/EntradaTelefono.jsx';
+import { normalizarTelefono } from '../../utils/telefono.js';
+import { motivoNoElegible } from '../../utils/elegibilidadSeleccion.js';
 
 
 const VACIO = {
@@ -28,8 +31,9 @@ function validar(f, fecovol) {
   if (!f.last_name.trim()) e.last_name = 'Escriba los apellidos.';
   if (!f.birth_date) e.birth_date = 'Indique la fecha de nacimiento.';
   else if (errorFechaNacimiento(f.birth_date)) e.birth_date = errorFechaNacimiento(f.birth_date);
+  if (f.rol === 'JUGADOR' && !f.sex) e.sex = 'Indique el sexo: define en qué rama puede competir.';
   if (!correoValido(f.email.trim())) e.email = 'El correo no es válido.';
-  if (f.phone && !/^[0-9 +()-]{8,20}$/.test(f.phone.trim())) e.phone = 'El teléfono no es válido.';
+  if (normalizarTelefono(f.phone).error) e.phone = normalizarTelefono(f.phone).error;
   if (f.equipo && f.rol === 'JUGADOR' && f.jersey_number !== '') {
     const n = Number(f.jersey_number);
     if (!Number.isInteger(n) || n < 1 || n > 99) e.jersey_number = 'El número va de 1 a 99.';
@@ -48,6 +52,11 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
   const [f, setF] = useState(() => ({ ...VACIO, asociacion: fecovol ? (params.get('asociacion') || '') : '' }));
   // En FECOVOL se ven los equipos de la asociación elegida; el representante solo recibe los suyos.
   const equiposVisibles = (fecovol ? equipos.filter((e) => e.association_id === f.asociacion) : equipos).filter((e) => e.status === 'ACTIVO');
+  // Un atleta solo se agrega a un equipo de su categoría (edad) y rama; mismas reglas que el backend.
+  const hoyCR = new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+  const motivoEquipo = (equipo) => (f.rol === 'JUGADOR' && equipo && f.birth_date
+    ? motivoNoElegible({ birth_date: f.birth_date, sex: f.sex }, { rama: equipo.rama, categoria: equipo.categoria, fechaReferencia: hoyCR })
+    : null);
   const [errores, setErrores] = useState({});
   const [estado, setEstado] = useState({ guardando: false, error: null });
   const cambiar = (campo) => (e) => setF((x) => ({ ...x, [campo]: e.target.value }));
@@ -56,6 +65,8 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
   async function guardar(e) {
     e.preventDefault();
     const encontrados = validar(f, fecovol);
+    const motivo = f.equipo ? motivoEquipo(equiposVisibles.find((x) => x.id === f.equipo)) : null;
+    if (motivo) encontrados.equipo = motivo.replace('de esta selección', 'de este equipo');
     setErrores(encontrados);
     if (Object.keys(encontrados).length) {
       requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus());
@@ -73,7 +84,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
         birth_date: f.birth_date,
         sex: f.sex || null,
         email: f.email.trim() || null,
-        phone: f.phone.trim() || null,
+        phone: normalizarTelefono(f.phone).valor,
         province: f.province || null,
         roles: [f.rol],
         ...(fecovol ? { association_id: f.asociacion || null } : {})
@@ -147,7 +158,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
               <Campo etiqueta="Fecha de nacimiento" obligatorio error={errores.birth_date}>
                 {(a) => <input {...a} type="date" className="g-control" value={f.birth_date} max={fechaNacimientoMaxima()} min={FECHA_NACIMIENTO_MINIMA} onChange={cambiar('birth_date')} />}
               </Campo>
-              <Campo etiqueta="Sexo">
+              <Campo etiqueta="Sexo" obligatorio={f.rol === 'JUGADOR'} error={errores.sex}>
                 {(a) => (
                   <select {...a} className="g-control" value={f.sex} onChange={cambiar('sex')}>
                     <option value="">Sin indicar</option>
@@ -166,7 +177,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
                 {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} autoComplete="off" />}
               </Campo>
               <Campo etiqueta="Teléfono" error={errores.phone}>
-                {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={20} autoComplete="off" />}
+                {(a) => <EntradaTelefono {...a} className="g-control" value={f.phone} onCambiar={(v) => setF((x) => ({ ...x, phone: v }))} autoComplete="off" />}
               </Campo>
               <Campo etiqueta="Provincia">
                 {(a) => (
@@ -201,11 +212,14 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
                 )}
               </Campo>
               {f.rol !== 'ARBITRO' && (
-                <Campo etiqueta="Equipo" ayuda="Opcional: también puede agregarla después desde el equipo.">
+                <Campo etiqueta="Equipo" error={errores.equipo} ayuda="Opcional: también puede agregarla después desde el equipo. Para atletas solo se habilitan los equipos de su categoría y rama.">
                   {(a) => (
                     <select {...a} className="g-control" value={f.equipo} onChange={cambiar('equipo')} disabled={fecovol && !f.asociacion}>
                       <option value="">Sin equipo por ahora</option>
-                      {equiposVisibles.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      {equiposVisibles.map((e) => {
+                        const motivo = motivoEquipo(e);
+                        return <option key={e.id} value={e.id} disabled={Boolean(motivo)}>{e.name}{[e.categoria?.value, e.rama?.value].filter(Boolean).length ? ` · ${[e.categoria?.value, e.rama?.value].filter(Boolean).join(' ')}` : ''}{motivo ? ' (no corresponde)' : ''}</option>;
+                      })}
                     </select>
                   )}
                 </Campo>

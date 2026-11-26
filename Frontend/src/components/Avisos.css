@@ -1,0 +1,91 @@
+/* Avisos flotantes y ventana de confirmación (components/Avisos.jsx). */
+
+.avisos-pila {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.aviso-flotante {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: var(--radio);
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: 0 10px 24px -6px rgba(15, 23, 42, 0.22);
+  pointer-events: auto;
+  animation: avisoEntrada 0.18s ease-out;
+}
+
+.aviso-flotante > svg { flex-shrink: 0; margin-top: 1px; }
+.aviso-flotante--ok { border-color: #c5ddcb; }
+.aviso-flotante--ok > svg { color: var(--ok); }
+.aviso-flotante--error { border-color: #f1c4cb; }
+.aviso-flotante--error > svg { color: var(--rojo); }
+.aviso-flotante--info > svg { color: var(--azul); }
+
+.aviso-flotante__texto {
+  flex: 1;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.aviso-flotante__cerrar {
+  flex-shrink: 0;
+  display: flex;
+  padding: 3px;
+  border: none;
+  border-radius: var(--radio-sm);
+  background: none;
+  color: var(--texto-mudo);
+  cursor: pointer;
+}
+.aviso-flotante__cerrar:hover { background: var(--campo); color: var(--texto); }
+.aviso-flotante__cerrar:focus-visible { outline: none; box-shadow: var(--sombra-foco); }
+
+@keyframes avisoEntrada {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.confirmacion-cuerpo { display: flex; gap: 14px; align-items: flex-start; }
+
+.confirmacion-icono {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neutro-fondo);
+  color: var(--azul);
+}
+.confirmacion-icono--peligro { background: #fdecee; color: var(--rojo); }
+
+.confirmacion-texto p {
+  margin: 0 0 8px;
+  color: var(--texto-cuerpo);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.confirmacion-texto p:first-child { color: var(--texto); font-weight: 600; }
+.confirmacion-texto p:last-child { margin-bottom: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-flotante { animation: none; }
+}

@@ -13,6 +13,8 @@ import SubirDocumento from './SubirDocumento.jsx';
 import TablaDocumentos from './TablaDocumentos.jsx';
 import { RUTA, useAsociacion } from './contexto.js';
 import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../utils/fechaNacimiento.js';
+import EntradaTelefono from '../../components/EntradaTelefono.jsx';
+import { normalizarTelefono } from '../../utils/telefono.js';
 
 const SEXO = { F: 'Femenino', M: 'Masculino', OTRO: 'Otro' };
 
@@ -49,6 +51,7 @@ function Ficha({ persona, documentos, tipos, recargar, mostrar }) {
     if (!verificada && !f.first_name.trim()) encontrados.first_name = 'Escriba el nombre.';
     if (!verificada && !f.last_name.trim()) encontrados.last_name = 'Escriba los apellidos.';
     if (!correoValido(f.email.trim())) encontrados.email = 'El correo no es válido.';
+    if (normalizarTelefono(f.phone).error) encontrados.phone = normalizarTelefono(f.phone).error;
     if (!verificada && f.birth_date && errorFechaNacimiento(f.birth_date)) encontrados.birth_date = errorFechaNacimiento(f.birth_date);
     setErrores(encontrados);
     if (Object.keys(encontrados).length) return;
@@ -56,7 +59,7 @@ function Ficha({ persona, documentos, tipos, recargar, mostrar }) {
     setEstado({ guardando: true, error: null });
     const cambios = {
       email: f.email.trim(),
-      phone: f.phone.trim(),
+      phone: normalizarTelefono(f.phone).valor || '',
       province: f.province,
       emergency_contact: f.emergency_contact.trim()
     };
@@ -127,8 +130,8 @@ function Ficha({ persona, documentos, tipos, recargar, mostrar }) {
                   <Campo etiqueta="Correo electrónico" error={errores.email}>
                     {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
                   </Campo>
-                  <Campo etiqueta="Teléfono">
-                    {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={20} />}
+                  <Campo etiqueta="Teléfono" error={errores.phone}>
+                    {(a) => <EntradaTelefono {...a} className="g-control" value={f.phone} onCambiar={(v) => setF((x) => ({ ...x, phone: v }))} />}
                   </Campo>
                   <Campo etiqueta="Contacto de emergencia" ancho ayuda="Nombre, parentesco y teléfono.">
                     {(a) => <input {...a} className="g-control" value={f.emergency_contact} onChange={cambiar('emergency_contact')} maxLength={150} />}

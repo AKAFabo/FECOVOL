@@ -523,7 +523,7 @@ export default function AuditoriaRespaldos() {
 
           {cargando ? (
             <div style={{ padding: '36px', textAlign: 'center', color: 'var(--texto-mudo)' }}>
-              Cargando bitácora desde Supabase...
+              Cargando bitácora…
             </div>
           ) : (
             <table className="admin-table">
@@ -619,13 +619,13 @@ export default function AuditoriaRespaldos() {
           <div className="admin-side-card">
             <div className="admin-side-card__header">
               <h2 className="admin-side-card__title">Respaldos de base de datos</h2>
-              <p className="admin-side-card__subtitle">Supabase PITR / Respaldos diarios</p>
+              <p className="admin-side-card__subtitle">Respaldos diarios automáticos</p>
             </div>
             <ul className="admin-side-card__list">
               <li className="admin-side-card__item">
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontWeight: 600, color: 'var(--texto)', fontSize: '0.84rem' }}>Copia de seguridad</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--texto-mudo)' }}>Gestionado por Supabase</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--texto-mudo)' }}>Gestionado por el proveedor de la base de datos</span>
                 </div>
                 <span className="badge-status badge-status--activa">
                   ACTIVO

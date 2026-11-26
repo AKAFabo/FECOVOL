@@ -3,7 +3,7 @@ const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
-const { soloFecovol, hoyCR } = require('../utils/arbitraje');
+const { soloFecovol, hoyCR, sumarDias } = require('../utils/arbitraje');
 const reglas = require('../utils/sanciones');
 
 const router = express.Router();
@@ -382,8 +382,8 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
   }
 
   const ahora = new Date();
-  const hoyStr = ahora.toISOString().slice(0, 10);
-  const enTreintaStr = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const hoyStr = hoyCR(ahora);
+  const enTreintaStr = sumarDias(hoyStr, 30);
 
   // 1. Asociaciones y vigencias legales
   const { data: asociaciones, error: errAso } = await supabase
@@ -400,7 +400,7 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
     try {
       const { data: docs } = await supabase
         .from('v_documentos')
-        .select('owner_association_id, status, expiry_date, document_type_code')
+        .select('owner_association_id, status, expiry_date, tipo_code')
         .in('owner_association_id', asoIds);
 
       (docs || []).forEach(d => {
@@ -498,7 +498,7 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
   try {
     const { data: compList } = await supabase
       .from('competitions')
-      .select('id, name, season, category_code, branch_code, modality_code, status')
+      .select('id, name, season, status')
       .in('status', ['EN_CURSO', 'INSCRIPCIONES', 'PLANIFICACION'])
       .order('created_at', { ascending: false });
 
@@ -537,13 +537,10 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
   };
 
   try {
+    // v_documentos ya trae el tipo y el titular (persona, equipo o asociación) resueltos.
     const { data: docsAlertas } = await supabase
-      .from('documents')
-      .select(`
-        id, file_name, document_type_code, status, expiry_date, created_at, notes,
-        association:associations(name),
-        person:persons(first_name, last_name)
-      `)
+      .from('v_documentos')
+      .select('id, file_name, tipo_value, status, expiry_date, created_at, notes, asociacion_name, equipo_name, persona_first_name, persona_last_name')
       .order('created_at', { ascending: false })
       .limit(40);
 
@@ -576,9 +573,9 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
         alertas.licenciasPorVencer++;
       }
 
-      const titular = d.person
-        ? `${d.person.first_name} ${d.person.last_name}`
-        : (d.association?.name || 'Asociación');
+      const titular = d.persona_first_name
+        ? `${d.persona_first_name} ${d.persona_last_name || ''}`.trim()
+        : (d.equipo_name || d.asociacion_name || 'Asociación');
 
       items.push({
         id: d.id,
@@ -587,7 +584,7 @@ router.get('/admin-dashboard', asyncHandler(async (req, res) => {
         titulo,
         titular,
         nombreArchivo: d.file_name,
-        tipoDocumento: d.document_type_code,
+        tipoDocumento: d.tipo_value,
         fechaVencimiento: d.expiry_date,
         notas: d.notes,
         enlace: '/admin/documentos'

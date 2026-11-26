@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 import Icono from '../../../components/Icono.jsx';
+import { avisar, pedirConfirmacion } from '../../../components/Avisos.jsx';
 
 const CATEGORIAS_PARAMETROS = [
   { key: 'TODAS', label: 'Todas las categorías' },
@@ -198,10 +199,10 @@ export default function ParametrosSistema() {
         is_active: true
       });
       await cargarParametros();
-      alert(`Parámetro "${nombreLimpio}" creado y auditado con éxito.`);
+      avisar(`Parámetro "${nombreLimpio}" creado y auditado con éxito.`, { tono: 'ok' });
     } catch (err) {
       console.error('Error al crear parámetro:', err);
-      alert('Error: ' + err.message);
+      avisar('Error: ' + err.message, { tono: 'error' });
     } finally {
       setGuardandoCrear(false);
     }
@@ -259,10 +260,10 @@ export default function ParametrosSistema() {
 
       setParametroEditando(null);
       await cargarParametros();
-      alert(`Parámetro "${parametroEditando.name}" actualizado con éxito en la bitácora.`);
+      avisar(`Parámetro "${parametroEditando.name}" actualizado con éxito en la bitácora.`, { tono: 'ok' });
     } catch (err) {
       console.error('Error al editar parámetro:', err);
-      alert('Error: ' + err.message);
+      avisar('Error: ' + err.message, { tono: 'error' });
     } finally {
       setGuardandoEdicion(false);
     }
@@ -271,18 +272,21 @@ export default function ParametrosSistema() {
   // Alternar estado activo / inactivo
   const handleToggleEstado = async (param) => {
     if (param.is_readonly) {
-      alert(`El parámetro "${param.name}" es de solo lectura por configuración del sistema.`);
+      avisar(`El parámetro "${param.name}" es de solo lectura por configuración del sistema.`, { tono: 'error' });
       return;
     }
 
     const nuevoEstado = !param.is_active;
     const accion = nuevoEstado ? 'activar' : 'inactivar';
-    const confirmar = window.confirm(
-      `¿Desea ${accion} el parámetro "${param.name}"?\n\n` +
+    const confirmar = await pedirConfirmacion({
+      titulo: nuevoEstado ? 'Activar parámetro' : 'Desactivar parámetro',
+      textoAccion: nuevoEstado ? 'Activar' : 'Desactivar',
+      peligro: !nuevoEstado,
+      texto: `¿Desea ${accion} el parámetro "${param.name}"?\n\n` +
       (nuevoEstado 
         ? 'El parámetro volverá a aplicarse en los cálculos y reglas operativas.'
         : 'Los módulos que usen este parámetro utilizarán los valores predeterminados de contingencia.')
-    );
+    });
     if (!confirmar) return;
 
     try {
@@ -313,7 +317,7 @@ export default function ParametrosSistema() {
       await cargarParametros();
     } catch (err) {
       console.error('Error al alternar estado del parámetro:', err);
-      alert('Error: ' + err.message);
+      avisar('Error: ' + err.message, { tono: 'error' });
     }
   };
 

@@ -9,6 +9,7 @@ import useCarga from '../../hooks/useCarga.js';
 import { adjuntarEvidencia, ESTADOS_ACTA, guardarCierre, hora, nombrePartido, partidoDesignado } from '../../services/arbitraje.js';
 import { diaYHora, fechaCorta } from '../../utils/formato.js';
 import '../../styles/arbitraje.css';
+import SelectorArchivo from '../../components/SelectorArchivo.jsx';
 
 const ESTADOS_CIERRE = {
   BORRADOR: { texto: 'Borrador', tono: 'aviso' },
@@ -276,7 +277,7 @@ function Evidencias({ d, onCambio }) {
             </Campo>
           )}
           <Campo etiqueta="Archivo" ancho ayuda="PDF, JPG o PNG. En el teléfono puede tomar la fotografía de la hoja.">
-            {(a) => <input {...a} key={clave} type="file" className="g-control" accept="application/pdf,image/jpeg,image/png" onChange={(e) => setArchivo(e.target.files?.[0] || null)} />}
+            {(a) => <SelectorArchivo {...a} key={clave} archivo={archivo} accept="application/pdf,image/jpeg,image/png" onElegir={setArchivo} />}
           </Campo>
           <Campo etiqueta="Observación" ancho>
             {(a) => <input {...a} className="g-control" maxLength={500} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />}

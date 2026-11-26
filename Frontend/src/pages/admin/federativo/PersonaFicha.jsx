@@ -13,6 +13,8 @@ import TablaDocumentos from '../../asociacion/TablaDocumentos.jsx';
 import { RUTA_ADMIN as RUTA } from '../../asociacion/contexto.js';
 import RevisarDocumento from './RevisarDocumento.jsx';
 import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../../utils/fechaNacimiento.js';
+import EntradaTelefono from '../../../components/EntradaTelefono.jsx';
+import { normalizarTelefono } from '../../../utils/telefono.js';
 
 const SEXO = { F: 'Femenino', M: 'Masculino', OTRO: 'Otro' };
 const CAMPOS_CORRECCION = [
@@ -120,10 +122,11 @@ function EditarContacto({ persona, onCerrar, onGuardado }) {
 
   async function guardar() {
     if (!correoValido(f.email.trim())) { setError('El correo no es válido.'); return; }
+    if (normalizarTelefono(f.phone).error) { setError(normalizarTelefono(f.phone).error); return; }
     setError(null);
     setEstado({ guardando: true, error: null });
     try {
-      await corregirPersona(persona.id, { email: f.email.trim(), phone: f.phone.trim(), province: f.province, emergency_contact: f.emergency_contact.trim(), status: f.status });
+      await corregirPersona(persona.id, { email: f.email.trim(), phone: normalizarTelefono(f.phone).valor || '', province: f.province, emergency_contact: f.emergency_contact.trim(), status: f.status });
       onGuardado();
     } catch (err) {
       setEstado({ guardando: false, error: err.message });
@@ -148,7 +151,7 @@ function EditarContacto({ persona, onCerrar, onGuardado }) {
           {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} data-autofoco />}
         </Campo>
         <Campo etiqueta="Teléfono">
-          {(a) => <input {...a} type="tel" className="g-control" value={f.phone} onChange={cambiar('phone')} maxLength={20} />}
+          {(a) => <EntradaTelefono {...a} className="g-control" value={f.phone} onCambiar={(v) => setF((x) => ({ ...x, phone: v }))} />}
         </Campo>
         <Campo etiqueta="Provincia">
           {(a) => (

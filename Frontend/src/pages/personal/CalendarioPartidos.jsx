@@ -487,7 +487,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                             </button>
                           </div>
                         </td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time?.slice(0, 5)}</td>
                         <td style={{ fontSize: '0.82rem' }}>{nombreSede(p)}</td>
                         <td style={{ fontSize: '0.82rem' }}>{getArbitrajeText(p)}</td>
                         <td><span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span></td>
@@ -538,7 +538,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--texto)' }}>{p.local?.name} vs {p.visitante?.name}</div>
                               <div style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)', marginTop: '2px' }}>
-                                {p.scheduled_time} · {nombreSede(p)} · Jornada {p.matchday}
+                                {p.scheduled_time?.slice(0, 5)} · {nombreSede(p)} · Jornada {p.matchday}
                               </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

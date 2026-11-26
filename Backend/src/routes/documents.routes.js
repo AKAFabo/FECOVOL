@@ -8,6 +8,7 @@ const express = require('express');
 const multer = require('multer');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { tipoPermitido, NOMBRE_TITULAR } = require('../utils/tiposDocumento');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
@@ -179,6 +180,13 @@ router.post('/', soloGestion, subida, asyncHandler(async (req, res) => {
   if (emision && !fechaValida(emision)) throw new HttpError(400, 'La fecha de emisión no es válida (AAAA-MM-DD).');
   if (vencimiento && !fechaValida(vencimiento)) throw new HttpError(400, 'La fecha de vencimiento no es válida (AAAA-MM-DD).');
   if (emision && vencimiento && vencimiento < emision) throw new HttpError(400, 'La fecha de vencimiento no puede ser anterior a la de emisión.');
+  if (emision && emision > new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10)) {
+    throw new HttpError(400, 'La fecha de emisión no puede ser futura.');
+  }
+  const tipoTitular = titular.person_id ? 'PERSONA' : titular.team_id ? 'EQUIPO' : 'ASOCIACION';
+  if (!tipoPermitido(tipoCodigo, tipoTitular)) {
+    throw new HttpError(400, `Ese tipo de documento no corresponde a ${NOMBRE_TITULAR[tipoTitular]}.`);
+  }
 
   // Ámbito: el titular tiene que existir y, para un representante, ser de su asociación.
   const dueno = await asociacionDelTitular(titular);

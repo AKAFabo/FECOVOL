@@ -1,6 +1,8 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { motivoNoElegible } = require('../utils/elegibilidadSeleccion');
+const { hoyCR } = require('../utils/arbitraje');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
@@ -267,7 +269,9 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
   // Verificar pertenencia del equipo
   const { data: equipo } = await supabase
     .from('teams')
-    .select('id, association_id, name')
+    .select(`id, association_id, name,
+      categoria:catalog_values!teams_category_value_id_fkey(code, value),
+      rama:catalog_values!teams_branch_value_id_fkey(code, value)`)
     .eq('id', req.params.id)
     .single();
 
@@ -308,6 +312,25 @@ router.post('/:id/members', asyncHandler(async (req, res) => {
       });
       throw new HttpError(403, 'Acceso denegado: La persona seleccionada pertenece a otra asociación.');
     }
+  }
+
+  // La persona tiene que estar registrada con ese rol en el padrón y, si es atleta, corresponder a
+  // la categoría (edad) y la rama del equipo. Mismas reglas que las selecciones nacionales.
+  const { data: candidata } = await supabase
+    .from('persons')
+    .select('id, birth_date, sex, person_roles(role_type, is_active)')
+    .eq('id', person_id)
+    .maybeSingle();
+  if (!candidata) throw new HttpError(404, 'La persona no existe en el padrón.');
+  const tieneRol = (candidata.person_roles || []).some((r) => r.is_active && r.role_type === member_type);
+  if (!tieneRol) {
+    throw new HttpError(409, member_type === 'JUGADOR'
+      ? 'La persona no está registrada como atleta en el padrón.'
+      : 'La persona no está registrada como cuerpo técnico en el padrón.');
+  }
+  if (member_type === 'JUGADOR') {
+    const motivo = motivoNoElegible(candidata, { rama: equipo.rama, categoria: equipo.categoria, fechaReferencia: hoyCR() });
+    if (motivo) throw new HttpError(409, motivo.replace('de esta selección', 'de este equipo'));
   }
 
   const { data: id, error } = await supabase.rpc('sp_add_team_member', {

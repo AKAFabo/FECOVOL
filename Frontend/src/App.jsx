@@ -9,6 +9,8 @@ import Ingresar from './pages/public/Ingresar.jsx';
 
 // Guard de rutas protegidas
 import RutaProtegida from './components/RutaProtegida.jsx';
+// Avisos y confirmaciones del sistema (reemplazan alert/confirm del navegador)
+import Avisos from './components/Avisos.jsx';
 
 // Layout administrativo
 import AdminLayout from './layouts/AdminLayout.jsx';
@@ -87,6 +89,8 @@ import LaFederacion from './pages/public/LaFederacion.jsx';
 
 export default function App() {
   return (
+    <>
+    <Avisos />
     <Routes>
       {/* ── Portal público ────────────────────────────────────────── */}
       <Route element={<PublicLayout />}>
@@ -184,5 +188,6 @@ export default function App() {
       </Route>
       <Route path="/arbitros/*" element={<Navigate to="/arbitro" replace />} />
     </Routes>
+    </>
   );
 }

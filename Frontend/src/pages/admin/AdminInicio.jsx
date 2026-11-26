@@ -70,7 +70,7 @@ export default function AdminInicio() {
           supabase.from('person_roles').select('person_id', { count: 'exact', head: true }).eq('role_type', 'ARBITRO').eq('is_active', true),
           supabase.from('competitions').select('id, name, season, status').in('status', ['EN_CURSO', 'INSCRIPCIONES', 'PLANIFICACION']),
           supabase.from('matches').select('id, scheduled_date, scheduled_time, status, home_sets_won, away_sets_won, matchday, competition:competitions(name), local:teams!matches_home_team_id_fkey(name), visitante:teams!matches_away_team_id_fkey(name)').limit(15),
-          supabase.from('documents').select('id, file_name, document_type_code, status, expiry_date, notes, association:associations(name), person:persons(first_name, last_name)').order('created_at', { ascending: false }).limit(25)
+          supabase.from('v_documentos').select('id, file_name, tipo_value, status, expiry_date, notes, asociacion_name, equipo_name, persona_first_name, persona_last_name').order('created_at', { ascending: false }).limit(25)
         ]);
 
         const listaAso = asocs || [];
@@ -110,9 +110,9 @@ export default function AdminInicio() {
             id: d.id,
             urgencia,
             titulo,
-            titular: d.person ? `${d.person.first_name} ${d.person.last_name}` : (d.association?.name || 'Asociación'),
+            titular: d.persona_first_name ? `${d.persona_first_name} ${d.persona_last_name || ''}`.trim() : (d.equipo_name || d.asociacion_name || 'Asociación'),
             nombreArchivo: d.file_name,
-            tipoDocumento: d.document_type_code,
+            tipoDocumento: d.tipo_value,
             fechaVencimiento: d.expiry_date,
             notas: d.notes,
             enlace: '/admin/documentos'
@@ -529,7 +529,7 @@ export default function AdminInicio() {
                       {p.local?.name || 'Local'} vs {p.visitante?.name || 'Visitante'}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--texto-mudo)' }}>
-                      {p.competition?.name ? `${p.competition.name} &bull; ` : ''}
+                      {p.competition?.name ? `${p.competition.name} · ` : ''}
                       Fecha: {formatearFecha(p.scheduled_date)} {formatearHora(p.scheduled_date, p.scheduled_time)}
                     </div>
                   </div>

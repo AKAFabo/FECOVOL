@@ -151,7 +151,7 @@ export default function Resultados({ basePath = '/personal' }) {
                       )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{p.matchday}</td>
-                    <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
+                    <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time?.slice(0, 5)}</td>
                     <td>
                       <span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span>
                     </td>

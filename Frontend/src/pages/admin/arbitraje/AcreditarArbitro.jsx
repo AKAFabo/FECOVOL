@@ -156,7 +156,7 @@ export default function AcreditarArbitro() {
         <div className="g-columna">
           <Tarjeta titulo="Persona">
             <div className="g-tarjeta__cuerpo">
-              {!personaId && <BuscarPersona etiqueta="Buscar en el padrón" onElegir={elegirPersona} autoFocus />}
+              {!personaId && <BuscarPersona etiqueta="Buscar en el padrón" rol="ARBITRO" textoVacio="No hay árbitros activos en el padrón que coincidan. La persona necesita el rol de árbitro en Personas federadas." onElegir={elegirPersona} autoFocus />}
               {persona.estado === 'cargando' && personaId && <Cargando texto="Cargando la persona…" />}
               {persona.estado === 'error' && <ErrorCarga mensaje={persona.error.message} onReintentar={persona.reintentar} />}
               {p && (

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import '../AdminCommon.css';
 import { supabase } from '../../../supabaseClient.js';
 import Icono from '../../../components/Icono.jsx';
+import { normalizarTelefono, soloCaracteresDeTelefono } from '../../../utils/telefono.js';
+import { avisar, pedirConfirmacion } from '../../../components/Avisos.jsx';
 
 const ELEMENTOS_POR_PAGINA = 10;
 
@@ -520,7 +522,7 @@ export default function ListasValores() {
       setTipoVista('catalogo');
     } catch (err) {
       console.error('Error al agregar catálogo:', err);
-      alert('Error al agregar el catálogo: ' + (err.message || 'Nombre duplicado o error de servidor'));
+      avisar('Error al agregar el catálogo: ' + (err.message || 'Nombre duplicado o error de servidor'), { tono: 'error' });
     } finally {
       setGuardandoCatalogo(false);
     }
@@ -577,7 +579,7 @@ export default function ListasValores() {
       await cargarCatalogos();
     } catch (err) {
       console.error('Error al editar catálogo:', err);
-      alert('Error al actualizar catálogo: ' + err.message);
+      avisar('Error al actualizar catálogo: ' + err.message, { tono: 'error' });
     } finally {
       setGuardandoEdicionCatalogo(false);
     }
@@ -643,7 +645,7 @@ export default function ListasValores() {
       await cargarCatalogos();
     } catch (err) {
       console.error('Error al guardar valor:', err);
-      alert('Error al guardar el valor: ' + (err.message || 'Código duplicado o error de servidor'));
+      avisar('Error al guardar el valor: ' + (err.message || 'Código duplicado o error de servidor'), { tono: 'error' });
     } finally {
       setGuardandoValor(false);
     }
@@ -656,15 +658,18 @@ export default function ListasValores() {
 
     // Validación preventiva de último activo (RF-AUD-002)
     if (!valorEditando.is_active && valorEditando.is_last_active) {
-      alert(`Operación denegada: No es posible desactivar este valor porque es el único valor activo en el catálogo "${catalogoSeleccionado?.nombre}".`);
+      avisar(`Operación denegada: No es posible desactivar este valor porque es el único valor activo en el catálogo "${catalogoSeleccionado?.nombre}".`, { tono: 'error' });
       return;
     }
 
     // Advertencia de consistencia histórica si se inactiva teniendo dependencias (RF-AUD-002)
     if (!valorEditando.is_active && valorEditando.estadoAnteriorActivo && (valorEditando.dependency_count || 0) > 0) {
-      const confirmar = window.confirm(
-        `Advertencia de Consistencia Histórica:\n\nEste valor está referenciado por ${valorEditando.dependency_count} registros en el sistema.\nAl marcarlo como Inactivo, los registros históricos conservarán su integridad, pero este valor ya no podrá ser seleccionado en nuevos formularios o registros.\n\n¿Desea confirmar la actualización?`
-      );
+      const confirmar = await pedirConfirmacion({
+        titulo: 'Consistencia histórica',
+        texto: `¿Desea confirmar la actualización?\n\nEste valor está referenciado por ${valorEditando.dependency_count} registros en el sistema. Al marcarlo como Inactivo, los registros históricos conservarán su integridad, pero este valor ya no podrá ser seleccionado en nuevos formularios o registros.`,
+        textoAccion: 'Guardar como inactivo',
+        peligro: true
+      });
       if (!confirmar) return;
     }
 
@@ -718,7 +723,7 @@ export default function ListasValores() {
       await cargarCatalogos();
     } catch (err) {
       console.error('Error al editar valor:', err);
-      alert('Error al actualizar el valor: ' + (err.message || 'Código duplicado o error de servidor'));
+      avisar('Error al actualizar el valor: ' + (err.message || 'Código duplicado o error de servidor'), { tono: 'error' });
     } finally {
       setGuardandoEdicionValor(false);
     }
@@ -791,7 +796,7 @@ export default function ListasValores() {
       await cargarCatalogos();
     } catch (err) {
       console.error('Error al cambiar estado del valor:', err);
-      alert('No se pudo actualizar el estado: ' + err.message);
+      avisar('No se pudo actualizar el estado: ' + err.message, { tono: 'error' });
     } finally {
       setEjecutandoDesactivacion(false);
     }
@@ -835,7 +840,12 @@ export default function ListasValores() {
       }
 
       // Sin dependencias: confirmación simple
-      const confirmar = window.confirm(`¿Desea desactivar el valor «${valorItem.valor}»? Ya no estará disponible para nuevos registros.`);
+      const confirmar = await pedirConfirmacion({
+        titulo: 'Desactivar valor',
+        texto: `¿Desea desactivar el valor «${valorItem.valor}»?\n\nYa no estará disponible para nuevos registros.`,
+        textoAccion: 'Desactivar',
+        peligro: true
+      });
       if (!confirmar) return;
     }
 
@@ -877,10 +887,10 @@ export default function ListasValores() {
       setMostrarModalCrearRol(false);
       setNuevoRol({ name: '', description: '', permissions: ['/admin'] });
       await cargarRoles();
-      alert(`Rol "${resJson.data?.name || nuevoRol.name}" creado con éxito.`);
+      avisar(`Rol "${resJson.data?.name || nuevoRol.name}" creado con éxito.`, { tono: 'ok' });
     } catch (err) {
       console.error('Error al crear rol:', err);
-      alert(err.message);
+      avisar(err.message, { tono: 'error' });
     } finally {
       setGuardandoRol(false);
     }
@@ -914,10 +924,10 @@ export default function ListasValores() {
 
       setRolEditando(null);
       await cargarRoles();
-      alert('Rol actualizado con éxito.');
+      avisar('Rol actualizado con éxito.', { tono: 'ok' });
     } catch (err) {
       console.error('Error al editar rol:', err);
-      alert(err.message);
+      avisar(err.message, { tono: 'error' });
     } finally {
       setGuardandoRol(false);
     }
@@ -950,10 +960,10 @@ export default function ListasValores() {
 
       setRolPermisosEditando(null);
       await cargarRoles();
-      alert(`Matriz de permisos para "${rolPermisosEditando.name}" actualizada con éxito y registrada en la bitácora.`);
+      avisar(`Matriz de permisos para "${rolPermisosEditando.name}" actualizada con éxito y registrada en la bitácora.`, { tono: 'ok' });
     } catch (err) {
       console.error('Error al actualizar permisos:', err);
-      alert(err.message);
+      avisar(err.message, { tono: 'error' });
     } finally {
       setGuardandoRol(false);
     }
@@ -962,21 +972,24 @@ export default function ListasValores() {
   // Eliminar rol con validación preventiva de cuentas asignadas (RF-SEG-005 Criterio 5)
   const handleEliminarRol = async (rol) => {
     if (rol.name === 'Administrador') {
-      alert('Operación no permitida: El rol Administrador es fundamental para el sistema y no puede ser eliminado.');
+      avisar('Operación no permitida: El rol Administrador es fundamental para el sistema y no puede ser eliminado.', { tono: 'error' });
       return;
     }
 
     if (rol.assigned_users_count > 0) {
-      alert(
+      avisar(
         `Operación denegada: El rol "${rol.name}" tiene ${rol.assigned_users_count} cuenta(s) de usuario asignada(s).\n\n` +
-        'Debe reasignar o desvincular a los usuarios de este rol en "Usuarios y permisos" antes de poder eliminarlo.'
+        'Debe reasignar o desvincular a los usuarios de este rol en "Usuarios y permisos" antes de poder eliminarlo.', { tono: 'error' }
       );
       return;
     }
 
-    const confirmar = window.confirm(
-      `¿Está seguro de eliminar el rol "${rol.name}" del sistema?\n\nEsta acción no se puede deshacer.`
-    );
+    const confirmar = await pedirConfirmacion({
+      titulo: 'Eliminar rol',
+      texto: `¿Está seguro de eliminar el rol "${rol.name}" del sistema?\n\nEsta acción no se puede deshacer.`,
+      textoAccion: 'Eliminar rol',
+      peligro: true
+    });
     if (!confirmar) return;
 
     try {
@@ -996,10 +1009,10 @@ export default function ListasValores() {
       }
 
       await cargarRoles();
-      alert(resJson.message || `Rol "${rol.name}" eliminado con éxito.`);
+      avisar(resJson.message || `Rol "${rol.name}" eliminado con éxito.`, { tono: 'ok' });
     } catch (err) {
       console.error('Error al eliminar rol:', err);
-      alert(err.message);
+      avisar(err.message, { tono: 'error' });
     }
   };
 
@@ -1066,7 +1079,7 @@ export default function ListasValores() {
       await cargarAsociaciones();
     } catch (err) {
       console.error('Error al actualizar estado de asociación:', err);
-      alert('Error: ' + err.message);
+      avisar('Error: ' + err.message, { tono: 'error' });
     } finally {
       setEjecutandoDesactivacion(false);
     }
@@ -1096,9 +1109,12 @@ export default function ListasValores() {
       return;
     }
 
-    const confirmar = window.confirm(
-      `¿Desea cambiar el estado de la asociación "${asoc.name}" a "${nuevoEstado}"?`
-    );
+    const confirmar = await pedirConfirmacion({
+      titulo: 'Cambiar estado de la asociación',
+      texto: `¿Desea cambiar el estado de la asociación "${asoc.name}" a "${nuevoEstado}"?`,
+      textoAccion: 'Cambiar estado',
+      peligro: nuevoEstado !== 'ACTIVA'
+    });
     if (!confirmar) return;
 
     await ejecutarToggleAsociacion(asoc, nuevoEstado, false);
@@ -1108,7 +1124,7 @@ export default function ListasValores() {
   const handleCrearAsociacion = async (e) => {
     e.preventDefault();
     if (!nuevaAsociacion.name.trim() || !nuevaAsociacion.tax_id.trim()) {
-      alert('El nombre y la cédula jurídica son obligatorios.');
+      avisar('El nombre y la cédula jurídica son obligatorios.', { tono: 'error' });
       return;
     }
 
@@ -1180,10 +1196,10 @@ export default function ListasValores() {
         status: 'AFILIADA'
       });
       await cargarAsociaciones();
-      alert('Asociación registrada con éxito.');
+      avisar('Asociación registrada con éxito.', { tono: 'ok' });
     } catch (err) {
       console.error('Error al crear asociación:', err);
-      alert('Error al registrar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'));
+      avisar('Error al registrar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'), { tono: 'error' });
     } finally {
       setGuardandoAsoc(false);
     }
@@ -1193,15 +1209,18 @@ export default function ListasValores() {
   const handleGuardarEdicionAsoc = async (e) => {
     e.preventDefault();
     if (!asociacionEditando || !asociacionEditando.name.trim() || !asociacionEditando.tax_id.trim()) {
-      alert('El nombre y la cédula jurídica son obligatorios.');
+      avisar('El nombre y la cédula jurídica son obligatorios.', { tono: 'error' });
       return;
     }
 
     // Advertencia de consistencia histórica si se suspende teniendo dependencias activas (RF-AUD-002)
     if (asociacionEditando.status === 'SUSPENDIDA' && asociacionEditando.estadoAnteriorActivo && (asociacionEditando.dependency_count || 0) > 0) {
-      const confirmar = window.confirm(
-        `Advertencia de Consistencia Histórica:\n\nEsta asociación cuenta con ${asociacionEditando.dependency_count} registros dependientes (${asociacionEditando.teams_count || 0} equipos, ${asociacionEditando.persons_count || 0} personas afiliadas).\nAl suspenderla, los registros históricos se conservarán pero no podrá inscribir nuevos equipos ni realizar trámites oficiales.\n\n¿Desea confirmar la actualización?`
-      );
+      const confirmar = await pedirConfirmacion({
+        titulo: 'Consistencia histórica',
+        texto: `¿Desea confirmar la actualización?\n\nEsta asociación cuenta con ${asociacionEditando.dependency_count} registros dependientes (${asociacionEditando.teams_count || 0} equipos, ${asociacionEditando.persons_count || 0} personas afiliadas). Al suspenderla, los registros históricos se conservarán, pero no podrá inscribir nuevos equipos ni realizar trámites oficiales.`,
+        textoAccion: 'Guardar cambios',
+        peligro: true
+      });
       if (!confirmar) return;
     }
 
@@ -1263,10 +1282,10 @@ export default function ListasValores() {
 
       setAsociacionEditando(null);
       await cargarAsociaciones();
-      alert('Asociación actualizada con éxito.');
+      avisar('Asociación actualizada con éxito.', { tono: 'ok' });
     } catch (err) {
       console.error('Error al editar asociación:', err);
-      alert('Error al actualizar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'));
+      avisar('Error al actualizar asociación: ' + (err.message || 'Cédula jurídica duplicada o error de servidor'), { tono: 'error' });
     } finally {
       setGuardandoEdicionAsoc(false);
     }
@@ -2901,7 +2920,9 @@ export default function ListasValores() {
                       className="campo__input" 
                       placeholder="2551-0000"
                       value={nuevaAsociacion.phone}
-                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, phone: e.target.value })}
+                      onChange={(e) => setNuevaAsociacion({ ...nuevaAsociacion, phone: soloCaracteresDeTelefono(e.target.value) })}
+                      onBlur={() => setNuevaAsociacion({ ...nuevaAsociacion, phone: normalizarTelefono(nuevaAsociacion.phone).valor || nuevaAsociacion.phone })}
+                      maxLength={25}
                     />
                   </div>
                 </div>
@@ -3090,7 +3111,9 @@ export default function ListasValores() {
                       type="tel" 
                       className="campo__input" 
                       value={asociacionEditando.phone || ''}
-                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, phone: e.target.value })}
+                      onChange={(e) => setAsociacionEditando({ ...asociacionEditando, phone: soloCaracteresDeTelefono(e.target.value) })}
+                      onBlur={() => setAsociacionEditando({ ...asociacionEditando, phone: normalizarTelefono(asociacionEditando.phone).valor || asociacionEditando.phone })}
+                      maxLength={25}
                     />
                   </div>
                 </div>

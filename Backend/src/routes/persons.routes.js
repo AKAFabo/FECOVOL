@@ -2,6 +2,15 @@ const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
 const { errorFechaNacimiento } = require('../utils/fechaNacimiento');
+const { normalizarTelefono } = require('../utils/telefono');
+
+// Teléfono del cuerpo: undefined si no vino, '' si se borró, o normalizado (8888-0000 / +…).
+function telefonoDe(valor) {
+  if (valor === undefined || valor === null) return valor;
+  const { valor: telefono, error } = normalizarTelefono(valor);
+  if (error) throw new HttpError(400, error);
+  return telefono ?? '';
+}
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
@@ -250,7 +259,7 @@ router.post('/', asyncHandler(async (req, res) => {
     p_sex: req.body.sex || null,
     p_association_id: targetAssociationId,
     p_email: req.body.email || null,
-    p_phone: req.body.phone || null,
+    p_phone: telefonoDe(req.body.phone) || null,
     p_province: req.body.province || null,
     p_roles: roles
   });
@@ -319,7 +328,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
     p_birth_date: identidadLibre ? (b.birth_date ?? null) : null,
     p_sex: identidadLibre ? (b.sex ?? null) : null,
     p_email: b.email ?? null,
-    p_phone: b.phone ?? null,
+    p_phone: telefonoDe(b.phone) ?? null,
     p_province: b.province ?? null,
     p_emergency_contact: b.emergency_contact ?? null,
     // Suspender o inactivar a una persona es decisión de FECOVOL, no de la asociación.

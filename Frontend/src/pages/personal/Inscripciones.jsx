@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
 import { estadoCompetencia, estadoInscripcion } from '../../utils/estadosCompetencia.js';
-import Icono from '../../components/Icono.jsx';
 import '../admin/AdminCommon.css';
 
 const ESTILOS_SHAKE = `
@@ -325,14 +324,14 @@ export default function Inscripciones() {
               <div className="admin-side-card">
                 <div className="admin-side-card__header">
                   <h2 className="admin-side-card__title">Requisitos de la competencia</h2>
-                  <p className="admin-side-card__subtitle">Verifica que cada equipo cumpla con estos puntos antes de aprobar</p>
+                  <p className="admin-side-card__subtitle">Antes de aprobar una inscripción, revise que el equipo cumpla con:</p>
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--texto-suave)' }}>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={14} style={{ color: 'var(--ok)', marginRight: 6, verticalAlign: '-2px' }} />Nómina con al menos {metricas?.min_roster ?? 12} integrantes</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={14} style={{ color: 'var(--ok)', marginRight: 6, verticalAlign: '-2px' }} />Categoría acorde a la competencia</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={14} style={{ color: 'var(--ok)', marginRight: 6, verticalAlign: '-2px' }} />Nómina aprobada por FECOVOL</li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><Icono nombre="check" tam={14} style={{ color: 'var(--ok)', marginRight: 6, verticalAlign: '-2px' }} />Aval de la asociación</li>
-                  <li style={{ padding: '8px 0' }}><Icono nombre="check" tam={14} style={{ color: 'var(--ok)', marginRight: 6, verticalAlign: '-2px' }} />Cuota de inscripción pagada</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><span aria-hidden="true" style={{ color: 'var(--texto-tenue)', marginRight: 8 }}>•</span>Nómina con al menos {metricas?.min_roster ?? 12} integrantes</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><span aria-hidden="true" style={{ color: 'var(--texto-tenue)', marginRight: 8 }}>•</span>Categoría acorde a la competencia</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><span aria-hidden="true" style={{ color: 'var(--texto-tenue)', marginRight: 8 }}>•</span>Nómina aprobada por FECOVOL</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid var(--linea)' }}><span aria-hidden="true" style={{ color: 'var(--texto-tenue)', marginRight: 8 }}>•</span>Aval de la asociación</li>
+                  <li style={{ padding: '8px 0' }}><span aria-hidden="true" style={{ color: 'var(--texto-tenue)', marginRight: 8 }}>•</span>Cuota de inscripción pagada</li>
                 </ul>
               </div>
 
