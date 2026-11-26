@@ -422,6 +422,28 @@ function partidoDe({ puesto = 'PRI', estado = 'CONFIRMADA', fecha = sumarDias(ho
 
 const SETS_OK = [{ home_points: 25, away_points: 20 }, { home_points: 23, away_points: 25 }, { home_points: 26, away_points: 24 }, { home_points: 25, away_points: 18 }];
 
+test('un principal que no confirmó a tiempo puede cerrar el partido ya jugado, pero no uno futuro', async () => {
+  const preparar = (fecha) => {
+    fake.reset(); limpiarCache(); registrarUsuarios(fake);
+    fake.alResponderTabla('persons', MI_PERSONA);
+    fake.alResponderTabla('matches', partidoDe({ estado: 'PROPUESTA', fecha }));
+    fake.alResponderTabla('competition_rosters', { data: [], error: null }, { data: [], error: null });
+    fake.alResponderTabla('competition_roster_versions', { data: [], error: null }, { data: [], error: null });
+    fake.alResponderTabla('match_referee_reports', { data: null, error: null });
+    fake.alResponderTabla('match_evidence', { data: [], error: null });
+  };
+  preparar(sumarDias(hoyCR(), -2));
+  const jugado = await call('GET', `/api/referees/me/partidos/${PARTIDO}`, null, ARBITRO);
+  assert.equal(jugado.status, 200);
+  assert.equal(jugado.json.data.puede_cerrar, true);
+  assert.equal(jugado.json.data.puede_adjuntar, true);
+
+  preparar(sumarDias(hoyCR(), 3));
+  const futuro = await call('GET', `/api/referees/me/partidos/${PARTIDO}`, null, ARBITRO);
+  assert.equal(futuro.json.data.puede_cerrar, false);
+  assert.equal(futuro.json.data.puede_adjuntar, false);
+});
+
 test('el árbitro no consulta un partido en el que no está designado', async () => {
   fake.alResponderTabla('persons', MI_PERSONA);
   fake.alResponderTabla('matches', partidoDe({ persona: OTRA_PERSONA }));

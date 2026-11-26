@@ -95,7 +95,7 @@ function CargoModal({ cargo, onCerrar, onGuardar }) {
           {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
         </Campo>
         <Campo etiqueta="Teléfono" error={errores.phone}>
-          {(a) => <input {...a} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} placeholder="8888-0000" />}
+          {(a) => <input {...a} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} onBlur={() => setF((x) => ({ ...x, phone: normalizarTelefono(x.phone).valor || x.phone }))} maxLength={25} placeholder="8888-0000" />}
         </Campo>
       </div>
     </Modal>
@@ -181,7 +181,7 @@ function Contenido({ datos, perfil, recargar, mostrar }) {
                 {(a2) => <input {...a2} type="email" className="g-control" value={f.email} onChange={cambiar('email')} maxLength={120} />}
               </Campo>
               <Campo etiqueta="Teléfono" error={errores.phone}>
-                {(a2) => <input {...a2} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} placeholder="8888-0000" />}
+                {(a2) => <input {...a2} type="tel" inputMode="tel" autoComplete="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} onBlur={() => setF((x) => ({ ...x, phone: normalizarTelefono(x.phone).valor || x.phone }))} maxLength={25} placeholder="8888-0000" />}
               </Campo>
               <Campo etiqueta="Sitio web o red social" error={errores.website}>
                 {(a2) => <input {...a2} className="g-control" value={f.website} onChange={cambiar('website')} maxLength={200} />}

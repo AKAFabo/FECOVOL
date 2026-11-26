@@ -220,9 +220,11 @@
 }
 
 /* ----- Involucrados en el formulario ----- */
+/* Tres columnas con anchos mínimos: con el botón en la misma fila, el buscador de personas quedaba
+   de unos 30 px y el texto se montaba sobre el campo siguiente. El botón va al final, a la derecha. */
 .inc-agregar {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) 170px auto;
+  grid-template-columns: minmax(120px, 160px) minmax(200px, 1fr) minmax(140px, 180px);
   gap: 10px;
   align-items: end;
   margin-top: 14px;
@@ -232,7 +234,8 @@
   background: #fafbfc;
 }
 
-.inc-agregar .arb-campo { gap: 4px; }
+.inc-agregar .arb-campo { gap: 4px; min-width: 0; }
+.inc-agregar > .admin-btn { grid-column: 1 / -1; justify-self: end; order: 10; }
 
 .admin-btn--quitar {
   background: var(--superficie);

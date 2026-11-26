@@ -28,12 +28,12 @@ const INICIAL = {
 
 function Interruptor({ id, etiqueta, ayuda, activo, onCambiar }) {
   return (
-    <div className="arb-interruptor">
+    <div className="arb-switch">
       <div>
-        <label htmlFor={id} className="arb-interruptor__etiqueta">{etiqueta}</label>
+        <label htmlFor={id} className="arb-switch__etiqueta">{etiqueta}</label>
         {ayuda && <p className="g-campo__ayuda">{ayuda}</p>}
       </div>
-      <button id={id} type="button" role="switch" aria-checked={activo} className="arb-interruptor__control" onClick={() => onCambiar(!activo)}>
+      <button id={id} type="button" role="switch" aria-checked={activo} className="arb-switch__control" onClick={() => onCambiar(!activo)}>
         <span className="visualmente-oculto">{activo ? 'Sí' : 'No'}</span>
       </button>
     </div>

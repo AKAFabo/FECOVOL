@@ -2,6 +2,8 @@ const supabase = require('../config/supabase');
 
 // Genera el checklist de validaciones para un partido antes de publicar el resultado.
 // Ahora usa min_roster de la competencia para validar la nómina.
+const { validarSets } = require('./cierreArbitral');
+
 async function getMatchValidationChecklist(matchId) {
   // Consulta el partido con la información necesaria
   const { data: match } = await supabase
@@ -31,7 +33,7 @@ async function getMatchValidationChecklist(matchId) {
   ] = await Promise.all([
     supabase.from('competition_rosters').select('id', { count: 'exact', head: true }).eq('competition_id', match.competition_id).eq('team_id', match.home_team_id).eq('status', 'ACTIVO'),
     supabase.from('competition_rosters').select('id', { count: 'exact', head: true }).eq('competition_id', match.competition_id).eq('team_id', match.away_team_id).eq('status', 'ACTIVO'),
-    supabase.from('referee_assignments').select('id').eq('match_id', matchId).neq('status', 'ANULADA'),
+    supabase.from('referee_assignments').select('id').eq('match_id', matchId).not('status', 'in', '(ANULADA,RECHAZADA)'),
     supabase.from('match_sets').select('set_number, home_points, away_points').eq('match_id', matchId).order('set_number'),
     supabase.from('match_evidence').select('id, file_type').eq('match_id', matchId)
   ]);
@@ -41,20 +43,20 @@ async function getMatchValidationChecklist(matchId) {
   const hasReferee = (refAssignments || []).length > 0;
   const hasEvidence = (evidence || []).some(e => e.file_type === 'HOJA_ANOTACION');
 
-  // Valida la coherencia de los sets registrados
+  // Valida los sets con el reglamento (mismo criterio que el cierre arbitral y que la pantalla de
+  // registro): sets a 25 (el quinto a 15) con dos de diferencia y un ganador de tres sets.
   let setsConsistent = true;
-  let setsMessage = 'Los sets son consistentes con el reglamento.';
+  let setsMessage;
   if (!sets || sets.length === 0) {
     setsConsistent = false;
     setsMessage = 'Debes registrar al menos un set antes de validar.';
   } else {
-    const homeWins = sets.filter(s => s.home_points > s.away_points).length;
-    const awayWins = sets.filter(s => s.away_points > s.home_points).length;
-    if (homeWins === awayWins) {
+    try {
+      const { local, visita } = validarSets(sets, { completo: true });
+      setsMessage = `Sets consistentes: local ${local} – visita ${visita}.`;
+    } catch (e) {
       setsConsistent = false;
-      setsMessage = 'El resultado tiene empate de sets. Debe haber un ganador claro.';
-    } else {
-      setsMessage = `Sets consistentes (Local ${homeWins} - Visita ${awayWins}).`;
+      setsMessage = e.message;
     }
   }
 

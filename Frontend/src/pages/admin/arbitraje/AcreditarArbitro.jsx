@@ -40,9 +40,9 @@ function Documento({ titulo, tipo, docs, valor, onCambiar, onCargar }) {
   const opciones = documentosUtiles(docs, tipo);
   const elegido = opciones.find((d) => d.id === valor);
   return (
-    <div className="arb-requisito">
-      <div className="arb-requisito__texto">
-        <label className="arb-requisito__titulo" htmlFor={`doc-${tipo}`}>{titulo}</label>
+    <div className="arb-req">
+      <div className="arb-req__texto">
+        <label className="arb-req__titulo" htmlFor={`doc-${tipo}`}>{titulo}</label>
         {opciones.length > 0 ? (
           <select id={`doc-${tipo}`} className="g-control" value={valor} onChange={(e) => onCambiar(e.target.value)}>
             <option value="">Sin adjuntar</option>
@@ -52,7 +52,7 @@ function Documento({ titulo, tipo, docs, valor, onCambiar, onCargar }) {
           <p className="g-campo__ayuda" id={`doc-${tipo}`}>La persona no tiene este documento cargado.</p>
         )}
       </div>
-      <div className="arb-requisito__acciones">
+      <div className="arb-req__acciones">
         {elegido && <Estado tono={estadoDocumento(elegido).tono}>{estadoDocumento(elegido).texto}</Estado>}
         <button type="button" className="g-boton g-boton--chico" onClick={onCargar}>{opciones.length ? 'Cargar otro' : 'Cargar'}</button>
       </div>
@@ -164,7 +164,7 @@ export default function AcreditarArbitro() {
                   <div className="arb-persona-elegida">
                     <div>
                       <p className="arb-persona-elegida__nombre">{nombrePersona(p)} · {p.document_number}</p>
-                      <p className="arb-texto-ok">La persona está registrada en el padrón federativo.</p>
+                      <p className="arb-txt-ok">La persona está registrada en el padrón federativo.</p>
                     </div>
                     <button type="button" className="g-enlace" onClick={() => setParams({})}>Cambiar persona</button>
                   </div>
@@ -261,7 +261,7 @@ export default function AcreditarArbitro() {
                 )}
               </Campo>
               {p && (
-                <div className="g-campo--ancho arb-requisitos">
+                <div className="g-campo--ancho arb-reqs">
                   <Documento titulo="Certificado del curso" tipo="CUR" docs={documentos.datos} valor={f.certificate_document_id} onCambiar={(v) => setF((x) => ({ ...x, certificate_document_id: v }))} onCargar={() => setSubir('CUR')} />
                   <Documento titulo="Constancia médica" tipo="MED" docs={documentos.datos} valor={f.medical_document_id} onCambiar={(v) => setF((x) => ({ ...x, medical_document_id: v }))} onCargar={() => setSubir('MED')} />
                 </div>

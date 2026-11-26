@@ -1,6 +1,8 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { hoyCR } = require('../utils/arbitraje');
+const { esFutura, exigirFechaFutura } = require('../utils/fechasPartido');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { personaSuspendida } = require('../utils/sanciones');
@@ -346,11 +348,17 @@ router.get('/:id/metrics', requireAuth, requireAdmin, asyncHandler(async (req, r
 
   const { data: allMatches } = await supabase
     .from('matches')
-    .select('id, status')
+    .select('id, status, scheduled_date')
     .eq('competition_id', competitionId);
 
+  // Mismos criterios que Frontend/src/utils/partidos.js: pendiente de resultado = ya debió jugarse
+  // (fecha de hoy o anterior) y no tiene resultado; sin árbitro = por jugarse y sin ningún oficial
+  // vigente (las designaciones anuladas o rechazadas no cuentan).
+  const hoy = hoyCR();
   const matchIds = (allMatches || []).map(m => m.id);
-  const pendientesResultado = (allMatches || []).filter(m => ['PROGRAMADO', 'EN_CURSO'].includes(m.status)).length;
+  const pendientesResultado = (allMatches || [])
+    .filter(m => ['PROGRAMADO', 'REPROGRAMADO', 'EN_CURSO'].includes(m.status) && m.scheduled_date && m.scheduled_date <= hoy)
+    .length;
 
   let solicitudesPendientes = 0;
   if (matchIds.length > 0) {
@@ -362,14 +370,16 @@ router.get('/:id/metrics', requireAuth, requireAdmin, asyncHandler(async (req, r
     solicitudesPendientes = count || 0;
   }
 
-  const programados = (allMatches || []).filter(m => m.status === 'PROGRAMADO').map(m => m.id);
+  const programados = (allMatches || [])
+    .filter(m => ['PROGRAMADO', 'REPROGRAMADO'].includes(m.status) && (!m.scheduled_date || m.scheduled_date >= hoy))
+    .map(m => m.id);
   let partidosSinArbitro = 0;
   if (programados.length > 0) {
     const { data: conArbitro } = await supabase
       .from('referee_assignments')
       .select('match_id')
       .in('match_id', programados)
-      .neq('status', 'ANULADA');
+      .not('status', 'in', '(ANULADA,RECHAZADA)');
 
     const conArbitroIds = new Set((conArbitro || []).map(r => r.match_id));
     partidosSinArbitro = programados.filter(id => !conArbitroIds.has(id)).length;
@@ -468,6 +478,44 @@ router.delete('/:id/teams/:teamId', requireAuth, requireAdmin, asyncHandler(asyn
 
   if (error) throw fromSupabase(error);
   res.json({ data: { message: 'Equipo retirado con éxito' } });
+}));
+
+// POST /api/competitions/:id/teams/:teamId/reincorporar -> deshace un retiro hecho por error.
+// Solo mientras la competencia no haya finalizado y si el cupo lo permite. Los partidos del equipo
+// no se tocan al retirarlo, así que al volver conserva su calendario.
+router.post('/:id/teams/:teamId/reincorporar', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const [comp, inscripcion] = await Promise.all([
+    supabase.from('competitions').select('id, status, max_teams').eq('id', req.params.id).maybeSingle(),
+    supabase.from('competition_teams').select('id, status').eq('competition_id', req.params.id).eq('team_id', req.params.teamId).maybeSingle()
+  ]);
+  if (comp.error) throw fromSupabase(comp.error);
+  if (inscripcion.error) throw fromSupabase(inscripcion.error);
+  if (!comp.data) throw new HttpError(404, 'Competencia no encontrada.');
+  if (!inscripcion.data) throw new HttpError(404, 'El equipo no está inscrito en esta competencia.');
+  if (inscripcion.data.status !== 'RETIRADO') throw new HttpError(409, 'Solo se reincorpora un equipo retirado.');
+  if (['FINALIZADA', 'CERRADA'].includes(comp.data.status)) {
+    throw new HttpError(409, 'La competencia ya finalizó; no se pueden reincorporar equipos.');
+  }
+
+  if (comp.data.max_teams) {
+    const { count, error } = await supabase
+      .from('competition_teams')
+      .select('id', { count: 'exact', head: true })
+      .eq('competition_id', req.params.id)
+      .eq('status', 'INSCRITO');
+    if (error) throw fromSupabase(error);
+    if ((count || 0) >= comp.data.max_teams) {
+      throw new HttpError(409, `La competencia ya tiene su cupo completo (${comp.data.max_teams} equipos).`);
+    }
+  }
+
+  const { error } = await supabase
+    .from('competition_teams')
+    .update({ status: 'INSCRITO' })
+    .eq('id', inscripcion.data.id)
+    .eq('status', 'RETIRADO');
+  if (error) throw fromSupabase(error);
+  res.json({ data: { message: 'Equipo reincorporado.' } });
 }));
 
 // ==========================================
@@ -859,6 +907,7 @@ router.post('/:id/generate-calendar', requireAuth, requireAdmin, asyncHandler(as
   const { fecha_inicio, dias_entre, hora_default, sede_default_id, ida_vuelta, force } = req.body;
 
   if (!fecha_inicio) throw new HttpError(400, 'Debes indicar la fecha de inicio.');
+  exigirFechaFutura(fecha_inicio, hora_default || '23:59', 'El calendario');
   if (!dias_entre || parseInt(dias_entre) < 1) throw new HttpError(400, 'Los días entre jornadas deben ser al menos 1.');
   if (!hora_default) throw new HttpError(400, 'Debes indicar la hora por defecto.');
   if (!sede_default_id) throw new HttpError(400, 'Debes seleccionar una sede por defecto.');
@@ -1000,12 +1049,19 @@ router.patch('/:id/matchdays/:matchday', requireAuth, requireAdmin, asyncHandler
   const { scheduled_date } = req.body;
 
   if (!scheduled_date) throw new HttpError(400, 'Debes indicar la nueva fecha.');
+  exigirFechaFutura(scheduled_date, '23:59', 'La jornada');
 
   const { data: allMatches } = await supabase
     .from('matches')
-    .select('id, matchday, scheduled_date')
+    .select('id, matchday, scheduled_date, scheduled_time, status')
     .eq('competition_id', id)
     .order('matchday');
+
+  // Si la jornada se mueve a hoy, ningún partido pendiente puede quedar con una hora ya pasada.
+  const pendientesDeLaJornada = (allMatches || []).filter(m => m.matchday === parseInt(matchday) && ['PROGRAMADO', 'REPROGRAMADO'].includes(m.status));
+  if (pendientesDeLaJornada.some(m => !esFutura(scheduled_date, m.scheduled_time))) {
+    throw new HttpError(400, 'Algún partido de la jornada quedaría a una hora que ya pasó. Elija una fecha posterior.');
+  }
 
   if (!allMatches || allMatches.length === 0) {
     throw new HttpError(404, 'No hay partidos en esta competencia.');

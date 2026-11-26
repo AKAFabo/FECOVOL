@@ -12,6 +12,7 @@ import { fechaCorta } from '../../utils/formato.js';
 import SubirDocumento from './SubirDocumento.jsx';
 import TablaDocumentos from './TablaDocumentos.jsx';
 import { RUTA, useAsociacion } from './contexto.js';
+import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../utils/fechaNacimiento.js';
 
 const SEXO = { F: 'Femenino', M: 'Masculino', OTRO: 'Otro' };
 
@@ -48,6 +49,7 @@ function Ficha({ persona, documentos, tipos, recargar, mostrar }) {
     if (!verificada && !f.first_name.trim()) encontrados.first_name = 'Escriba el nombre.';
     if (!verificada && !f.last_name.trim()) encontrados.last_name = 'Escriba los apellidos.';
     if (!correoValido(f.email.trim())) encontrados.email = 'El correo no es válido.';
+    if (!verificada && f.birth_date && errorFechaNacimiento(f.birth_date)) encontrados.birth_date = errorFechaNacimiento(f.birth_date);
     setErrores(encontrados);
     if (Object.keys(encontrados).length) return;
 
@@ -111,8 +113,8 @@ function Ficha({ persona, documentos, tipos, recargar, mostrar }) {
                   <Campo etiqueta="Apellidos" error={errores.last_name}>
                     {(a) => <input {...a} className="g-control" value={f.last_name} onChange={cambiar('last_name')} readOnly={verificada} maxLength={100} />}
                   </Campo>
-                  <Campo etiqueta="Fecha de nacimiento">
-                    {(a) => <input {...a} type="date" className="g-control" value={f.birth_date} onChange={cambiar('birth_date')} readOnly={verificada} />}
+                  <Campo etiqueta="Fecha de nacimiento" error={errores.birth_date}>
+                    {(a) => <input {...a} type="date" className="g-control" value={f.birth_date} max={fechaNacimientoMaxima()} min={FECHA_NACIMIENTO_MINIMA} onChange={cambiar('birth_date')} readOnly={verificada} />}
                   </Campo>
                   <Campo etiqueta="Provincia">
                     {(a) => (

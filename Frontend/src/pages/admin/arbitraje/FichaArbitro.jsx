@@ -134,7 +134,7 @@ export default function FichaArbitro() {
                         <tr key={c.id}>
                           <td className="g-tabla__fecha">{fechaCorta(c.curso?.end_date)}</td>
                           <th scope="row"><Link to={RUTA.curso(c.curso?.id)} className="arb-enlace-fila">{c.curso?.name}</Link></th>
-                          <td><Estado tono={r.tono}>{r.texto}</Estado>{c.grade !== null && c.grade !== undefined && <span className="arb-nota"> · {Number(c.grade)}</span>}</td>
+                          <td><Estado tono={r.tono}>{r.texto}</Estado>{c.grade !== null && c.grade !== undefined && <span className="arb-nota-texto"> · {Number(c.grade)}</span>}</td>
                         </tr>
                       );
                     })}

@@ -12,6 +12,7 @@ import SubirDocumento from '../../asociacion/SubirDocumento.jsx';
 import TablaDocumentos from '../../asociacion/TablaDocumentos.jsx';
 import { RUTA_ADMIN as RUTA } from '../../asociacion/contexto.js';
 import RevisarDocumento from './RevisarDocumento.jsx';
+import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../../utils/fechaNacimiento.js';
 
 const SEXO = { F: 'Femenino', M: 'Masculino', OTRO: 'Otro' };
 const CAMPOS_CORRECCION = [
@@ -20,7 +21,6 @@ const CAMPOS_CORRECCION = [
   { valor: 'birth_date', texto: 'Fecha de nacimiento' },
   { valor: 'sex', texto: 'Sexo' }
 ];
-const HOY = () => new Date().toISOString().slice(0, 10);
 
 function mostrarValor(campo, valor) {
   if (valor === null || valor === undefined || valor === '') return '—';
@@ -47,7 +47,7 @@ function CorreccionOficial({ persona, onCerrar, onGuardado }) {
     const nuevo = typeof valor === 'string' ? valor.trim() : valor;
     if (!nuevo) e.valor = 'Escriba el valor correcto.';
     else if (String(nuevo) === String(persona[campo] || '')) e.valor = 'El valor correcto es igual al actual.';
-    if (campo === 'birth_date' && nuevo && (nuevo > HOY() || nuevo < '1920-01-01')) e.valor = 'La fecha no es válida.';
+    if (campo === 'birth_date' && nuevo && errorFechaNacimiento(nuevo)) e.valor = errorFechaNacimiento(nuevo);
     if (motivo.trim().length < 10) e.motivo = 'Explique el motivo (al menos 10 caracteres).';
     setErrores(e);
     if (Object.keys(e).length) return;
@@ -87,7 +87,7 @@ function CorreccionOficial({ persona, onCerrar, onGuardado }) {
         </Campo>
         <Campo etiqueta="Valor correcto" obligatorio error={errores.valor}>
           {(a) => {
-            if (campo === 'birth_date') return <input {...a} type="date" className="g-control" value={valor} max={HOY()} onChange={(e) => setValor(e.target.value)} />;
+            if (campo === 'birth_date') return <input {...a} type="date" className="g-control" value={valor} max={fechaNacimientoMaxima()} min={FECHA_NACIMIENTO_MINIMA} onChange={(e) => setValor(e.target.value)} />;
             if (campo === 'sex') {
               return (
                 <select {...a} className="g-control" value={valor} onChange={(e) => setValor(e.target.value)}>

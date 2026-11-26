@@ -266,7 +266,7 @@ router.get('/actas', asyncHandler(async (req, res) => {
         local:teams!matches_home_team_id_fkey(name, short_name),
         visitante:teams!matches_away_team_id_fkey(name, short_name))`)
     .eq('person_id', req.arbitro.id)
-    .in('status', ['CONFIRMADA', 'CUMPLIDA'])
+    .in('status', ['PROPUESTA', 'CONFIRMADA', 'CUMPLIDA'])
     .lte('partido.scheduled_date', hoy)
     .gte('partido.scheduled_date', `${anio}-01-01`)
     .lte('partido.scheduled_date', `${anio}-12-31`);
@@ -334,6 +334,14 @@ const SELECT_PARTIDO_ARBITRO = `id, match_number, matchday, scheduled_date, sche
     puesto:catalog_values!referee_assignments_official_type_value_id_fkey(code, value))`;
 
 const VIGENTES = ['PROPUESTA', 'CONFIRMADA', 'CUMPLIDA'];
+
+// Designación que cuenta para un partido ya disputado: confirmada o cumplida, y también una que
+// quedó propuesta sin responder, porque después de la fecha ya no se puede confirmar
+// (sp_respond_referee_assignment) y quien estuvo en el partido debe poder cerrar el acta.
+function cuentaParaPartidoJugado(propia, partido, hoy) {
+  if (['CONFIRMADA', 'CUMPLIDA'].includes(propia.status)) return true;
+  return propia.status === 'PROPUESTA' && Boolean(partido.scheduled_date) && partido.scheduled_date <= hoy;
+}
 
 /**
  * Carga el partido solo si la persona de la sesión está designada en él. El id del partido viene
@@ -415,7 +423,7 @@ async function evidenciasDe(matchId) {
 
 function puedeCerrar(partido, propia, cierre, hoy) {
   return propia.puesto?.code === 'PRI'
-    && ['CONFIRMADA', 'CUMPLIDA'].includes(propia.status)
+    && cuentaParaPartidoJugado(propia, partido, hoy)
     && partido.status !== 'CANCELADO'
     && partido.acta_status !== 'VALIDADA'
     && Boolean(partido.scheduled_date) && partido.scheduled_date <= hoy
@@ -428,7 +436,7 @@ function puedeCerrar(partido, propia, cierre, hoy) {
 router.get('/partidos/:id', asyncHandler(async (req, res) => {
   const hoy = hoyCR();
   const { partido, propia } = await partidoDesignado(req, req.params.id);
-  const confirmada = ['CONFIRMADA', 'CUMPLIDA'].includes(propia.status);
+  const confirmada = cuentaParaPartidoJugado(propia, partido, hoy);
 
   const [local, visitante, cierreR, evidencias] = await Promise.all([
     partido.local ? nominaParaArbitraje(partido.competencia.id, partido.local) : null,
@@ -495,7 +503,7 @@ router.put('/partidos/:id/cierre', asyncHandler(async (req, res) => {
 router.post('/partidos/:id/evidencias', recibirArchivo, asyncHandler(async (req, res) => {
   const hoy = hoyCR();
   const { partido, propia } = await partidoDesignado(req, req.params.id);
-  if (!['CONFIRMADA', 'CUMPLIDA'].includes(propia.status)) throw new HttpError(403, 'Confirme la designación antes de adjuntar evidencias.');
+  if (!cuentaParaPartidoJugado(propia, partido, hoy)) throw new HttpError(403, 'Su designación no está vigente para este partido.');
   if (partido.status === 'CANCELADO' || !partido.scheduled_date || partido.scheduled_date > hoy) {
     throw new HttpError(409, 'Las evidencias se adjuntan cuando el partido ya se disputó.');
   }

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient.js';
+import { estadoActa } from '../../utils/estadosCompetencia.js';
+import { revisarSets } from '../../utils/reglasSets.js';
+import Icono from '../../components/Icono.jsx';
 import '../admin/AdminCommon.css';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
@@ -201,6 +204,10 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
         return `El set ${s.set_number} no puede terminar en empate.`;
       }
     }
+
+    // Regla del reglamento (25 / 15 con dos de diferencia) y un ganador de tres sets.
+    const revision = revisarSets(setsResultado);
+    if (!revision.valido || !revision.completo) return revision.mensaje;
 
     return null;
   }
@@ -477,6 +484,13 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
   const alcanzoMaxSets = setsResultado.length >= MAX_SETS;
   const esEspecial = partido.result_type && partido.result_type !== 'NORMAL';
 
+  // El ítem «Sets» del backend refleja lo último guardado; mientras se escribe, se recalcula con los
+  // sets del formulario para que el aviso cambie con cada set.
+  const revisionSets = revisarSets(setsResultado);
+  const checklistVivo = esEspecial ? checklist : checklist.map((item) => (item.id === 'sets'
+    ? { ...item, passed: revisionSets.valido && revisionSets.completo, warning: revisionSets.valido && !revisionSets.completo, message: revisionSets.mensaje }
+    : item));
+
   return (
     <>
       <style>{ESTILOS_SHAKE}</style>
@@ -559,9 +573,7 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
               <div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--texto-mudo)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>Estado del acta</div>
                 <div style={{ marginTop: '2px' }}>
-                  <span className={`badge-status ${partido.acta_status === 'VALIDADA' ? 'badge-status--activa' : partido.acta_status === 'ENVIADA' ? 'badge-status--inactivo' : 'badge-status--suspendida'}`}>
-                    {partido.acta_status || 'BORRADOR'}
-                  </span>
+                  <span className={estadoActa(partido.acta_status || 'BORRADOR').clase}>{estadoActa(partido.acta_status || 'BORRADOR').texto}</span>
                 </div>
               </div>
             </div>
@@ -603,8 +615,8 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
                     }} />
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    {ganaLocal && <span className="badge-status badge-status--activa">LOCAL</span>}
-                    {ganaVisita && <span className="badge-status badge-status--inactivo">VISITANTE</span>}
+                    {ganaLocal && <span className="badge-status badge-status--info">Local</span>}
+                    {ganaVisita && <span className="badge-status badge-status--info">Visitante</span>}
                     {!ganaLocal && !ganaVisita && <span className="badge-status" style={{ background: 'var(--neutro-fondo)', color: 'var(--neutro)' }}>—</span>}
                   </div>
                 </div>
@@ -714,16 +726,20 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
           <div className="admin-card" style={{ padding: '20px', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '16px', fontFamily: 'var(--fuente-titulo)' }}>Validaciones</h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {checklist.map(item => (
-                <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
-                  <span style={{ fontSize: '1rem', lineHeight: 1, flexShrink: 0 }}>
-                    {item.passed ? '✅' : (item.warning ? '⚠️' : '❌')}
-                  </span>
-                  <span style={{ color: item.passed ? 'var(--texto)' : (item.warning ? 'var(--aviso)' : 'var(--rojo)') }}>
-                    {item.label}
-                  </span>
-                </li>
-              ))}
+              {checklistVivo.map(item => {
+                const tono = item.passed ? 'var(--ok)' : (item.warning ? 'var(--aviso)' : '#a3202c');
+                return (
+                  <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
+                    <span style={{ color: tono, flexShrink: 0, marginTop: '1px', display: 'inline-flex' }}>
+                      <Icono nombre={item.passed ? 'correcto' : (item.warning ? 'alerta' : 'error')} tam={18} titulo={item.passed ? 'Cumple' : (item.warning ? 'Aviso' : 'No cumple')} />
+                    </span>
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ color: 'var(--texto)', fontWeight: 600 }}>{item.label}</span>
+                      {!item.passed && item.message && <span style={{ color: tono, fontSize: '0.8rem', lineHeight: 1.4 }}>{item.message}</span>}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -922,9 +938,8 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexShrink: 0,
-                  fontSize: '1.3rem'
-                }}>⚠️</div>
+                  flexShrink: 0
+                }}><Icono nombre="alerta" tam={22} /></div>
                 <div>
                   <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.95rem' }}>
                     ¿Eliminar esta evidencia?

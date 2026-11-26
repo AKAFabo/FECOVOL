@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { hoyCR } from '../utils/partidos.js';
 import { supabase } from '../supabaseClient.js';
 import '../pages/admin/AdminCommon.css';
 import Icono from '../components/Icono.jsx';
@@ -375,7 +376,7 @@ export default function GenerarCalendarioModal({ isOpen, onClose, competitionId,
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
                   <div className="campo">
                     <label className="campo__etiqueta">Fecha de la primera jornada *</label>
-                    <input type="date" className="campo__input" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
+                    <input type="date" className="campo__input" value={fechaInicio} min={hoyCR()} onChange={e => setFechaInicio(e.target.value)} />
                   </div>
                   <div className="campo">
                     <label className="campo__etiqueta">Días entre jornadas *</label>
@@ -752,7 +753,7 @@ function EditarJornadaModal({ jornada, partidos, onClose, onGuardar }) {
               type="date"
               className="campo__input"
               value={nuevaFecha}
-              min={anterior ? sumarDias(anterior, 1) : undefined}
+              min={[anterior ? sumarDias(anterior, 1) : null, hoyCR()].filter(Boolean).sort().pop()}
               max={siguiente ? sumarDias(siguiente, -1) : undefined}
               onChange={e => setNuevaFecha(e.target.value)}
             />

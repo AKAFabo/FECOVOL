@@ -187,9 +187,15 @@ function FormularioCierre({ d, onGuardado }) {
   );
 }
 
-function ResumenCierre({ d }) {
+function ResumenCierre({ d, esPrincipal }) {
   const c = d.cierre;
-  if (!c) return <p className="g-tarjeta__vacio">El árbitro principal todavía no registra el cierre.</p>;
+  if (!c) {
+    return (
+      <p className="g-tarjeta__vacio">
+        {esPrincipal ? 'Todavía no hay un cierre registrado para este partido.' : 'El árbitro principal todavía no registra el cierre.'}
+      </p>
+    );
+  }
   return (
     <div className="g-tarjeta__cuerpo">
       <dl className="g-datos">
@@ -301,6 +307,13 @@ export default function PartidoArbitro() {
   const acta = ESTADOS_ACTA[p.acta_status];
   const cierre = d.cierre ? ESTADOS_CIERRE[d.cierre.status] : null;
   const esPrincipal = d.mi_puesto?.code === 'PRI';
+  // Por qué el principal no ve el formulario de cierre (la regla la decide el backend: puede_cerrar).
+  const motivoSinCierre = !esPrincipal || d.puede_cerrar ? null
+    : p.status === 'CANCELADO' ? 'El partido fue cancelado; no lleva cierre.'
+      : p.scheduled_date > d.hoy ? `Podrá registrar el cierre a partir del día del partido (${p.scheduled_date.split('-').reverse().join('/')}).`
+        : p.acta_status === 'VALIDADA' ? 'FECOVOL ya validó el acta de este partido.'
+          : d.cierre?.status === 'ENVIADO' ? 'Usted ya envió el cierre. FECOVOL lo revisa; si necesita cambios, se lo devolverá.'
+            : null;
 
   return (
     <div className="g-pagina">
@@ -323,8 +336,8 @@ export default function PartidoArbitro() {
               ? <FormularioCierre key={`${d.cierre?.status}-${d.cierre?.updated_at}`} d={d} onGuardado={recargar} />
               : (
                 <>
-                  {esPrincipal && p.scheduled_date > d.hoy && <p className="g-tarjeta__vacio">Podrá registrar el cierre cuando se dispute el partido.</p>}
-                  {(!esPrincipal || p.scheduled_date <= d.hoy) && <ResumenCierre d={d} />}
+                  {motivoSinCierre && <p className="g-tarjeta__vacio">{motivoSinCierre}</p>}
+                  {(!esPrincipal || !motivoSinCierre || d.cierre) && <ResumenCierre d={d} esPrincipal={esPrincipal} />}
                 </>
               )}
           </Tarjeta>

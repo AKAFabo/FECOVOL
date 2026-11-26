@@ -63,7 +63,7 @@ function EditarContacto({ persona, onCerrar, onGuardado }) {
           {(a) => <input {...a} type="email" className="g-control" value={f.email} onChange={(e) => setF((x) => ({ ...x, email: e.target.value }))} maxLength={254} autoComplete="email" data-autofoco />}
         </Campo>
         <Campo etiqueta="Teléfono" obligatorio error={errores.phone}>
-          {(a) => <input {...a} type="tel" inputMode="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} maxLength={25} autoComplete="tel" placeholder="8888-0000" />}
+          {(a) => <input {...a} type="tel" inputMode="tel" className="g-control" value={f.phone} onChange={(e) => setF((x) => ({ ...x, phone: soloCaracteresDeTelefono(e.target.value) }))} onBlur={() => setF((x) => ({ ...x, phone: normalizarTelefono(x.phone).valor || x.phone }))} maxLength={25} autoComplete="tel" placeholder="8888-0000" />}
         </Campo>
       </div>
     </Modal>
@@ -137,7 +137,7 @@ export default function MiFicha() {
       <div className="g-rejilla">
         <div className="g-columna">
           <Tarjeta titulo="Datos de la ficha arbitral">
-            <dl className="arb-datos">
+            <dl className="arb-ficha-datos">
               <Dato etiqueta="Nombre completo" tipo="oficial">{nombrePersona(p)}</Dato>
               <Dato etiqueta="Cédula" tipo="oficial">{p.document_number}</Dato>
               <Dato etiqueta="Categoría arbitral" tipo="oficial">{a ? categoriaArbitral(a) : 'Sin acreditación'}</Dato>
@@ -161,7 +161,7 @@ export default function MiFicha() {
                         <th scope="row">{h.titulo}</th>
                         <td className="g-tabla__fecha">{fechaNumerica(h.fecha)}</td>
                         <td className="g-tabla__fecha">{h.vence ? fechaNumerica(h.vence) : '—'}</td>
-                        <td><Estado tono={h.estado.tono}>{h.estado.texto}</Estado>{h.nota !== null && h.nota !== undefined && <span className="arb-nota"> · {Number(h.nota)}</span>}</td>
+                        <td><Estado tono={h.estado.tono}>{h.estado.texto}</Estado>{h.nota !== null && h.nota !== undefined && <span className="arb-nota-texto"> · {Number(h.nota)}</span>}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { pendienteDeResultado } from '../../utils/partidos.js';
+import { estadoActa, estadoPartido } from '../../utils/estadosCompetencia.js';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
 
@@ -14,6 +16,9 @@ function formatearFecha(fechaStr) {
 
 export default function Resultados({ basePath = '/personal' }) {
   const navigate = useNavigate();
+  // ?filtro=pendientes y ?competencia=<id> llegan desde la tarjeta «Registrar ahora» del panel.
+  const [params] = useSearchParams();
+  const competenciaInicial = params.get('competencia') || '';
 
   // Declara los estados principales
   const [competencias, setCompetencias] = useState([]);
@@ -23,7 +28,7 @@ export default function Resultados({ basePath = '/personal' }) {
 
   // Declara los estados de filtros
   const [filtroJornada, setFiltroJornada] = useState('todas');
-  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroEstado, setFiltroEstado] = useState(params.get('filtro') === 'pendientes' ? 'POR_REGISTRAR' : 'todos');
 
   // Carga las competencias activas al montar
   useEffect(() => {
@@ -33,7 +38,9 @@ export default function Resultados({ basePath = '/personal' }) {
       const json = await res.json();
       const lista = (json.data || []).filter(c => ['EN_CURSO', 'INSCRIPCIONES'].includes(c.status));
       setCompetencias(lista);
-      if (lista.length > 0 && !competenciaSeleccionada) setCompetenciaSeleccionada(lista[0].id);
+      const pedida = lista.find(c => c.id === competenciaInicial);
+      if (pedida) setCompetenciaSeleccionada(pedida.id);
+      else if (lista.length > 0 && !competenciaSeleccionada) setCompetenciaSeleccionada(lista[0].id);
     }
     cargarCompetencias();
   }, []);
@@ -61,12 +68,13 @@ export default function Resultados({ basePath = '/personal' }) {
 
   const partidosFiltrados = partidos.filter(p => {
     const matchJornada = filtroJornada === 'todas' || p.matchday === parseInt(filtroJornada);
-    const matchEstado = filtroEstado === 'todos' || p.status === filtroEstado;
+    const matchEstado = filtroEstado === 'todos'
+      || (filtroEstado === 'POR_REGISTRAR' ? pendienteDeResultado(p) : p.status === filtroEstado);
     return matchJornada && matchEstado;
   });
 
-  // Cuenta los pendientes
-  const pendientes = partidos.filter(p => p.status === 'PROGRAMADO').length;
+  // Cuenta los pendientes: partidos que ya se jugaron (hoy o antes) y no tienen resultado
+  const pendientes = partidos.filter(p => pendienteDeResultado(p)).length;
 
   return (
     <>
@@ -96,6 +104,9 @@ export default function Resultados({ basePath = '/personal' }) {
               <strong style={{ color: '#991b1b', fontSize: '0.92rem' }}>
                 Hay {pendientes} {pendientes === 1 ? 'partido pendiente' : 'partidos pendientes'} de registrar resultado.
               </strong>
+              {filtroEstado !== 'POR_REGISTRAR' && (
+                <button type="button" className="admin-btn admin-btn--secondary" style={{ marginLeft: '12px', padding: '3px 10px', fontSize: '0.78rem' }} onClick={() => setFiltroEstado('POR_REGISTRAR')}>Ver solo esos</button>
+              )}
             </div>
           )}
 
@@ -106,7 +117,9 @@ export default function Resultados({ basePath = '/personal' }) {
             </select>
             <select className="admin-select" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
               <option value="todos">Estado: todos</option>
-              <option value="PROGRAMADO">Programado (pendiente de resultado)</option>
+              <option value="POR_REGISTRAR">Por registrar (ya se jugaron)</option>
+              <option value="PROGRAMADO">Programado</option>
+              <option value="REPROGRAMADO">Reprogramado</option>
               <option value="FINALIZADO">Finalizado</option>
               <option value="SUSPENDIDO">Suspendido</option>
             </select>
@@ -140,14 +153,10 @@ export default function Resultados({ basePath = '/personal' }) {
                     <td style={{ fontWeight: 600 }}>{p.matchday}</td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
                     <td>
-                      <span className={`badge-status ${p.status === 'FINALIZADO' ? 'badge-status--activa' : p.status === 'PROGRAMADO' ? 'badge-status--inactivo' : ''}`}>
-                        {p.status}
-                      </span>
+                      <span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span>
                     </td>
                     <td style={{ fontSize: '0.78rem' }}>
-                      <span className={`badge-status ${p.acta_status === 'VALIDADA' ? 'badge-status--activa' : p.acta_status === 'ENVIADA' ? 'badge-status--inactivo' : 'badge-status--suspendida'}`}>
-                        {p.acta_status || 'BORRADOR'}
-                      </span>
+                      <span className={estadoActa(p.acta_status || 'BORRADOR').clase}>{estadoActa(p.acta_status || 'BORRADOR').texto}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>

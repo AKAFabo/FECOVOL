@@ -1,12 +1,12 @@
 /* Pantallas de arbitraje (Administración, Personal de competencias y cuerpo arbitral).
    Complementa gestion.css; prefijo arb-. */
 
-.arb-texto-ok { color: var(--ok); }
-.arb-texto-aviso { color: var(--aviso); }
+.arb-txt-ok { color: var(--ok); }
+.arb-txt-aviso { color: var(--aviso); }
 .arb-texto-error { color: var(--g-error); }
 .g-datos dd.arb-cifra-ok { color: var(--ok); }
 .g-datos dd.arb-cifra-aviso { color: var(--aviso); }
-p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
+p.arb-txt-ok { margin: 4px 0 0; font-size: 13px; }
 
 .arb-aviso-naranja { border-color: var(--aviso); background: var(--aviso-fondo); color: var(--aviso); }
 .arb-aviso-naranja .g-aviso__titulo { color: var(--aviso); }
@@ -21,7 +21,7 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 .arb-margen { margin: 14px 20px 0; }
 .arb-borde-arriba { border-top: 1px solid var(--linea); }
 .arb-texto-largo { margin: 0; white-space: pre-line; line-height: 1.55; color: var(--texto-suave); }
-.arb-nota { color: var(--texto-mudo); font-size: 13px; }
+.arb-nota-texto { color: var(--texto-mudo); font-size: 13px; }
 
 .arb-etiqueta {
   padding: 3px 10px;
@@ -51,9 +51,9 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 .arb-datos-planos { margin-top: 10px; }
 .arb-datos-planos .g-datos__fila { padding-right: 0; padding-left: 0; }
 
-.arb-requisitos { display: flex; flex-direction: column; border-top: 1px solid var(--linea); }
+.arb-reqs { display: flex; flex-direction: column; border-top: 1px solid var(--linea); }
 
-.arb-requisito {
+.arb-req {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -63,9 +63,9 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
   border-bottom: 1px solid var(--linea);
 }
 
-.arb-requisito__texto { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; min-width: 0; }
-.arb-requisito__titulo { font-weight: 700; font-size: 14.5px; color: var(--texto); }
-.arb-requisito__acciones { display: flex; align-items: center; gap: 10px; }
+.arb-req__texto { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; min-width: 0; }
+.arb-req__titulo { font-weight: 700; font-size: 14.5px; color: var(--texto); }
+.arb-req__acciones { display: flex; align-items: center; gap: 10px; }
 
 /* ----- Programar curso ----- */
 .arb-opciones {
@@ -92,10 +92,10 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 .arb-opcion__titulo { display: block; font-weight: 700; color: var(--texto); }
 .arb-opcion__detalle { display: block; margin-top: 4px; color: var(--texto-mudo); font-size: 12.5px; line-height: 1.4; }
 
-.arb-interruptor { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.arb-interruptor__etiqueta { font-weight: 700; font-size: 14px; color: var(--texto); cursor: pointer; }
+.arb-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.arb-switch__etiqueta { font-weight: 700; font-size: 14px; line-height: 1.35; color: var(--texto); cursor: pointer; }
 
-.arb-interruptor__control {
+.arb-switch__control {
   position: relative;
   flex-shrink: 0;
   width: 44px;
@@ -107,7 +107,7 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
   transition: background-color 0.15s ease;
 }
 
-.arb-interruptor__control::after {
+.arb-switch__control::after {
   content: '';
   position: absolute;
   top: 3px;
@@ -119,9 +119,9 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
   transition: transform 0.15s ease;
 }
 
-.arb-interruptor__control[aria-checked='true'] { background: var(--ok); }
-.arb-interruptor__control[aria-checked='true']::after { transform: translateX(18px); }
-.arb-interruptor__control:focus-visible { outline: none; box-shadow: var(--sombra-foco); }
+.arb-switch__control[aria-checked='true'] { background: var(--ok); }
+.arb-switch__control[aria-checked='true']::after { transform: translateX(18px); }
+.arb-switch__control:focus-visible { outline: none; box-shadow: var(--sombra-foco); }
 
 /* ----- Curso: notas ----- */
 .arb-nota-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -152,7 +152,7 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 .arb-puesto__texto { flex: 1; }
 .arb-puesto--elegido { background: #f2f7fb; box-shadow: inset 3px 0 0 var(--g-acento); }
 
-.arb-buscador { padding-bottom: 0; }
+.arb-buscador-persona { padding-bottom: 0; }
 .arb-disponibles { max-height: 560px; overflow-y: auto; }
 .arb-disponible { align-items: flex-start; justify-content: flex-start; }
 .arb-disponible .g-lista__acciones { flex-direction: column; align-items: flex-end; gap: 6px; }
@@ -176,7 +176,7 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 .arb-ficha-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
 .arb-ficha-cabecera__texto { flex: 1 1 320px; min-width: 0; }
 
-.arb-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.arb-ficha-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 
 .arb-dato { padding: 12px 20px; border-bottom: 1px solid var(--linea); }
 .arb-dato dt { display: flex; align-items: center; gap: 8px; color: var(--texto-mudo); font-size: 12.5px; }
@@ -197,7 +197,7 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 @media (max-width: 760px) {
   .arb-solo-escritorio { display: none; }
   .arb-solo-movil { display: block; }
-  .arb-datos { grid-template-columns: minmax(0, 1fr); }
+  .arb-ficha-datos { grid-template-columns: minmax(0, 1fr); }
   .arb-tabla-alta, .arb-disponibles { max-height: none; }
   .admin-layout--arbitro .g-cifra__valor { font-size: 24px; }
 }
@@ -240,5 +240,5 @@ p.arb-texto-ok { margin: 4px 0 0; font-size: 13px; }
 }
 
 /* Actas */
-.arb-texto-aviso { color: var(--aviso); font-weight: 600; }
+.arb-txt-aviso { color: var(--aviso); font-weight: 600; }
 .arb-aviso-boton { display: flex; justify-content: center; margin-top: 12px; }

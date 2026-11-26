@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FILTROS_ATENCION, hoyCR, sinArbitro } from '../../utils/partidos.js';
+import { estadoPartido } from '../../utils/estadosCompetencia.js';
+import Icono from '../../components/Icono.jsx';
 import { supabase } from '../../supabaseClient.js';
 import '../admin/AdminCommon.css';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
@@ -28,14 +31,6 @@ function getArbitrajeText(partido) {
   return `${asignaciones.length} oficial${asignaciones.length > 1 ? 'es' : ''}`;
 }
 
-// Define las clases de badge según el estado del partido
-const getBadgeClass = (status) => {
-  if (status === 'FINALIZADO') return 'badge-status--activa';
-  if (status === 'PROGRAMADO' || status === 'REPROGRAMADO') return 'badge-status--inactivo';
-  if (status === 'SUSPENDIDO' || status === 'CANCELADO') return 'badge-status--suspendida';
-  return '';
-};
-
 // Define los estilos para la animación de temblor y los banners inline
 const ESTILOS_SHAKE = `
   @keyframes shake {
@@ -56,6 +51,10 @@ const ESTILOS_SHAKE = `
 
 export default function CalendarioPartidos({ basePath = '/personal' }) {
   const navigate = useNavigate();
+  // ?filtro=reprogramacion|sin-arbitro y ?competencia=<id> llegan desde las tarjetas del panel.
+  const [params, setParams] = useSearchParams();
+  const filtroInicial = FILTROS_ATENCION[params.get('filtro')] ? params.get('filtro') : 'todos';
+  const competenciaInicial = params.get('competencia') || '';
 
   // Declara los estados principales
   const [competencias, setCompetencias] = useState([]);
@@ -68,6 +67,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
   const [filtroJornada, setFiltroJornada] = useState('todas');
   const [filtroSede, setFiltroSede] = useState('todas');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroAtencion, setFiltroAtencion] = useState(filtroInicial);
   const [busqueda, setBusqueda] = useState('');
   const [vista, setVista] = useState('lista');
 
@@ -108,9 +108,11 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
       const res = await fetch(`${backendUrl}/api/competitions`);
       const json = await res.json();
-      const lista = (json.data || []).filter(c => ['EN_CURSO', 'INSCRIPCIONES'].includes(c.status));
+      const lista = (json.data || []).filter(c => ['EN_CURSO', 'INSCRIPCIONES', 'PLANIFICACION'].includes(c.status));
       setCompetencias(lista);
-      if (lista.length > 0 && !competenciaSeleccionada) setCompetenciaSeleccionada(lista[0].id);
+      const pedida = lista.find(c => c.id === competenciaInicial);
+      if (pedida) setCompetenciaSeleccionada(pedida.id);
+      else if (lista.length > 0 && !competenciaSeleccionada) setCompetenciaSeleccionada(lista[0].id);
     }
     cargarCompetencias();
   }, []);
@@ -336,8 +338,11 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
     const matchJornada = filtroJornada === 'todas' || p.matchday === parseInt(filtroJornada);
     const matchSede = filtroSede === 'todas' || (p.sede?.value === filtroSede);
     const matchEstado = filtroEstado === 'todos' || p.status === filtroEstado;
+    const matchAtencion = filtroAtencion === 'todos'
+      || (filtroAtencion === 'reprogramacion' && solicitudes.some(s => s.match_id === p.id))
+      || (filtroAtencion === 'sin-arbitro' && sinArbitro(p));
     const matchBusqueda = !busqueda || (p.local?.name || '').toLowerCase().includes(busqueda.toLowerCase()) || (p.visitante?.name || '').toLowerCase().includes(busqueda.toLowerCase());
-    return matchJornada && matchSede && matchEstado && matchBusqueda;
+    return matchJornada && matchSede && matchEstado && matchAtencion && matchBusqueda;
   });
 
   // Cuenta la ocupación de sedes
@@ -425,6 +430,15 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                 <option value="SUSPENDIDO">Suspendido</option>
                 <option value="CANCELADO">Cancelado</option>
               </select>
+              <select className="admin-select" value={filtroAtencion} aria-label="Partidos que requieren atención" onChange={(e) => {
+                setFiltroAtencion(e.target.value);
+                const p = new URLSearchParams(params);
+                if (e.target.value === 'todos') p.delete('filtro'); else p.set('filtro', e.target.value);
+                setParams(p, { replace: true });
+              }}>
+                <option value="todos">Atención: todos</option>
+                {Object.entries(FILTROS_ATENCION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
               <input type="search" className="admin-input admin-input--search" placeholder="Buscar por equipo..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
               <div style={{ display: 'flex', gap: '0', marginLeft: 'auto', border: '1px solid var(--borde)', borderRadius: '6px', overflow: 'hidden' }}>
                 <button type="button" className={`admin-btn ${vista === 'lista' ? 'admin-btn--primary' : 'admin-btn--secondary'}`} style={{ padding: '6px 14px', fontSize: '0.8rem', borderRadius: 0, border: 'none' }} onClick={() => setVista('lista')}>Lista</button>
@@ -469,14 +483,14 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                               onClick={() => abrirEditarJornada(p.matchday)}
                               title="Editar fecha de la jornada completa"
                             >
-                              ✎
+                              <Icono nombre="lapiz" tam={14} />
                             </button>
                           </div>
                         </td>
                         <td style={{ fontSize: '0.82rem', color: 'var(--texto-mudo)' }}>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
                         <td style={{ fontSize: '0.82rem' }}>{nombreSede(p)}</td>
                         <td style={{ fontSize: '0.82rem' }}>{getArbitrajeText(p)}</td>
-                        <td><span className={`badge-status ${getBadgeClass(p.status)}`}>{p.status}</span></td>
+                        <td><span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span></td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                             <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => abrirEditarPartido(p)}>Hora / Sede</button>
@@ -512,7 +526,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                               onClick={() => abrirEditarJornada(jornadaDeLista)}
                               title="Editar fecha de la jornada completa"
                             >
-                              ✎ Editar fecha
+                              <Icono nombre="lapiz" tam={14} style={{ marginRight: 4 }} />Editar fecha
                             </button>
                           )}
                         </div>
@@ -528,7 +542,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                               </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              <span className={`badge-status ${getBadgeClass(p.status)}`}>{p.status}</span>
+                              <span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span>
                               <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={() => abrirEditarPartido(p)}>Hora / Sede</button>
                               <button className="admin-btn admin-btn--primary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={() => navigate(`${basePath}/resultados/${p.id}`)}>Resultado</button>
                             </div>
@@ -702,7 +716,7 @@ export default function CalendarioPartidos({ basePath = '/personal' }) {
                 })()}
                 <div className="campo">
                   <label className="campo__etiqueta">Nueva fecha *</label>
-                  <input type="date" className="campo__input" value={editFechaJornada} onChange={e => setEditFechaJornada(e.target.value)} />
+                  <input type="date" className="campo__input" value={editFechaJornada} min={hoyCR()} onChange={e => setEditFechaJornada(e.target.value)} />
                 </div>
                 {errorEditarJornada && <div key={shakeKeyEditarJornada} className="error-alerta-shake" style={{ marginTop: '12px' }}>{errorEditarJornada}</div>}
               </div>

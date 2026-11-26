@@ -68,7 +68,7 @@ export const PANTALLAS_SISTEMA = [
     categoria: 'Módulos Administrativos', 
     nombre: 'Parámetros del Sistema (/admin/parametros)', 
     ruta: '/admin/parametros', 
-    desc: 'Administración de reglas de competencia, desempates, seguridad y límites (RF-AUD-001)' 
+    desc: 'Administración de reglas de competencia, desempates, seguridad y límites'
   },
   { 
     key: '/admin/auditoria', 

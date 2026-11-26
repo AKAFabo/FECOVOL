@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
 import { supabase } from '../../supabaseClient.js';
+import { estadoInscripcion, estadoPartido } from '../../utils/estadosCompetencia.js';
+import Icono from '../../components/Icono.jsx';
+import { hoyCR } from '../../utils/partidos.js';
 import GenerarCalendarioModal from '../../components/GenerarCalendarioModal.jsx';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
@@ -240,7 +243,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
     limpiarMensajeInline();
     pedirConfirmacion({
       titulo: 'Retirar equipo',
-      mensaje: `¿Estás seguro de retirar al equipo «${teamName}» de esta competencia? Esta acción marca la inscripción como RETIRADO y no se puede deshacer.`,
+      mensaje: `¿Retirar al equipo «${teamName}» de esta competencia? La inscripción queda como Retirado. Si fue un error, puede reincorporarlo mientras la competencia no haya finalizado.`,
       textoConfirmar: 'Sí, retirar equipo',
       tipo: 'peligro',
       onConfirmar: async () => {
@@ -253,6 +256,28 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
           });
           if (!res.ok) throw new Error((await res.json()).error);
           mostrarExitoInline(`Equipo «${teamName}» retirado con éxito.`);
+          cargarTodo();
+        } catch (err) {
+          mostrarErrorInline(err.message);
+        }
+      }
+    });
+  }
+
+  // Reincorpora un equipo retirado por error (el backend revisa el estado de la competencia y el cupo).
+  function handleReincorporarEquipo(teamId, teamName) {
+    limpiarMensajeInline();
+    pedirConfirmacion({
+      titulo: 'Reincorporar equipo',
+      mensaje: `¿Reincorporar al equipo «${teamName}» a esta competencia? Su inscripción vuelve a quedar como Inscrito.`,
+      textoConfirmar: 'Sí, reincorporar',
+      onConfirmar: async () => {
+        setModalConfirmacion(null);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+        try {
+          const res = await fetch(`${backendUrl}/api/competitions/${id}/teams/${teamId}/reincorporar`, { method: 'POST' });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'No se pudo reincorporar el equipo.');
+          mostrarExitoInline(`Equipo «${teamName}» reincorporado.`);
           cargarTodo();
         } catch (err) {
           mostrarErrorInline(err.message);
@@ -648,10 +673,16 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
               {equiposFiltrados.map(eq => (
                 <tr key={eq.id}>
                   <td><strong>{eq.equipo.name}</strong></td>
-                  <td><span className="badge-status badge-status--activa">{eq.status}</span></td>
+                  <td><span className={estadoInscripcion(eq.status).clase}>{estadoInscripcion(eq.status).texto}</span></td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', marginRight: '8px' }} onClick={() => cargarNominaEquipo(eq)}>Gestionar Nómina</button>
-                    <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#dc2626', borderColor: '#fca5a5' }} onClick={() => handleRetirarEquipo(eq.equipo.id, eq.equipo.name)}>Retirar</button>
+                    {eq.status !== 'RETIRADO' && (
+                      <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', marginRight: '8px' }} onClick={() => cargarNominaEquipo(eq)}>Gestionar Nómina</button>
+                    )}
+                    {eq.status === 'RETIRADO' ? (
+                      <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={() => handleReincorporarEquipo(eq.equipo.id, eq.equipo.name)}>Reincorporar</button>
+                    ) : (
+                      <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#a3202c', borderColor: '#e3a9b0' }} onClick={() => handleRetirarEquipo(eq.equipo.id, eq.equipo.name)}>Retirar</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -693,7 +724,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                   <td>{p.visitante?.name}</td>
                   <td>{formatearFecha(p.scheduled_date)} {p.scheduled_time}</td>
                   <td>{nombreSede(p)}</td>
-                  <td><span className="badge-status">{p.status}</span></td>
+                  <td><span className={estadoPartido(p.status).clase}>{estadoPartido(p.status).texto}</span></td>
                   <td style={{ textAlign: 'right' }}>
                     {p.status !== 'CANCELADO' && (
                       <button className="admin-btn admin-btn--secondary" style={{ padding: '4px 10px', fontSize: '0.78rem', marginRight: '8px' }} onClick={() => abrirModalReprogramar(p)}>Editar Estado</button>
@@ -1051,7 +1082,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                  <div className="campo"><label className="campo__etiqueta">Fecha *</label><input type="date" required className="campo__input" value={nuevoPartido.scheduled_date} onChange={e => setNuevoPartido({...nuevoPartido, scheduled_date: e.target.value})} /></div>
+                  <div className="campo"><label className="campo__etiqueta">Fecha *</label><input type="date" required className="campo__input" min={hoyCR()} value={nuevoPartido.scheduled_date} onChange={e => setNuevoPartido({...nuevoPartido, scheduled_date: e.target.value})} /></div>
                   <div className="campo"><label className="campo__etiqueta">Hora *</label><input type="time" required className="campo__input" value={nuevoPartido.scheduled_time} onChange={e => setNuevoPartido({...nuevoPartido, scheduled_time: e.target.value})} /></div>
                 </div>
                 <div className="campo">
@@ -1109,7 +1140,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                   </select>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                  <div className="campo"><label className="campo__etiqueta">Nueva Fecha</label><input type="date" required className="campo__input" value={formReprogramar.scheduled_date} onChange={e => setFormReprogramar({...formReprogramar, scheduled_date: e.target.value})} /></div>
+                  <div className="campo"><label className="campo__etiqueta">Nueva Fecha</label><input type="date" required className="campo__input" min={hoyCR()} value={formReprogramar.scheduled_date} onChange={e => setFormReprogramar({...formReprogramar, scheduled_date: e.target.value})} /></div>
                   <div className="campo"><label className="campo__etiqueta">Nueva Hora</label><input type="time" required className="campo__input" value={formReprogramar.scheduled_time} onChange={e => setFormReprogramar({...formReprogramar, scheduled_time: e.target.value})} /></div>
                 </div>
                 <div className="campo" style={{ marginBottom: '14px' }}>
@@ -1162,7 +1193,7 @@ export default function CompetenciaDetalle({ basePath = '/personal' }) {
                   flexShrink: 0,
                   fontSize: '1.3rem'
                 }}>
-                  {modalConfirmacion.tipo === 'peligro' ? '⚠️' : 'ℹ️'}
+                  <Icono nombre={modalConfirmacion.tipo === 'peligro' ? 'alerta' : 'info'} tam={22} />
                 </div>
                 <p style={{ margin: 0, color: 'var(--texto-suave)', fontSize: '0.92rem', lineHeight: 1.5 }}>
                   {modalConfirmacion.mensaje}

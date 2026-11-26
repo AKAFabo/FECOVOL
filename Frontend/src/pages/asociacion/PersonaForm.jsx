@@ -11,8 +11,8 @@ import {
 } from '../../services/representante.js';
 import { listarAsociaciones } from '../../services/administracion.js';
 import { useAsociacion, useEsFecovol, useRutas } from './contexto.js';
+import { errorFechaNacimiento, fechaNacimientoMaxima, FECHA_NACIMIENTO_MINIMA } from '../../utils/fechaNacimiento.js';
 
-const HOY = () => new Date().toISOString().slice(0, 10);
 
 const VACIO = {
   document_type_code: 'CED', document_number: '', first_name: '', last_name: '', birth_date: '', sex: '',
@@ -27,7 +27,7 @@ function validar(f, fecovol) {
   if (!f.first_name.trim()) e.first_name = 'Escriba el nombre.';
   if (!f.last_name.trim()) e.last_name = 'Escriba los apellidos.';
   if (!f.birth_date) e.birth_date = 'Indique la fecha de nacimiento.';
-  else if (f.birth_date > HOY() || f.birth_date < '1920-01-01') e.birth_date = 'La fecha de nacimiento no es válida.';
+  else if (errorFechaNacimiento(f.birth_date)) e.birth_date = errorFechaNacimiento(f.birth_date);
   if (!correoValido(f.email.trim())) e.email = 'El correo no es válido.';
   if (f.phone && !/^[0-9 +()-]{8,20}$/.test(f.phone.trim())) e.phone = 'El teléfono no es válido.';
   if (f.equipo && f.rol === 'JUGADOR' && f.jersey_number !== '') {
@@ -145,7 +145,7 @@ function Formulario({ asociacion, equipos, tipos, posiciones, asociaciones }) {
                 {(a) => <input {...a} className="g-control" value={f.last_name} onChange={cambiar('last_name')} maxLength={100} autoComplete="off" />}
               </Campo>
               <Campo etiqueta="Fecha de nacimiento" obligatorio error={errores.birth_date}>
-                {(a) => <input {...a} type="date" className="g-control" value={f.birth_date} max={HOY()} min="1920-01-01" onChange={cambiar('birth_date')} />}
+                {(a) => <input {...a} type="date" className="g-control" value={f.birth_date} max={fechaNacimientoMaxima()} min={FECHA_NACIMIENTO_MINIMA} onChange={cambiar('birth_date')} />}
               </Campo>
               <Campo etiqueta="Sexo">
                 {(a) => (

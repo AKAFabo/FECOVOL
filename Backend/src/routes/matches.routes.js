@@ -3,6 +3,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { exigirFechaFutura } = require('../utils/fechasPartido');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { getMatchValidationChecklist } = require('../utils/validationChecklist');
@@ -138,6 +139,7 @@ router.post('/', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   }
 
   if (home_team_id === away_team_id) throw new HttpError(400, 'Un equipo no puede jugar contra sí mismo.');
+  exigirFechaFutura(scheduled_date, scheduled_time);
 
   // Verifica la inscripción de ambos equipos en la competencia
   const [local, visitante] = await Promise.all([
@@ -246,6 +248,8 @@ router.patch('/reschedule-requests/:requestId/approve', requireAuth, requireAdmi
   if (match.status === 'FINALIZADO') {
     throw new HttpError(400, 'No se puede reprogramar un partido ya finalizado. Anula el resultado primero.');
   }
+  // La solicitud pudo quedar pendiente hasta después de la fecha pedida.
+  exigirFechaFutura(request.new_date, request.new_time, 'La fecha solicitada ya pasó: el partido');
 
   // Valida que ninguno de los dos equipos tenga otro partido en la nueva fecha y hora
   const { data: conflicts } = await supabase
@@ -365,6 +369,11 @@ router.patch('/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) =>
     // Valida conflicto con otros partidos de los mismos equipos
     const newDate = scheduled_date || actual.scheduled_date;
     const newTime = scheduled_time || actual.scheduled_time;
+    // Solo se exige un momento futuro cuando cambia la fecha o la hora (cambiar la sede de un
+    // partido ya jugado no lo mueve en el tiempo).
+    if ((scheduled_date && scheduled_date !== actual.scheduled_date) || (scheduled_time && scheduled_time !== actual.scheduled_time)) {
+      exigirFechaFutura(newDate, newTime);
+    }
 
     const { data: conflicts } = await supabase
       .from('matches')
@@ -427,6 +436,7 @@ router.post('/:id/reschedule-request', requireAuth, asyncHandler(async (req, res
   if (actual.status === 'FINALIZADO') {
     throw new HttpError(400, 'No se puede solicitar reprogramación de un partido ya finalizado.');
   }
+  exigirFechaFutura(scheduled_date, scheduled_time, 'La nueva fecha');
 
   // Interpreta venue_id: undefined = sin cambio, null = quitar sede, UUID = cambiar
   const venueFinal = venue_id === undefined ? actual.venue_id : (venue_id === '' ? null : venue_id);

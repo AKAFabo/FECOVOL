@@ -97,7 +97,9 @@ export default function Actas() {
       <div className="g-rejilla">
         <section className="g-tarjeta" aria-label="Actas">
           {visibles.length === 0 ? (
-            <p className="g-tarjeta__vacio">{actas.length ? 'Ninguna acta coincide con los filtros.' : 'Todavía no tiene partidos disputados esta temporada.'}</p>
+            <p className="g-tarjeta__vacio">{actas.length
+              ? 'Ninguna acta coincide con los filtros.'
+              : 'Aquí aparecen los partidos de esta temporada que ya se disputaron y en los que usted estuvo designado. Cuando pase la fecha de uno de sus partidos, podrá abrirlo para cerrar el acta (si es el árbitro principal) o consultar su estado.'}</p>
           ) : (
             <>
               <div className="g-tabla-envoltura arb-solo-escritorio">
@@ -114,7 +116,7 @@ export default function Actas() {
                           <th scope="row">{nombrePartido(a.partido)}<span className="g-tabla__sub">{a.partido.match_number ? `Partido #${a.partido.match_number}` : a.partido.competencia?.name}</span></th>
                           <td>{fechaDiaMesCorto(a.partido.scheduled_date)}</td>
                           <td>{marcador(a)}</td>
-                          <td className={a.hoja_adjuntada ? undefined : 'arb-texto-aviso'}>{a.hoja_adjuntada ? 'Adjuntada' : 'Sin adjuntar'}</td>
+                          <td className={a.hoja_adjuntada ? undefined : 'arb-txt-aviso'}>{a.hoja_adjuntada ? 'Adjuntada' : 'Sin adjuntar'}</td>
                           <td><Estado tono={e.tono}>{e.texto}</Estado></td>
                           <td className="g-tabla__accion">
                             <Link to={ruta(a)} className={`g-boton g-boton--chico${a.puede_cerrar ? ' g-boton--acento' : ''}`}>

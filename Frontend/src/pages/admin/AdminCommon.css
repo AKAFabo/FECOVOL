@@ -219,6 +219,21 @@
   color: #64748b;
 }
 
+.badge-status--info {
+  background-color: #e6eef7;
+  color: var(--azul);
+}
+
+.badge-status--aviso {
+  background-color: var(--aviso-fondo);
+  color: var(--aviso);
+}
+
+.badge-status--error {
+  background-color: #fbe5e7;
+  color: #a3202c;
+}
+
 .badge-status--logout {
   background-color: #fee2e2;
   color: #991b1b;

@@ -1,6 +1,7 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const asyncHandler = require('../utils/asyncHandler');
+const { errorFechaNacimiento } = require('../utils/fechaNacimiento');
 const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { logDeniedAttempt, getClientIp } = require('../utils/auditLogger');
@@ -206,6 +207,8 @@ router.post('/', asyncHandler(async (req, res) => {
   if (!document_type_code || !document_number || !first_name || !last_name || !birth_date) {
     throw new HttpError(400, 'document_type_code, document_number, first_name, last_name y birth_date son obligatorios');
   }
+  const errorNacimiento = errorFechaNacimiento(birth_date);
+  if (errorNacimiento) throw new HttpError(400, errorNacimiento);
 
   let targetAssociationId = req.body.association_id || null;
 
@@ -297,6 +300,10 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
   // Corrección oficial (FECOVOL): cambiar nombre, apellidos, fecha de nacimiento o sexo exige un
   // motivo, que queda en la bitácora junto con el valor anterior.
+  if (identidadLibre && b.birth_date !== undefined && b.birth_date !== null && b.birth_date !== '') {
+    const errorNacimiento = errorFechaNacimiento(b.birth_date);
+    if (errorNacimiento) throw new HttpError(400, errorNacimiento);
+  }
   const CAMPOS_IDENTIDAD = ['first_name', 'last_name', 'birth_date', 'sex'];
   const corregidos = CAMPOS_IDENTIDAD.filter((c) => identidadLibre && b[c] !== undefined && b[c] !== null && String(b[c]) !== String(personaActual[c] ?? ''));
   const motivo = typeof b.motivo === 'string' ? b.motivo.trim().slice(0, 500) : '';

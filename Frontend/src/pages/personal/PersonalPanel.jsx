@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../admin/AdminCommon.css'; 
-import { supabase } from '../../supabaseClient.js'; 
+import { supabase } from '../../supabaseClient.js';
+import { estadoCompetencia } from '../../utils/estadosCompetencia.js';
+import Icono from '../../components/Icono.jsx'; 
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic'];
 
@@ -36,6 +38,8 @@ export default function PersonalPanel({ basePath = '/personal' }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [metricasGlobales, setMetricasGlobales] = useState({ resultados_pendientes: 0, solicitudes_reprogramacion: 0, partidos_sin_arbitro: 0 });
+  // Métricas de cada competencia activa: el botón abre la primera que tenga casos de ese tipo.
+  const [metricasPorCompetencia, setMetricasPorCompetencia] = useState([]);
   
   // Declara los estados de filtros
   const [filtroNombre, setFiltroNombre] = useState('');
@@ -93,6 +97,7 @@ export default function PersonalPanel({ basePath = '/personal' }) {
     const { data: { user } } = await supabase.auth.getUser();
     const activas = lista.filter(c => ['EN_CURSO', 'INSCRIPCIONES', 'PLANIFICACION'].includes(c.status));
     let totalPendientes = 0, totalSolicitudes = 0, totalSinArbitro = 0;
+    const porCompetencia = [];
 
     for (const comp of activas) {
       try {
@@ -104,10 +109,12 @@ export default function PersonalPanel({ basePath = '/personal' }) {
           totalPendientes += json.data?.resultados_pendientes || 0;
           totalSolicitudes += json.data?.solicitudes_reprogramacion || 0;
           totalSinArbitro += json.data?.partidos_sin_arbitro || 0;
+          porCompetencia.push({ id: comp.id, ...json.data });
         }
       } catch (e) {}
     }
 
+    setMetricasPorCompetencia(porCompetencia);
     setMetricasGlobales({
       resultados_pendientes: totalPendientes,
       solicitudes_reprogramacion: totalSolicitudes,
@@ -116,6 +123,14 @@ export default function PersonalPanel({ basePath = '/personal' }) {
   }
 
   const showModalError = (msg) => { setErrorModal(msg); setShakeKey(prev => prev + 1); };
+
+  // Abre Resultados o Calendario ya filtrados, en la primera competencia con casos de ese tipo.
+  const abrirFiltrado = (pagina, metrica, filtro) => {
+    const conCasos = metricasPorCompetencia.find((m) => (m[metrica] || 0) > 0);
+    const params = new URLSearchParams({ filtro });
+    if (conCasos) params.set('competencia', conCasos.id);
+    navigate(`${basePath}/${pagina}?${params.toString()}`);
+  };
 
   const abrirModalCrear = () => {
     setCompetenciaEditando(null);
@@ -292,9 +307,7 @@ export default function PersonalPanel({ basePath = '/personal' }) {
                       <td style={{ fontWeight: 600 }}>{comp.equipos_count || 0}</td>
                       <td style={{ fontWeight: 600 }}>{comp.jornadas_count || 0}</td>
                       <td>
-                        <span className={`badge-status ${comp.status === 'EN_CURSO' ? 'badge-status--activa' : comp.status === 'INSCRIPCIONES' ? 'badge-status--inactivo' : comp.status === 'CERRADA' ? 'badge-status--suspendida' : ''}`}>
-                          {comp.status.replace('_', ' ')}
-                        </span>
+                        <span className={estadoCompetencia(comp.status).clase}>{estadoCompetencia(comp.status).texto}</span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -332,21 +345,21 @@ export default function PersonalPanel({ basePath = '/personal' }) {
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#c8102e', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.resultados_pendientes}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Resultados pendientes de registrar</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/resultados`)}>Registrar ahora →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => abrirFiltrado('resultados', 'resultados_pendientes', 'pendientes')}>Registrar ahora →</button>
           </div>
         </div>
         <div className="admin-card" style={{ padding: '20px', borderLeft: '4px solid #a8501f' }}>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#a8501f', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.solicitudes_reprogramacion}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Solicitudes de reprogramación</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/calendario`)}>Revisar →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => abrirFiltrado('calendario', 'solicitudes_reprogramacion', 'reprogramacion')}>Revisar →</button>
           </div>
         </div>
         <div className="admin-card" style={{ padding: '20px', borderLeft: '4px solid #0e3b6b' }}>
           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0e3b6b', fontFamily: 'var(--fuente-titulo)' }}>{metricasGlobales.partidos_sin_arbitro}</div>
           <div style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', marginTop: '4px' }}>Partidos sin árbitro designado</div>
           <div style={{ marginTop: '12px' }}>
-            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => navigate(`${basePath}/calendario`)}>Revisar →</button>
+            <button type="button" className="admin-btn admin-btn--secondary" style={{ padding: '4px 12px', fontSize: '0.78rem' }} onClick={() => abrirFiltrado('calendario', 'partidos_sin_arbitro', 'sin-arbitro')}>Revisar →</button>
           </div>
         </div>
       </div>
@@ -427,7 +440,7 @@ export default function PersonalPanel({ basePath = '/personal' }) {
                   </div>
                 </div>
                 <div style={{ marginTop: '6px', marginBottom: '8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--texto-mudo)' }}>
-                  Reglas de puntuación (RF-COM-008)
+                  Reglas de puntuación
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                   <div className="campo">
@@ -474,7 +487,7 @@ export default function PersonalPanel({ basePath = '/personal' }) {
             <form onSubmit={handleArchivarCompetencia}>
               <div className="admin-modal__body">
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.3rem' }}>⚠️</div>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icono nombre="alerta" tam={22} /></div>
                   <div>
                     <p style={{ margin: '0 0 6px 0', fontWeight: 700, color: 'var(--texto)', fontSize: '0.98rem' }}>¿Estás seguro de archivar «{compArchivar.name}»?</p>
                     <p style={{ margin: 0, color: 'var(--texto-mudo)', fontSize: '0.85rem', lineHeight: '1.45' }}>La competencia pasará a estado <strong>Cerrada / Archivada</strong>. No se borrará y todo su historial se conservará intacto, pero ya no podrás inscribir más equipos ni programar partidos.</p>

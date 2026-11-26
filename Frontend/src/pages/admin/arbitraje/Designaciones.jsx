@@ -19,7 +19,7 @@ import '../../../styles/arbitraje.css';
 const iniciales = (p) => `${p?.first_name?.[0] || ''}${p?.last_name?.[0] || ''}`.toUpperCase() || '—';
 
 function Oficiales({ n, total }) {
-  return <span className={n >= total ? 'arb-texto-ok' : 'arb-texto-aviso'}>{n} de {total} oficiales</span>;
+  return <span className={n >= total ? 'arb-txt-ok' : 'arb-txt-aviso'}>{n} de {total} oficiales</span>;
 }
 
 function MotivoConflicto({ persona, onCerrar, onConfirmar }) {
@@ -218,7 +218,7 @@ export default function Designaciones() {
             nota={partido ? `${diaYHora(partido.scheduled_date, hora(partido.scheduled_time))}${puesto ? ` · para ${nombrePuesto[puesto] || puesto}` : ''}` : 'Elija un partido para ver quién puede ir.'}
           >
             {partido && (
-              <div className="g-tarjeta__cuerpo arb-buscador">
+              <div className="g-tarjeta__cuerpo arb-buscador-persona">
                 <label className="visualmente-oculto" htmlFor="disp-q">Buscar en el cuerpo arbitral</label>
                 <input id="disp-q" type="search" className="g-control" placeholder="Buscar por nombre o cédula…" value={buscar} onChange={(e) => setBuscar(e.target.value)} maxLength={60} />
               </div>
@@ -242,7 +242,7 @@ export default function Designaciones() {
                         <p className="g-lista__titulo">{nombrePersona(o)}</p>
                         <p className="g-lista__detalle">{categoriaArbitral(o)} · {estado?.texto?.toLowerCase()}</p>
                         {o.bloqueo && <p className="arb-nota-fila arb-texto-error">{o.bloqueo}</p>}
-                        {!o.bloqueo && avisos.map((t) => <p key={t} className="arb-nota-fila arb-texto-aviso">{t}</p>)}
+                        {!o.bloqueo && avisos.map((t) => <p key={t} className="arb-nota-fila arb-txt-aviso">{t}</p>)}
                       </div>
                       <div className="g-lista__acciones">
                         {o.en_este_partido ? (
