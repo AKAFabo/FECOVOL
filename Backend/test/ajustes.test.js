@@ -143,3 +143,19 @@ test('el padrón rechaza una fecha de nacimiento futura', async () => {
   assert.match(r.json.error, /futura/);
   assert.equal(rpcs().length, 0);
 });
+
+/* ─── Incidentes del partido en el registro de resultados ─── */
+
+test('los expedientes de un partido se listan solo para FECOVOL y sin datos personales', async () => {
+  assert.equal((await call('GET', `/api/matches/${PARTIDO}/incidents`, null, REPRE)).status, 403);
+  fake.alResponderTabla('disciplinary_cases', { data: [
+    { id: 'c1', case_number: 'EXP-2026-001', title: 'Agresión verbal', status: 'CON_SANCION', tipo: { value: 'Conducta' }, sanctions: [{ status: 'VIGENTE', end_date: '2099-01-01' }] },
+    { id: 'c2', case_number: 'EXP-2026-002', title: 'Retraso', status: 'CON_SANCION', tipo: null, sanctions: [{ status: 'VIGENTE', end_date: '2020-01-01' }] }
+  ], error: null });
+  const r = await call('GET', `/api/matches/${PARTIDO}/incidents`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.data.map((c) => [c.numero, c.estado, c.sanciones_vigentes]), [['EXP-2026-001', 'CON_SANCION', 1], ['EXP-2026-002', 'RESUELTO', 0]]);
+  const consulta = fake.llamadas.find((l) => l.tabla === 'disciplinary_cases');
+  assert.ok(consulta.pasos.some((p) => p[0] === 'eq' && p[1] === 'match_id' && p[2] === PARTIDO));
+  assert.doesNotMatch(consulta.pasos.find((p) => p[0] === 'select')[1], /facts|document_number|persons/);
+});

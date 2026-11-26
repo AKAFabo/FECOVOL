@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import '../AdminCommon.css';
 import './FormulariosAdmin.css';
 import './Incidentes.css';
@@ -86,12 +86,15 @@ function BuscarPersona({ onElegir }) {
 
 export default function AbrirExpediente() {
   const navigate = useNavigate();
+  // ?competencia=<id>&partido=<id>: llega desde el registro de resultados con el partido elegido.
+  const [params] = useSearchParams();
+  const uuid = (v) => (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v || '') ? v : '');
   const entradaArchivos = useRef(null);
   const [opciones, setOpciones] = useState({ tipos: [], competencias: [], responsables: [], siguienteNumero: '' });
   const [partidos, setPartidos] = useState([]);
   const [form, setForm] = useState({
-    competition_id: '',
-    match_id: '',
+    competition_id: uuid(params.get('competencia')),
+    match_id: uuid(params.get('competencia')) ? uuid(params.get('partido')) : '',
     incident_type_code: '',
     occurred_at: ahoraLocal(),
     title: '',

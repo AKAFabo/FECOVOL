@@ -8,6 +8,8 @@ const { HttpError, fromSupabase } = require('../utils/httpError');
 const validateUuidParams = require('../middleware/validateUuidParams');
 const { getMatchValidationChecklist } = require('../utils/validationChecklist');
 const { detectarTipo } = require('../utils/archivos');
+const reglasSanciones = require('../utils/sanciones');
+const { hoyCR } = require('../utils/arbitraje');
 
 const router = express.Router();
 router.param('id', validateUuidParams);
@@ -588,6 +590,32 @@ router.delete('/:id/evidence/:evidenceId', requireAuth, requireAdmin, asyncHandl
 // ==========================================
 //    CHECKLIST Y RESULTADO
 // ==========================================
+
+// GET /api/matches/:id/incidents -> expedientes disciplinarios del partido (resumen para la pantalla
+// de registro de resultados). Los gestiona la Administración en Incidentes y sanciones; aquí solo
+// se listan, sin cédulas ni hechos.
+router.get('/:id/incidents', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { data, error } = await supabase
+    .from('disciplinary_cases')
+    .select(`id, case_number, title, status, created_at,
+      tipo:catalog_values!disciplinary_cases_incident_type_value_id_fkey(value),
+      sanctions(status, end_date)`)
+    .eq('match_id', req.params.id)
+    .order('created_at', { ascending: true });
+  if (error) throw fromSupabase(error);
+  const hoy = hoyCR();
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    data: (data || []).map((c) => ({
+      id: c.id,
+      numero: c.case_number,
+      titulo: c.title,
+      tipo: c.tipo?.value || null,
+      estado: reglasSanciones.estadoVisible(c, hoy),
+      sanciones_vigentes: (c.sanctions || []).filter((s) => reglasSanciones.sancionVigente(s, hoy)).length
+    }))
+  });
+}));
 
 router.get('/:id/validation-checklist', requireAuth, asyncHandler(async (req, res) => {
   const checklist = await getMatchValidationChecklist(req.params.id);

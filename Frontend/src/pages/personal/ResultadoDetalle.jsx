@@ -45,6 +45,14 @@ const RESULTADOS_ESPECIALES = {
   SUSPENDIDO_DEFINITIVO:        { label: 'Suspendido definitivamente' }
 };
 
+const ESTADO_EXPEDIENTE = {
+  ABIERTO: ['Abierto', 'aviso'],
+  EN_SEGUIMIENTO: ['En seguimiento', 'info'],
+  CON_SANCION: ['Con sanción', 'error'],
+  RESUELTO: ['Resuelto', 'activa'],
+  ARCHIVADO: ['Archivado', 'inactivo']
+};
+
 export default function ResultadoDetalle({ basePath = '/personal' }) {
   const { matchId } = useParams();
   const navigate = useNavigate();
@@ -53,6 +61,7 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
   const [partido, setPartido] = useState(null);
   const [competencia, setCompetencia] = useState(null);
   const [checklist, setChecklist] = useState([]);
+  const [incidentes, setIncidentes] = useState(null);
   const [evidencias, setEvidencias] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -122,12 +131,14 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
       }
 
       // Carga el resto en paralelo
-      const [resComp, resChecklist, resEvidencias] = await Promise.all([
+      const [resComp, resChecklist, resEvidencias, resIncidentes] = await Promise.all([
         fetch(`${backendUrl}/api/competitions/${match.competition_id}`),
         fetch(`${backendUrl}/api/matches/${matchId}/validation-checklist`, { headers: { 'x-user-email': user?.email || '' } }),
-        fetch(`${backendUrl}/api/matches/${matchId}/evidence`, { headers: { 'x-user-email': user?.email || '' } })
+        fetch(`${backendUrl}/api/matches/${matchId}/evidence`, { headers: { 'x-user-email': user?.email || '' } }),
+        fetch(`${backendUrl}/api/matches/${matchId}/incidents`)
       ]);
 
+      setIncidentes(resIncidentes.ok ? (await resIncidentes.json()).data || [] : []);
       if (resComp.ok) setCompetencia((await resComp.json()).data);
       if (resChecklist.ok) setChecklist((await resChecklist.json()).data || []);
       if (resEvidencias.ok) setEvidencias((await resEvidencias.json()).data || []);
@@ -483,6 +494,8 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
   const esFinalizado = partido.status === 'FINALIZADO';
   const alcanzoMaxSets = setsResultado.length >= MAX_SETS;
   const esEspecial = partido.result_type && partido.result_type !== 'NORMAL';
+  // Incidentes y sanciones es de la Administración: solo ella abre o consulta expedientes.
+  const esAdministracion = basePath.startsWith('/admin');
 
   // El ítem «Sets» del backend refleja lo último guardado; mientras se escribe, se recalcula con los
   // sets del formulario para que el aviso cambie con cada set.
@@ -784,16 +797,43 @@ export default function ResultadoDetalle({ basePath = '/personal' }) {
 
           <div className="admin-card" style={{ padding: '20px', marginTop: '20px' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '12px', fontFamily: 'var(--fuente-titulo)' }}>Incidentes del partido</h3>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px', background: '#f8fafc', borderRadius: '6px', border: '1px solid var(--linea)' }}>
-              <div style={{ width: '8px', height: '40px', background: '#c8102e', borderRadius: '4px' }}></div>
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--texto)' }}>Módulo en construcción</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--texto-mudo)', marginTop: '2px' }}>
-                  Los incidentes del partido serán gestionados por el módulo de Incidentes y Sanciones.
-                </div>
-              </div>
-            </div>
-            {/* TODO: Integrar con módulo de Incidentes y Sanciones (Estudiante 4). */}
+            {incidentes === null ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', margin: 0 }}>Cargando…</p>
+            ) : incidentes.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--texto-mudo)', margin: 0 }}>Este partido no tiene expedientes disciplinarios.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {incidentes.map((c) => (
+                  <li key={c.id} style={{ borderBottom: '1px solid var(--linea)', paddingBottom: '10px', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'baseline' }}>
+                      {esAdministracion
+                        ? <a href={`/admin/incidentes/${c.id}`} onClick={(e) => { e.preventDefault(); navigate(`/admin/incidentes/${c.id}`); }} style={{ fontWeight: 700, color: 'var(--azul)' }}>{c.numero}</a>
+                        : <strong>{c.numero}</strong>}
+                      <span className={`badge-status badge-status--${ESTADO_EXPEDIENTE[c.estado]?.[1] || 'inactivo'}`}>{ESTADO_EXPEDIENTE[c.estado]?.[0] || c.estado}</span>
+                    </div>
+                    <div style={{ color: 'var(--texto)', marginTop: '2px' }}>{c.titulo}</div>
+                    {(c.tipo || c.sanciones_vigentes > 0) && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)', marginTop: '2px' }}>
+                        {[c.tipo, c.sanciones_vigentes > 0 ? `${c.sanciones_vigentes} ${c.sanciones_vigentes === 1 ? 'sanción vigente' : 'sanciones vigentes'}` : null].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p style={{ fontSize: '0.78rem', color: 'var(--texto-mudo)', margin: '12px 0 0' }}>
+              Los expedientes se abren y resuelven en Incidentes y sanciones{esAdministracion ? '.' : ', a cargo de la Administración de FECOVOL.'}
+            </p>
+            {esAdministracion && partido.competition_id && (
+              <button
+                type="button"
+                className="admin-btn admin-btn--secondary"
+                style={{ width: '100%', fontSize: '0.85rem', marginTop: '10px' }}
+                onClick={() => navigate(`/admin/incidentes/abrir?competencia=${encodeURIComponent(partido.competition_id)}&partido=${encodeURIComponent(partido.id)}`)}
+              >
+                Abrir expediente de este partido
+              </button>
+            )}
           </div>
         </aside>
       </div>
